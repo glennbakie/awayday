@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation";
+import React, { useState, useEffect, Suspense } from "react";
+import { useSearchParams, useParams } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 import { 
   Clock, 
   Navigation, 
@@ -72,6 +73,8 @@ interface MealOption {
 
 function RunSheetContent() {
   const searchParams = useSearchParams();
+  const params = useParams();
+  const slug = (params?.slug as string) || "test-team";
   const isAdmin = searchParams.get("admin") === "true";
 
   const tournament = {
@@ -210,6 +213,54 @@ function RunSheetContent() {
 
   // Manual test override for Lunch vs. Dinner
   const [manualMealMode, setManualMealMode] = useState<"lunch" | "dinner" | "auto">("auto");
+
+  // Real-time synchronization for Meal Mode via Supabase Realtime
+  useEffect(() => {
+    if (!slug) return;
+
+    // 1. Initial data fetch
+    async function fetchInitialMealMode() {
+      try {
+        const { data, error } = await supabase
+          .from("team_trips")
+          .select("active_meal_mode")
+          .eq("share_slug", slug)
+          .maybeSingle();
+
+        if (!error && data?.active_meal_mode) {
+          setManualMealMode(data.active_meal_mode as "lunch" | "dinner" | "auto");
+        }
+      } catch (err) {
+        console.error("Error fetching initial meal mode:", err);
+      }
+    }
+
+    fetchInitialMealMode();
+
+    // 2. Realtime channel subscription listening to postgres_changes
+    const channel = supabase
+      .channel(`team_trips_meal_mode_${slug}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "team_trips",
+          filter: `share_slug=eq.${slug}`,
+        },
+        (payload: any) => {
+          if (payload.new && payload.new.active_meal_mode) {
+            setManualMealMode(payload.new.active_meal_mode as "lunch" | "dinner" | "auto");
+          }
+        }
+      )
+      .subscribe();
+
+    // 3. Clean up channel subscription on component unmount
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [slug]);
 
   const [options, setOptions] = useState<MealOption[]>([
     { 
@@ -493,6 +544,24 @@ function RunSheetContent() {
   // Vote closing time: for lunch it's midday; for dinner it locks before Game 2 starts
   const voteClosingMinutes = isLunch ? (game1EndMinutes - 30) : (games[1].tipOffMinutes - 30);
 
+  const handleToggleMealMode = async () => {
+    const nextMode = isLunch ? "dinner" : "lunch";
+    setManualMealMode(nextMode);
+
+    try {
+      const { error } = await supabase
+        .from("team_trips")
+        .update({ active_meal_mode: nextMode })
+        .eq("share_slug", slug);
+
+      if (error) {
+        console.error("Error updating active_meal_mode:", error);
+      }
+    } catch (err) {
+      console.error("Failed to persist meal mode to Supabase:", err);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       {/* Sticky App Header */}
@@ -769,7 +838,7 @@ function RunSheetContent() {
               <div className="flex items-center gap-1 bg-amber-50 border border-amber-300 p-0.5 rounded-lg text-[10px]">
                 <button
                   type="button"
-                  onClick={() => setManualMealMode(isLunch ? "dinner" : "lunch")}
+                  onClick={handleToggleMealMode}
                   className="px-2 py-0.5 rounded-md font-bold text-amber-950 hover:bg-amber-100 bg-white shadow-xs border border-amber-200 active:scale-95 transition-all"
                 >
                   Admin Toggle: {isLunch ? "🌙 Show Dinner" : "🥪 Show Lunch"}
