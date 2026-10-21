@@ -1466,7 +1466,7 @@ function RunSheetContent() {
 
 export default function RunSheetPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-950 text-white flex items-center justify-center text-xs font-bold">Loading AwayDay Run-Sheet...</div>}>
+    <Suspense fallback={<div style={{ backgroundColor: '#090D16', color: '#F8FAFC' }} className="min-h-screen text-white flex items-center justify-center text-xs font-bold">Loading AwayDay Run-Sheet...</div>}>
       <RunSheetContent />
     </Suspense>
   );
