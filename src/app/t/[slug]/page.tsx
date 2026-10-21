@@ -563,7 +563,7 @@ function RunSheetContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
+    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20">
       {/* Sticky App Header */}
       <header className="sticky top-0 z-30 bg-slate-950 text-white border-b border-slate-800 shadow-md backdrop-blur-md">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
@@ -603,36 +603,36 @@ function RunSheetContent() {
 
       <main className="max-w-md mx-auto px-4 pt-3.5 space-y-4">
         {/* Fast 1-Tap Jump Navigation Menu */}
-        <nav className="grid grid-cols-4 gap-1.5 bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
+        <nav className="grid grid-cols-4 gap-1.5 bg-slate-900/90 backdrop-blur p-1.5 rounded-2xl border border-slate-800 shadow-md">
           <button
             onClick={() => scrollToSection("section-games")}
-            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-50 hover:bg-slate-100/90 text-slate-900 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-950 hover:bg-slate-850 text-slate-200 hover:text-white border border-slate-800/80 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
           >
-            <CalendarDays className="w-4 h-4 text-indigo-600 mb-1" />
+            <CalendarDays className="w-4 h-4 text-amber-400 mb-1" />
             <span>Games</span>
           </button>
 
           <button
             onClick={() => scrollToSection("section-meals")}
-            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-50 hover:bg-slate-100/90 text-slate-900 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-950 hover:bg-slate-850 text-slate-200 hover:text-white border border-slate-800/80 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
           >
-            <Utensils className="w-4 h-4 text-emerald-600 mb-1" />
+            <Utensils className="w-4 h-4 text-emerald-400 mb-1" />
             <span>{isLunch ? "Quick Fuel" : "Dinner"}</span>
           </button>
 
           <button
             onClick={() => scrollToSection("section-coffee")}
-            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-50 hover:bg-slate-100/90 text-slate-900 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-950 hover:bg-slate-850 text-slate-200 hover:text-white border border-slate-800/80 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
           >
-            <Coffee className="w-4 h-4 text-amber-600 mb-1" />
+            <Coffee className="w-4 h-4 text-amber-400 mb-1" />
             <span>Coffee</span>
           </button>
 
           <button
             onClick={() => scrollToSection("section-hotel")}
-            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-50 hover:bg-slate-100/90 text-slate-900 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-950 hover:bg-slate-850 text-slate-200 hover:text-white border border-slate-800/80 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
           >
-            <Hotel className="w-4 h-4 text-indigo-600 mb-1" />
+            <Hotel className="w-4 h-4 text-indigo-400 mb-1" />
             <span>Hotel</span>
           </button>
         </nav>
@@ -675,12 +675,12 @@ function RunSheetContent() {
         <section id="section-games" className="space-y-4 pt-1">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5">
-              <span className="p-1 rounded-md bg-indigo-50 text-indigo-700">
+              <span className="p-1 rounded-md bg-slate-900 border border-slate-800 text-amber-400 shadow-2xs">
                 <CalendarDays className="w-3.5 h-3.5" />
               </span>
-              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">Weekend Run-Sheet</h3>
+              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-200">Weekend Run-Sheet</h3>
             </div>
-            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{games.length} Games Scheduled</span>
+            <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">{games.length} Games Scheduled</span>
           </div>
 
           {games.map((game, index) => {
@@ -829,10 +829,10 @@ function RunSheetContent() {
         <section id="section-meals" className="space-y-3.5 pt-2">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5">
-              <span className="p-1 rounded-md bg-emerald-50 text-emerald-700">
+              <span className="p-1 rounded-md bg-slate-900 border border-slate-800 text-emerald-400 shadow-2xs">
                 <Utensils className="w-3.5 h-3.5" />
               </span>
-              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
+              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-200">
                 {isLunch ? "Midday Fuel (Grab & Go)" : "Team Dinner & Reservation"}
               </h3>
             </div>
@@ -1460,7 +1460,7 @@ function RunSheetContent() {
 
 export default function RunSheetPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen bg-slate-900 text-white flex items-center justify-center text-xs font-bold">Loading AwayDay Run-Sheet...</div>}>
+    <Suspense fallback={<div className="min-h-screen bg-slate-950 text-white flex items-center justify-center text-xs font-bold">Loading AwayDay Run-Sheet...</div>}>
       <RunSheetContent />
     </Suspense>
   );
