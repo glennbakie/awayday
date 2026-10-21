@@ -1,5 +1,8 @@
 "use client";
 
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+
 import React, { useState, useEffect, Suspense } from "react";
 import { useSearchParams, useParams } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -563,7 +566,10 @@ function RunSheetContent() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 pb-20">
+    <div 
+      style={{ backgroundColor: '#090D16', color: '#F8FAFC', minHeight: '100vh' }} 
+      className="w-full pb-20"
+    >
       {/* Sticky App Header */}
       <header className="sticky top-0 z-30 bg-slate-950 text-white border-b border-slate-800 shadow-md backdrop-blur-md">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
