@@ -565,45 +565,48 @@ function RunSheetContent() {
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900 pb-20">
       {/* Sticky App Header */}
-      <header className="sticky top-0 z-30 bg-slate-950 text-white border-b border-slate-800 shadow-md">
+      <header className="sticky top-0 z-30 bg-slate-950 text-white border-b border-slate-800 shadow-md backdrop-blur-md">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-1.5">
-              <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">AwayDay Run-Sheet</span>
+              <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">AwayDay Run-Sheet</span>
               {isAdmin && (
-                <span className="text-[9px] font-extrabold uppercase bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full shadow-2xs">
                   Manager Mode
                 </span>
               )}
             </div>
-            <h1 className="text-base font-black leading-tight truncate">{tournament.teamName}</h1>
+            <h1 className="text-lg font-black leading-tight text-white truncate tracking-tight">{tournament.teamName}</h1>
           </div>
 
           <div className="flex flex-col items-end">
-            <span className="inline-flex items-center gap-1 text-[11px] font-bold bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 px-2.5 py-0.5 rounded-full">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/40 px-3 py-1 rounded-full shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-400" />
+              </span>
               Live Sync
             </span>
           </div>
         </div>
 
         {/* Centered Freshness & Date Micro-bar */}
-        <div className="bg-slate-900 border-t border-slate-800/80 px-4 py-1.5 flex items-center justify-center gap-2 text-[11px] text-center">
+        <div className="bg-slate-900/95 border-t border-slate-800/80 px-4 py-1.5 flex items-center justify-center gap-2 text-[11px] text-center">
           <div className="flex items-center gap-1.5 text-slate-300 font-medium truncate">
-            <Radio className="w-3 h-3 text-emerald-400 shrink-0" />
+            <Radio className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
             <span className="truncate">{tournament.lastUpdatedText}</span>
           </div>
           <span className="text-slate-600 font-bold">•</span>
-          <span className="text-[11px] text-amber-400 font-bold shrink-0">Sat, Oct 3</span>
+          <span className="text-[11px] text-amber-400 font-extrabold shrink-0">Sat, Oct 3</span>
         </div>
       </header>
 
-      <main className="max-w-md mx-auto px-4 pt-3 space-y-3.5">
+      <main className="max-w-md mx-auto px-4 pt-3.5 space-y-4">
         {/* Fast 1-Tap Jump Navigation Menu */}
-        <nav className="grid grid-cols-4 gap-1.5 bg-white p-1.5 rounded-2xl border border-slate-200 shadow-xs">
+        <nav className="grid grid-cols-4 gap-1.5 bg-white p-1.5 rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow">
           <button
             onClick={() => scrollToSection("section-games")}
-            className="flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 text-[10px] font-bold active:scale-95 transition-all"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-50 hover:bg-slate-100/90 text-slate-900 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
           >
             <CalendarDays className="w-4 h-4 text-indigo-600 mb-1" />
             <span>Games</span>
@@ -611,7 +614,7 @@ function RunSheetContent() {
 
           <button
             onClick={() => scrollToSection("section-meals")}
-            className="flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 text-[10px] font-bold active:scale-95 transition-all"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-50 hover:bg-slate-100/90 text-slate-900 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
           >
             <Utensils className="w-4 h-4 text-emerald-600 mb-1" />
             <span>{isLunch ? "Quick Fuel" : "Dinner"}</span>
@@ -619,7 +622,7 @@ function RunSheetContent() {
 
           <button
             onClick={() => scrollToSection("section-coffee")}
-            className="flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 text-[10px] font-bold active:scale-95 transition-all"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-50 hover:bg-slate-100/90 text-slate-900 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
           >
             <Coffee className="w-4 h-4 text-amber-600 mb-1" />
             <span>Coffee</span>
@@ -627,7 +630,7 @@ function RunSheetContent() {
 
           <button
             onClick={() => scrollToSection("section-hotel")}
-            className="flex flex-col items-center justify-center py-2 px-1 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-800 text-[10px] font-bold active:scale-95 transition-all"
+            className="flex flex-col items-center justify-center py-2.5 px-1 rounded-xl bg-slate-50 hover:bg-slate-100/90 text-slate-900 text-[11px] font-extrabold uppercase tracking-wider active:scale-[0.97] transition-all duration-150"
           >
             <Hotel className="w-4 h-4 text-indigo-600 mb-1" />
             <span>Hotel</span>
@@ -635,19 +638,19 @@ function RunSheetContent() {
         </nav>
 
         {/* Executive Trip Anchor Banner */}
-        <section className="bg-gradient-to-br from-slate-900 via-slate-900 to-indigo-950 text-white rounded-2xl p-4 shadow-sm border border-slate-800">
-          <div className="flex items-start justify-between">
-            <div className="space-y-1 pr-2">
+        <section className="bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950 text-white rounded-2xl p-4.5 shadow-sm hover:shadow-md transition-shadow border border-slate-800">
+          <div className="flex items-start justify-between gap-3">
+            <div className="space-y-1.5 pr-1">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[10px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 px-2 py-0.5 rounded flex items-center gap-1">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
                   <MapPin className="w-3 h-3 text-slate-950" /> {tournament.city}
                 </span>
-                <span className="text-[10px] font-bold uppercase tracking-wider bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded flex items-center gap-1">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider bg-slate-800/90 text-slate-200 border border-slate-700 px-2.5 py-0.5 rounded-full flex items-center gap-1">
                   <Shield className="w-2.5 h-2.5 text-indigo-400" /> {tournament.leagueName}
                 </span>
               </div>
 
-              <h2 className="text-base font-black text-white tracking-tight pt-1">
+              <h2 className="text-lg font-black text-white tracking-tight pt-0.5">
                 {tournament.name}
               </h2>
               
@@ -661,9 +664,9 @@ function RunSheetContent() {
               href={getMapsUrl(tournament.primaryHubAddress)} 
               target="_blank" 
               rel="noreferrer"
-              className="shrink-0 text-xs flex items-center gap-1 font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 px-2.5 py-1.5 rounded-xl active:scale-95 transition-all shadow-xs"
+              className="shrink-0 text-xs flex items-center gap-1.5 font-bold bg-white/10 hover:bg-white/20 text-white border border-white/20 px-3 py-2 rounded-xl active:scale-[0.97] transition-all duration-150 shadow-xs"
             >
-              <Navigation className="w-3 h-3 text-amber-400" /> Hub
+              <Navigation className="w-3.5 h-3.5 text-amber-400" /> Hub
             </a>
           </div>
         </section>
@@ -675,9 +678,9 @@ function RunSheetContent() {
               <span className="p-1 rounded-md bg-indigo-50 text-indigo-700">
                 <CalendarDays className="w-3.5 h-3.5" />
               </span>
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">Weekend Run-Sheet</h3>
+              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">Weekend Run-Sheet</h3>
             </div>
-            <span className="text-[11px] text-slate-400 font-medium">{games.length} Games Scheduled</span>
+            <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">{games.length} Games Scheduled</span>
           </div>
 
           {games.map((game, index) => {
@@ -686,47 +689,47 @@ function RunSheetContent() {
             const gameAlerts = alerts.filter(a => a.gameId === game.id);
 
             return (
-              <div key={game.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden">
-                <div className="bg-slate-900 text-white p-3.5 flex items-center justify-between">
+              <div key={game.id} className="bg-white rounded-2xl border border-slate-200/80 shadow-sm hover:shadow-md transition-shadow overflow-hidden">
+                <div className="bg-slate-950 text-white p-4 flex items-center justify-between border-b border-slate-800">
                   <div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Game {index + 1}</span>
-                    <span className="text-sm font-bold truncate">vs. {game.opponent}</span>
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400 block">Game {index + 1}</span>
+                    <h3 className="text-lg font-black text-white tracking-tight truncate">vs. {game.opponent}</h3>
                   </div>
                   <div className="text-right">
-                    <span className="text-xs font-extrabold bg-amber-400 text-slate-950 px-2 py-0.5 rounded">
+                    <span className="text-xs font-black uppercase tracking-wider bg-amber-400 text-slate-950 px-2.5 py-1 rounded-md shadow-2xs">
                       {game.court}
                     </span>
-                    <span className="text-xs font-semibold text-slate-200 block mt-1">{formatTime(game.tipOffMinutes)}</span>
+                    <span className="text-sm font-black text-amber-300 tabular-nums block mt-1">{formatTime(game.tipOffMinutes)}</span>
                   </div>
                 </div>
 
-                <div className="p-3.5 space-y-3 text-xs">
-                  <div className="bg-slate-50 p-3 rounded-xl border border-slate-100 space-y-2">
-                    <div className="flex items-center justify-between text-slate-600">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <Car className="w-3.5 h-3.5 text-slate-400" /> Hotel Departure:
+                <div className="p-4 space-y-3.5 text-xs">
+                  <div className="bg-slate-50/80 p-3.5 rounded-xl border border-slate-100 space-y-2.5">
+                    <div className="flex items-center justify-between text-slate-700">
+                      <span className="flex items-center gap-1.5 font-bold text-slate-700">
+                        <Car className="w-4 h-4 text-slate-500 shrink-0" /> Hotel Departure:
                       </span>
-                      <span className="font-bold text-slate-800">
-                        {formatTime(departMinutes)} ({game.hotelTravelMin}m drive)
+                      <span className="text-sm font-bold text-slate-900 tabular-nums">
+                        {formatTime(departMinutes)} <span className="text-xs font-medium text-slate-500">({game.hotelTravelMin}m drive)</span>
                       </span>
                     </div>
-                    <div className="flex items-center justify-between text-slate-600">
-                      <span className="flex items-center gap-1.5 font-medium">
-                        <Clock className="w-3.5 h-3.5 text-slate-400" /> Gym Arrival:
+                    <div className="flex items-center justify-between text-slate-700">
+                      <span className="flex items-center gap-1.5 font-bold text-slate-700">
+                        <Clock className="w-4 h-4 text-slate-500 shrink-0" /> Gym Arrival:
                       </span>
-                      <span className="font-bold text-slate-800">
-                        {formatTime(arrivalMinutes)} (30m before tip-off)
+                      <span className="text-sm font-bold text-slate-900 tabular-nums">
+                        {formatTime(arrivalMinutes)} <span className="text-xs font-medium text-slate-500">(30m before tip-off)</span>
                       </span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between p-2.5 rounded-xl border border-slate-100 bg-white">
+                  <div className="flex items-center justify-between p-3 rounded-xl border border-slate-100 bg-white shadow-2xs">
                     <div className="truncate pr-2">
                       <div className="flex items-center gap-1">
-                        <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
-                        <span className="font-bold text-slate-900 truncate">{game.venueName}</span>
+                        <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                        <span className="font-black text-slate-900 text-xs truncate">{game.venueName}</span>
                       </div>
-                      <span className="text-slate-500 text-[11px] truncate block ml-4">
+                      <span className="text-slate-500 text-[11px] font-medium truncate block ml-4">
                         {game.venueAddress}, {game.city}
                       </span>
                     </div>
@@ -734,20 +737,20 @@ function RunSheetContent() {
                       href={getMapsUrl(`${game.venueName} ${game.venueAddress} ${game.city}`)} 
                       target="_blank" 
                       rel="noreferrer"
-                      className="shrink-0 bg-slate-900 hover:bg-slate-800 text-white px-2.5 py-1.5 rounded-lg font-bold text-[11px] flex items-center gap-1 active:scale-95 transition-transform"
+                      className="shrink-0 bg-slate-950 hover:bg-slate-900 text-white px-3 py-1.5 rounded-xl font-extrabold text-[11px] uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.97] transition-all duration-150 shadow-xs"
                     >
                       <Navigation className="w-3 h-3 text-amber-400" /> Map
                     </a>
                   </div>
 
-                  <div className="border-t border-slate-100 pt-3 space-y-2">
+                  <div className="border-t border-slate-100 pt-3 space-y-2.5">
                     <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3 text-amber-600" /> Venue Ground-Truth
+                      <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-600 flex items-center gap-1.5">
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-600" /> Venue Ground-Truth
                       </span>
                       <button 
                         onClick={() => setActiveModalGameId(game.id)}
-                        className="flex items-center gap-1 text-[11px] font-bold text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded-md border border-amber-300 active:scale-95 transition-all"
+                        className="flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-amber-950 bg-amber-100 hover:bg-amber-200/90 px-2.5 py-1 rounded-lg border border-amber-300 shadow-2xs active:scale-[0.97] transition-all duration-150"
                       >
                         <Plus className="w-3.5 h-3.5 stroke-[3]" /> Add Tip
                       </button>
@@ -756,22 +759,22 @@ function RunSheetContent() {
                     {gameAlerts.length === 0 ? (
                       <p className="text-[11px] text-slate-400 italic">No facility warnings posted yet for this gym.</p>
                     ) : (
-                      <div className="space-y-1.5">
+                      <div className="space-y-2">
                         {gameAlerts.map(alert => (
-                          <div key={alert.id} className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-2.5 space-y-1.5">
+                          <div key={alert.id} className="bg-amber-50/90 border border-amber-200/90 rounded-xl p-3 space-y-2 shadow-2xs">
                             <div className="flex items-start justify-between gap-1.5">
                               <div>
-                                <h4 className="text-xs font-bold text-amber-950">{alert.title}</h4>
-                                <p className="text-[11px] text-amber-900/90 leading-snug">{alert.content}</p>
+                                <h4 className="text-xs font-black text-amber-950">{alert.title}</h4>
+                                <p className="text-xs text-amber-900/90 leading-snug mt-0.5">{alert.content}</p>
                               </div>
                             </div>
-                            <div className="flex items-center justify-between border-t border-amber-200/50 pt-1 text-[10px] text-amber-800">
+                            <div className="flex items-center justify-between border-t border-amber-200/60 pt-1.5 text-[11px] text-amber-900 font-medium">
                               <span>By {alert.author}</span>
                               <button 
                                 onClick={() => upvoteAlert(alert.id)}
-                                className="flex items-center gap-1 font-bold bg-white/90 border border-amber-300 hover:bg-amber-100 px-2 py-0.5 rounded active:scale-95 transition-transform"
+                                className="flex items-center gap-1.5 font-bold text-[11px] bg-white/95 border border-amber-300 hover:bg-amber-100 px-2.5 py-1 rounded-lg active:scale-[0.97] transition-all duration-150 shadow-2xs"
                               >
-                                <ThumbsUp className="w-2.5 h-2.5" /> Helpful ({alert.upvotes})
+                                <ThumbsUp className="w-3 h-3 text-amber-700" /> Helpful ({alert.upvotes})
                               </button>
                             </div>
                           </div>
@@ -781,33 +784,33 @@ function RunSheetContent() {
                   </div>
 
                   {isAdmin && (
-                    <div className="border-t border-amber-200 bg-amber-50/60 -mx-3.5 -mb-3.5 p-3 flex items-center justify-between text-[11px]">
-                      <div className="flex items-center gap-1 font-bold text-amber-950">
-                        <SlidersHorizontal className="w-3 h-3 text-amber-700" />
-                        <span>Manager Quick-Shift:</span>
+                    <div className="border-t border-amber-200 bg-amber-50/70 -mx-4 -mb-4 p-3.5 flex items-center justify-between text-[11px]">
+                      <div className="flex items-center gap-1.5 font-black text-amber-950">
+                        <SlidersHorizontal className="w-3.5 h-3.5 text-amber-700" />
+                        <span className="uppercase tracking-wider">Manager Quick-Shift:</span>
                       </div>
-                      <div className="flex gap-1">
+                      <div className="flex gap-1.5">
                         <button 
                           onClick={() => shiftGameTime(game.id, -30)} 
-                          className="bg-white border border-slate-300 hover:bg-slate-100 active:bg-slate-200 px-2 py-1 rounded text-slate-700 font-bold"
+                          className="bg-white border border-slate-300 hover:bg-slate-100 active:scale-[0.97] px-2.5 py-1.5 rounded-lg text-slate-800 font-extrabold shadow-2xs transition-all duration-150"
                         >
                           -30m
                         </button>
                         <button 
                           onClick={() => shiftGameTime(game.id, -15)} 
-                          className="bg-white border border-slate-300 hover:bg-slate-100 active:bg-slate-200 px-2 py-1 rounded text-slate-700 font-bold"
+                          className="bg-white border border-slate-300 hover:bg-slate-100 active:scale-[0.97] px-2.5 py-1.5 rounded-lg text-slate-800 font-extrabold shadow-2xs transition-all duration-150"
                         >
                           -15m
                         </button>
                         <button 
                           onClick={() => shiftGameTime(game.id, 15)} 
-                          className="bg-amber-200 border border-amber-400 hover:bg-amber-300 active:bg-amber-400 px-2 py-1 rounded text-amber-950 font-bold"
+                          className="bg-amber-300 border border-amber-400 hover:bg-amber-400 active:scale-[0.97] px-2.5 py-1.5 rounded-lg text-amber-950 font-extrabold shadow-2xs transition-all duration-150"
                         >
                           +15m
                         </button>
                         <button 
                           onClick={() => shiftGameTime(game.id, 30)} 
-                          className="bg-amber-200 border border-amber-400 hover:bg-amber-300 active:bg-amber-400 px-2 py-1 rounded text-amber-950 font-bold"
+                          className="bg-amber-300 border border-amber-400 hover:bg-amber-400 active:scale-[0.97] px-2.5 py-1.5 rounded-lg text-amber-950 font-extrabold shadow-2xs transition-all duration-150"
                         >
                           +30m
                         </button>
@@ -823,23 +826,23 @@ function RunSheetContent() {
         {/* =========================================================
             MEAL INFO SECTION (Dynamically Computed Timestamps)
         ========================================================= */}
-        <section id="section-meals" className="space-y-3 pt-2">
+        <section id="section-meals" className="space-y-3.5 pt-2">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5">
               <span className="p-1 rounded-md bg-emerald-50 text-emerald-700">
                 <Utensils className="w-3.5 h-3.5" />
               </span>
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-700">
+              <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700">
                 {isLunch ? "Midday Fuel (Grab & Go)" : "Team Dinner & Reservation"}
               </h3>
             </div>
 
             {isAdmin && (
-              <div className="flex items-center gap-1 bg-amber-50 border border-amber-300 p-0.5 rounded-lg text-[10px]">
+              <div className="flex items-center gap-1 bg-amber-50 border border-amber-300 p-0.5 rounded-xl text-[10px]">
                 <button
                   type="button"
                   onClick={handleToggleMealMode}
-                  className="px-2 py-0.5 rounded-md font-bold text-amber-950 hover:bg-amber-100 bg-white shadow-xs border border-amber-200 active:scale-95 transition-all"
+                  className="px-2.5 py-1 rounded-lg font-black uppercase tracking-wider text-slate-950 hover:bg-amber-300 bg-amber-400 shadow-2xs border border-amber-500/30 active:scale-[0.97] transition-all duration-150"
                 >
                   Admin Toggle: {isLunch ? "🌙 Show Dinner" : "🥪 Show Lunch"}
                 </button>
@@ -848,26 +851,26 @@ function RunSheetContent() {
           </div>
 
           {/* Downtime Window Card with Corrected Timestamps */}
-          <div className="bg-slate-950 text-white rounded-2xl p-4 shadow-sm border border-slate-800">
+          <div className="bg-slate-950 text-white rounded-2xl p-4.5 shadow-sm hover:shadow-md transition-shadow border border-slate-800">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-white flex items-center gap-1.5">
                 {isLunch ? <Salad className="w-4 h-4 text-emerald-400" /> : <Utensils className="w-4 h-4 text-amber-400" />}
                 {isLunch ? "Lunch Downtime Window" : "Dinner Downtime Window"}
               </span>
-              <span className="text-xs bg-slate-800 text-white px-2.5 py-0.5 rounded-full font-bold border border-slate-700">
+              <span className="text-xs bg-slate-800 text-amber-400 px-3 py-1 rounded-full font-black tracking-wider uppercase border border-slate-700">
                 {windowHours}h {windowRemainingMins}m Window
               </span>
             </div>
             
             <div className="mt-3.5 flex items-baseline justify-between border-t border-slate-800 pt-3">
               <div>
-                <p className="text-xs font-semibold text-slate-300">Available Downtime:</p>
-                <p className="text-sm font-black text-white tracking-tight mt-0.5">
+                <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-400">Available Downtime:</p>
+                <p className="text-base font-black text-white tracking-tight mt-0.5 tabular-nums">
                   {formatTime(activeWindowStart)} – {formatTime(activeWindowEnd)}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-[11px] uppercase tracking-wider font-semibold text-slate-300">
+                <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-400">
                   {isLunch ? "Game 2 Arrival" : "Evening Wind-Down"}
                 </p>
                 <p className="text-xs font-black text-emerald-400 mt-0.5">
@@ -881,28 +884,28 @@ function RunSheetContent() {
 
           {/* LUNCH: GRAB & GO */}
           {isLunch ? (
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4.5 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out animate-in fade-in space-y-3.5">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-black uppercase tracking-wider text-slate-900 flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-600" /> Fast Athlete Fuel Near Gym
+                    <Zap className="w-4 h-4 text-amber-500" /> Fast Athlete Fuel Near Gym
                   </h4>
                   <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                     No reservations needed — quick wraps, smoothies, & light carbs
                   </p>
                 </div>
-                <span className="text-[10px] font-extrabold bg-emerald-100 text-emerald-950 border border-emerald-300 px-2 py-0.5 rounded-full shrink-0">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-950 border border-emerald-300 px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
                   Quick Turnaround
                 </span>
               </div>
 
-              <div className="space-y-2 pt-1">
+              <div className="space-y-2.5 pt-1">
                 {quickLunchSpots.map((spot, i) => (
-                  <div key={i} className="p-3 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-200 text-xs flex items-center justify-between gap-2">
+                  <div key={i} className="p-3.5 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-slate-200 text-xs flex items-center justify-between gap-2 shadow-2xs transition-colors">
                     <div className="pr-1">
                       <div className="flex items-center gap-1.5">
-                        <span className="font-bold text-slate-900">{spot.name}</span>
-                        <span className="text-[9px] font-extrabold uppercase bg-emerald-100 text-emerald-900 px-1.5 py-0.2 rounded">
+                        <span className="text-sm font-black text-slate-900">{spot.name}</span>
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-emerald-100 text-emerald-950 border border-emerald-200 px-2 py-0.5 rounded-full">
                           {spot.type}
                         </span>
                       </div>
@@ -915,9 +918,9 @@ function RunSheetContent() {
                       href={getMapsUrl(spot.name + " " + spot.address)} 
                       target="_blank" 
                       rel="noreferrer"
-                      className="shrink-0 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 active:scale-95 transition-transform shadow-xs"
+                      className="shrink-0 bg-white border border-slate-200/80 hover:bg-slate-100 text-slate-900 px-3 py-1.5 rounded-xl text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.97] transition-all duration-150 shadow-2xs"
                     >
-                      <Navigation className="w-3 h-3 text-indigo-600" /> Map
+                      <Navigation className="w-3.5 h-3.5 text-indigo-600" /> Map
                     </a>
                   </div>
                 ))}
@@ -925,53 +928,53 @@ function RunSheetContent() {
             </div>
           ) : (
             /* DINNER: FORMAL CONSENSUS & RESERVATION POLL */
-            <div className="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm space-y-3.5">
+            <div className="bg-white border border-slate-200/80 rounded-2xl p-4.5 shadow-sm hover:shadow-md transition-all duration-300 ease-in-out animate-in fade-in space-y-4">
               <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
                   {isVoteLocked ? <Lock className="w-3.5 h-3.5 text-amber-600" /> : <Timer className="w-3.5 h-3.5 text-indigo-600" />}
                   {isVoteLocked ? "Confirmed Team Dinner Reservation" : "Team Dinner Reservation Poll"}
                 </span>
-                <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
-                  isVoteLocked ? "bg-amber-100 text-amber-900 border border-amber-200" : "bg-slate-100 text-slate-600"
+                <span className={`text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
+                  isVoteLocked ? "bg-amber-100 text-amber-950 border border-amber-300 shadow-2xs" : "bg-slate-100 text-slate-700"
                 }`}>
                   {isVoteLocked ? "Poll Closed" : "Tap to vote"}
                 </span>
               </div>
 
               {winningOption && (
-                <div className="bg-slate-900 text-white rounded-xl p-3 shadow-xs space-y-2">
+                <div className="bg-slate-950 text-white rounded-xl p-4 shadow-sm border border-slate-800 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-slate-200 flex items-center gap-1.5">
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                       {winningOption.isDelivery ? <Pizza className="w-3.5 h-3.5 text-amber-400" /> : <Users className="w-3.5 h-3.5 text-amber-400" />}
                       {winningOption.isDelivery ? "Lobby Delivery Target" : "Final Reservation Target"}
                     </span>
-                    <span className="text-xs font-black bg-emerald-500 text-slate-950 px-2 py-0.5 rounded">
+                    <span className="text-xs font-black uppercase tracking-wider bg-emerald-400 text-slate-950 px-2.5 py-0.5 rounded shadow-2xs">
                       {confirmedReservationSeats} Total Seats
                     </span>
                   </div>
                   
-                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800">
-                    <span className="font-bold text-white truncate max-w-[190px]">{winningOption.name}</span>
-                    <span className="text-[11px] text-slate-300">
+                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/80">
+                    <span className="text-sm font-black text-white truncate max-w-[190px]">{winningOption.name}</span>
+                    <span className="text-[11px] font-bold text-slate-300">
                       {confirmedPlayers} Players • {confirmedParents} Parents
                     </span>
                   </div>
 
                   {winningOption.isDelivery && (
-                    <div className="text-[11px] text-amber-300/90 bg-amber-400/10 border border-amber-400/20 rounded-lg p-2 flex items-center justify-between">
-                      <span>Target Order: <strong>~{estimatedPizzas} Large Pizzas</strong></span>
-                      <span className="text-[10px] text-slate-300">1 pie per 2.5 people</span>
+                    <div className="text-[11px] text-amber-300/90 bg-amber-400/10 border border-amber-400/20 rounded-lg p-2.5 flex items-center justify-between font-medium">
+                      <span>Target Order: <strong className="text-white">~{estimatedPizzas} Large Pizzas</strong></span>
+                      <span className="text-[10px] text-slate-400">1 pie per 2.5 people</span>
                     </div>
                   )}
 
                   {isVoteLocked && (
                     <div className="pt-2 flex items-center justify-between border-t border-slate-800/80">
-                      <span className="text-[11px] text-slate-300 flex items-center gap-1">
-                        <PhoneCall className="w-3 h-3 text-emerald-400" /> {winningOption.phone}
+                      <span className="text-[11px] text-slate-300 flex items-center gap-1.5 font-medium">
+                        <PhoneCall className="w-3.5 h-3.5 text-emerald-400" /> {winningOption.phone}
                       </span>
                       <a 
                         href={`tel:${winningOption.phone.replace(/[^0-9]/g, "")}`}
-                        className="text-[11px] font-bold bg-amber-400 hover:bg-amber-300 text-slate-950 px-2.5 py-1 rounded-lg flex items-center gap-1 active:scale-95 transition-transform"
+                        className="text-[11px] font-black uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 px-3 py-1.5 rounded-xl flex items-center gap-1.5 active:scale-[0.97] transition-all duration-150 shadow-xs"
                       >
                         {winningOption.isDelivery ? "Call Pizza Order" : "Call to Reserve"}
                       </a>
@@ -994,7 +997,7 @@ function RunSheetContent() {
                   <div className="flex items-center gap-2 pt-0.5">
                     <button
                       onClick={() => setUserFinalAttendance("attending")}
-                      className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all ${
+                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.97] transition-all duration-150 ${
                         userFinalAttendance === "attending"
                           ? "bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300"
                           : "bg-white border border-amber-300 text-amber-950 hover:bg-amber-100"
@@ -1005,10 +1008,10 @@ function RunSheetContent() {
 
                     <button
                       onClick={() => setUserFinalAttendance("declined")}
-                      className={`py-2 px-3 rounded-lg text-xs font-semibold transition-all ${
+                      className={`py-2 px-3 rounded-xl text-xs font-bold active:scale-[0.97] transition-all duration-150 ${
                         userFinalAttendance === "declined"
                           ? "bg-slate-800 text-white"
-                          : "bg-transparent text-amber-800 hover:bg-amber-100/60"
+                          : "bg-transparent text-amber-900 hover:bg-amber-100/60"
                       }`}
                     >
                       Splitting Off
@@ -1018,54 +1021,54 @@ function RunSheetContent() {
               )}
 
               {isVoteLocked && winningOption && isVoterOfWinner && (
-                <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 flex items-center justify-between text-xs text-emerald-950">
+                <div className="bg-emerald-50 border border-emerald-300 rounded-xl p-3 flex items-center justify-between text-xs text-emerald-950 shadow-2xs">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span className="font-bold">You are included in the headcount ({userPartyTotal} seats)</span>
+                    <span className="font-extrabold">You are included in the headcount ({userPartyTotal} seats)</span>
                   </div>
-                  <span className="text-[10px] font-bold bg-white text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded">
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-white text-emerald-800 border border-emerald-200 px-2 py-0.5 rounded">
                     Confirmed
                   </span>
                 </div>
               )}
 
               {!isVoteLocked && (
-                <div className="bg-slate-50 border border-slate-200 rounded-xl p-3 space-y-2">
+                <div className="bg-slate-50/90 border border-slate-200/80 rounded-xl p-3.5 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <span className="text-xs font-black uppercase tracking-wider text-slate-800 flex items-center gap-1.5">
                       <UserCheck className="w-3.5 h-3.5 text-indigo-600" /> Your Family Count:
                     </span>
-                    <span className="text-xs font-extrabold text-indigo-900 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md">
+                    <span className="text-xs font-extrabold text-indigo-900 bg-indigo-50 border border-indigo-200 px-2.5 py-0.5 rounded-md shadow-2xs">
                       {userPartyTotal} Seat{userPartyTotal > 1 ? "s" : ""}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
-                      <span className="text-slate-600 font-medium text-[11px]">Players:</span>
-                      <div className="flex items-center gap-1.5 font-bold">
+                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-2xs">
+                      <span className="text-slate-700 font-bold text-[11px] uppercase">Players:</span>
+                      <div className="flex items-center gap-2 font-black">
                         <button 
                           onClick={() => updatePartyCounts(-1, 0)}
-                          className="w-5 h-5 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                          className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200 active:scale-[0.97] text-slate-800 transition-all duration-150"
                         >-</button>
-                        <span className="w-4 text-center">{userParty.players}</span>
+                        <span className="w-4 text-center tabular-nums text-sm font-black">{userParty.players}</span>
                         <button 
                           onClick={() => updatePartyCounts(1, 0)}
-                          className="w-5 h-5 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                          className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200 active:scale-[0.97] text-slate-800 transition-all duration-150"
                         >+</button>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-2.5 py-1.5">
-                      <span className="text-slate-600 font-medium text-[11px]">Parents:</span>
-                      <div className="flex items-center gap-1.5 font-bold">
+                    <div className="flex items-center justify-between bg-white border border-slate-200 rounded-lg px-2.5 py-1.5 shadow-2xs">
+                      <span className="text-slate-700 font-bold text-[11px] uppercase">Parents:</span>
+                      <div className="flex items-center gap-2 font-black">
                         <button 
                           onClick={() => updatePartyCounts(0, -1)}
-                          className="w-5 h-5 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                          className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200 active:scale-[0.97] text-slate-800 transition-all duration-150"
                         >-</button>
-                        <span className="w-4 text-center">{userParty.parents}</span>
+                        <span className="w-4 text-center tabular-nums text-sm font-black">{userParty.parents}</span>
                         <button 
                           onClick={() => updatePartyCounts(0, 1)}
-                          className="w-5 h-5 flex items-center justify-center rounded bg-slate-100 hover:bg-slate-200 text-slate-700"
+                          className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-100 hover:bg-slate-200 active:scale-[0.97] text-slate-800 transition-all duration-150"
                         >+</button>
                       </div>
                     </div>
@@ -1078,15 +1081,15 @@ function RunSheetContent() {
                   <button
                     type="button"
                     onClick={() => setIsRestaurantModalOpen(true)}
-                    className="py-2 px-2.5 rounded-xl border border-dashed border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-[11px] font-bold text-slate-700 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                    className="py-2.5 px-3 rounded-xl border border-dashed border-slate-300 hover:border-slate-400 bg-white hover:bg-slate-50 text-[11px] font-extrabold uppercase tracking-wider text-slate-700 flex items-center justify-center gap-1.5 active:scale-[0.97] transition-all duration-150 shadow-2xs"
                   >
-                    <Plus className="w-3.5 h-3.5 text-indigo-600 stroke-[2.5]" /> Suggest a Spot
+                    <Plus className="w-3.5 h-3.5 text-indigo-600 stroke-[3]" /> Suggest a Spot
                   </button>
 
                   <button
                     type="button"
                     onClick={handleAddHotelPizzaPreset}
-                    className="py-2 px-2.5 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-[11px] font-bold text-amber-950 flex items-center justify-center gap-1.5 active:scale-95 transition-all"
+                    className="py-2.5 px-3 rounded-xl border border-amber-300 bg-amber-50 hover:bg-amber-100 text-[11px] font-extrabold uppercase tracking-wider text-amber-950 flex items-center justify-center gap-1.5 active:scale-[0.97] transition-all duration-150 shadow-2xs"
                   >
                     <Pizza className="w-3.5 h-3.5 text-amber-700" /> Lobby Pizza Pivot
                   </button>
@@ -1094,25 +1097,25 @@ function RunSheetContent() {
               )}
 
               {!isVoteLocked && (
-                <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-2.5 flex items-center justify-between">
+                <div className="bg-amber-50 border border-amber-200/90 rounded-xl p-3 flex items-center justify-between shadow-2xs">
                   <div className="flex items-center gap-2">
                     <CalendarClock className="w-4 h-4 text-amber-700 shrink-0" />
                     <div>
-                      <span className="text-xs font-bold text-amber-950 block leading-tight">
+                      <span className="text-xs font-black text-amber-950 block leading-tight">
                         Vote closes at {formatTime(voteClosingMinutes)}
                       </span>
-                      <span className="text-[10px] text-amber-800/90 block leading-tight mt-0.5">
+                      <span className="text-[11px] font-medium text-amber-900/90 block leading-tight mt-0.5">
                         Manager will finalize reservation before tip-off
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-extrabold uppercase bg-amber-200/80 text-amber-900 px-2 py-0.5 rounded shrink-0">
+                  <span className="text-[10px] font-black uppercase tracking-wider bg-amber-200/90 text-amber-950 border border-amber-300 px-2 py-0.5 rounded-full shrink-0">
                     Locks Soon
                   </span>
                 </div>
               )}
 
-              <div className="space-y-2 pt-0.5">
+              <div className="space-y-2.5 pt-0.5">
                 {options.map(option => {
                   const isWinner = winningOption?.id === option.id;
                   const isUserPick = userVotedId === option.id;
@@ -1122,46 +1125,46 @@ function RunSheetContent() {
                       key={option.id}
                       disabled={isVoteLocked}
                       onClick={() => handleSelectOption(option.id)}
-                      className={`w-full p-3 rounded-xl border text-left flex items-center justify-between text-xs transition-all relative ${
+                      className={`w-full p-3.5 rounded-xl border text-left flex items-center justify-between text-xs transition-all duration-150 relative active:scale-[0.97] shadow-2xs ${
                         isVoteLocked 
                           ? (isWinner 
-                              ? "bg-emerald-50/80 border-emerald-400 ring-1 ring-emerald-300" 
+                              ? "bg-emerald-50/90 border-emerald-400 ring-2 ring-emerald-300" 
                               : "bg-slate-50/60 border-slate-200 opacity-60")
                           : (isWinner 
-                              ? "bg-indigo-50/70 border-indigo-400 ring-1 ring-indigo-300 shadow-sm" 
-                              : "bg-white border-slate-200 hover:border-slate-300 active:scale-[0.99]")
+                              ? "bg-indigo-50/80 border-indigo-400 ring-2 ring-indigo-300/80 shadow-xs" 
+                              : "bg-white border-slate-200/80 hover:border-slate-300")
                       }`}
                     >
                       <div className="pr-2">
                         <div className="flex items-center gap-1.5">
-                          <span className={`font-bold block ${isWinner ? "text-slate-900" : "text-slate-800"}`}>
+                          <span className={`text-sm font-black block ${isWinner ? "text-slate-950" : "text-slate-900"}`}>
                             {option.name}
                           </span>
                           {isWinner && (
-                            <span className="flex items-center gap-0.5 text-[9px] font-extrabold uppercase bg-amber-400 text-slate-950 px-1.5 py-0.2 rounded">
+                            <span className="flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full shadow-2xs">
                               <Trophy className="w-2.5 h-2.5" /> {isVoteLocked ? "Selected Choice" : "Leading"}
                             </span>
                           )}
                           {option.isCustom && !isWinner && (
-                            <span className="text-[9px] font-bold uppercase bg-slate-100 text-slate-600 px-1.5 py-0.2 rounded flex items-center gap-0.5">
+                            <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-100 text-slate-700 px-2 py-0.5 rounded-full flex items-center gap-0.5 border border-slate-200">
                               <Sparkles className="w-2.5 h-2.5 text-amber-500" /> Parent Pick
                             </span>
                           )}
                         </div>
-                        <span className="text-[10px] text-slate-500 block mt-0.5">
-                          {option.type} • <span className="font-semibold text-slate-700">{option.playerCount}p + {option.parentCount} adults</span> {isUserPick && "• (Your vote)"}
+                        <span className="text-[11px] text-slate-500 block mt-0.5 font-medium">
+                          {option.type} • <span className="font-bold text-slate-800">{option.playerCount}p + {option.parentCount} adults</span> {isUserPick && "• (Your vote)"}
                         </span>
                       </div>
 
                       <div className="shrink-0 text-right">
-                        <span className={`font-black px-2.5 py-1 rounded-md text-xs block ${
+                        <span className={`font-black px-3 py-1 rounded-lg text-xs block tabular-nums shadow-2xs ${
                           isWinner 
                             ? "bg-emerald-600 text-white" 
-                            : "bg-slate-100 text-slate-700"
+                            : "bg-slate-100 text-slate-800 border border-slate-200/60"
                         }`}>
                           {option.totalSeats} seats
                         </span>
-                        <span className="text-[9px] text-slate-400 block mt-0.5">
+                        <span className="text-[10px] font-bold text-slate-500 block mt-0.5 uppercase tracking-wider">
                           {option.votes} votes
                         </span>
                       </div>
@@ -1174,31 +1177,31 @@ function RunSheetContent() {
         </section>
 
         {/* Sideline Fuel / Coffee Radar */}
-        <section id="section-coffee" className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
+        <section id="section-coffee" className="bg-white rounded-2xl p-4.5 shadow-sm hover:shadow-md transition-shadow border border-slate-200/80 space-y-3.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="p-1 rounded-lg bg-amber-500/10 text-amber-700">
                 <Coffee className="w-4 h-4" />
               </span>
               <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-900">
                   Sideline Fuel
                 </h3>
                 <span className="text-[10px] text-slate-500 font-medium">Coffee Radar & Parent Pit Stops</span>
               </div>
             </div>
-            <span className="text-[10px] font-bold text-amber-900 bg-amber-100 border border-amber-200 px-2 py-0.5 rounded-full">
+            <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-950 bg-amber-100 border border-amber-300 px-2.5 py-0.5 rounded-full shadow-2xs">
               Nearby Gym
             </span>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-2.5">
             {coffeeSpots.map((spot, i) => (
-              <div key={i} className="flex items-center justify-between p-2.5 rounded-xl bg-slate-50 border border-slate-100 hover:border-slate-200 text-xs">
+              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-50/80 border border-slate-100 hover:border-slate-200 text-xs shadow-2xs transition-colors">
                 <div className="pr-2">
                   <div className="flex items-center gap-1.5">
-                    <span className="font-bold text-slate-800">{spot.name}</span>
-                    <span className="text-[9px] font-bold bg-amber-100 text-amber-900 px-1.5 py-0.2 rounded">
+                    <span className="text-sm font-black text-slate-900">{spot.name}</span>
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-100 text-amber-950 px-2 py-0.5 rounded-full border border-amber-200">
                       {spot.type}
                     </span>
                   </div>
@@ -1210,9 +1213,9 @@ function RunSheetContent() {
                   href={getMapsUrl(spot.name + " " + spot.address)} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="shrink-0 bg-white border border-slate-200 hover:bg-slate-100 text-slate-800 px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 active:scale-95 transition-transform shadow-xs"
+                  className="shrink-0 bg-white border border-slate-200 hover:bg-slate-100 text-slate-900 px-3 py-1.5 rounded-xl text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.97] transition-all duration-150 shadow-2xs"
                 >
-                  <Navigation className="w-3 h-3 text-indigo-600" /> Map
+                  <Navigation className="w-3.5 h-3.5 text-indigo-600" /> Map
                 </a>
               </div>
             ))}
@@ -1220,35 +1223,35 @@ function RunSheetContent() {
         </section>
 
         {/* Hotel Base Camp */}
-        <section id="section-hotel" className="bg-white rounded-2xl p-4 shadow-sm border border-slate-200 space-y-3">
-          <div className="flex items-start justify-between">
+        <section id="section-hotel" className="bg-white rounded-2xl p-4.5 shadow-sm hover:shadow-md transition-shadow border border-slate-200/80 space-y-3.5">
+          <div className="flex items-start justify-between gap-3">
             <div>
-              <span className="text-[10px] font-extrabold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-100 px-2 py-0.5 rounded flex items-center gap-1">
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-700 bg-indigo-50 border border-indigo-200/80 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
                 <Hotel className="w-3 h-3 text-indigo-600" /> Team Hotel Base Camp
               </span>
-              <h2 className="text-base font-bold text-slate-900 flex items-center gap-1.5 mt-1.5">
+              <h2 className="text-lg font-black text-slate-900 flex items-center gap-1.5 mt-2 tracking-tight">
                 {tournament.hotel.name}
               </h2>
-              <p className="text-xs text-slate-500 mt-0.5">{tournament.hotel.address}</p>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">{tournament.hotel.address}</p>
             </div>
             <a 
               href={getMapsUrl(tournament.hotel.address)} 
               target="_blank" 
               rel="noreferrer"
-              className="text-xs flex items-center gap-1 text-indigo-600 font-semibold bg-indigo-50 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg active:scale-95 transition-transform"
+              className="text-xs flex items-center gap-1.5 text-white font-extrabold uppercase tracking-wider bg-slate-950 hover:bg-slate-900 px-3.5 py-2 rounded-xl active:scale-[0.97] transition-all duration-150 shadow-xs shrink-0"
             >
-              <Navigation className="w-3.5 h-3.5" /> Map
+              <Navigation className="w-3.5 h-3.5 text-amber-400" /> Map
             </a>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs text-slate-600 border-t border-slate-100 pt-2.5">
-            <div>
-              <span className="text-slate-400 block text-[10px] uppercase font-bold">Breakfast</span>
-              <span className="font-semibold text-slate-700">{tournament.hotel.breakfastHours}</span>
+          <div className="grid grid-cols-2 gap-2 text-xs text-slate-700 border-t border-slate-100 pt-3">
+            <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Breakfast</span>
+              <span className="font-black text-slate-900 text-sm mt-0.5 block">{tournament.hotel.breakfastHours}</span>
             </div>
-            <div>
-              <span className="text-slate-400 block text-[10px] uppercase font-bold">Checkout</span>
-              <span className="font-semibold text-slate-700">{tournament.hotel.checkoutTime}</span>
+            <div className="bg-slate-50/80 p-2.5 rounded-xl border border-slate-100">
+              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Checkout</span>
+              <span className="font-black text-slate-900 text-sm mt-0.5 block">{tournament.hotel.checkoutTime}</span>
             </div>
           </div>
         </section>
@@ -1297,7 +1300,7 @@ function RunSheetContent() {
                       key={cat}
                       type="button"
                       onClick={() => setSuggestType(cat)}
-                      className={`py-2 px-2 rounded-xl text-center border text-[11px] transition-all ${
+                      className={`py-2 px-2 rounded-xl text-center border text-[11px] font-bold active:scale-[0.97] transition-all duration-150 ${
                         suggestType === cat 
                           ? "bg-slate-900 text-white border-slate-900 shadow-sm" 
                           : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
@@ -1335,13 +1338,13 @@ function RunSheetContent() {
                 <button 
                   type="button"
                   onClick={() => setIsRestaurantModalOpen(false)}
-                  className="w-1/2 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50"
+                  className="w-1/2 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="w-1/2 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 shadow-sm"
+                  className="w-1/2 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 shadow-sm active:scale-[0.97] transition-all duration-150"
                 >
                   Add & Vote
                 </button>
@@ -1384,7 +1387,7 @@ function RunSheetContent() {
                       key={cat.id}
                       type="button"
                       onClick={() => setTipCategory(cat.id as any)}
-                      className={`py-2 px-1 rounded-xl text-center border transition-all ${
+                      className={`py-2 px-1 rounded-xl text-center border active:scale-[0.97] transition-all duration-150 ${
                         tipCategory === cat.id 
                           ? "bg-slate-900 text-white border-slate-900 shadow-sm" 
                           : "bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100"
@@ -1436,13 +1439,13 @@ function RunSheetContent() {
                 <button 
                   type="button"
                   onClick={() => setActiveModalGameId(null)}
-                  className="w-1/2 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50"
+                  className="w-1/2 py-2.5 rounded-xl border border-slate-200 text-slate-700 text-xs font-bold hover:bg-slate-50 active:scale-[0.97] transition-all duration-150"
                 >
                   Cancel
                 </button>
                 <button 
                   type="submit"
-                  className="w-1/2 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 shadow-sm"
+                  className="w-1/2 py-2.5 rounded-xl bg-slate-900 text-white text-xs font-bold hover:bg-slate-800 shadow-sm active:scale-[0.97] transition-all duration-150"
                 >
                   Post Tip
                 </button>
