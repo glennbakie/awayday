@@ -567,7 +567,14 @@ function RunSheetContent() {
 
   return (
     <div 
-      style={{ backgroundColor: '#090D16', color: '#F8FAFC', minHeight: '100vh' }} 
+      style={{
+        backgroundColor: '#090D16',
+        backgroundImage:
+          'radial-gradient(120% 60% at 50% -10%, rgba(245,158,11,0.28) 0%, rgba(234,88,12,0.10) 38%, rgba(9,13,22,0) 70%), radial-gradient(80% 40% at 100% 30%, rgba(245,158,11,0.08) 0%, rgba(9,13,22,0) 70%)',
+        backgroundRepeat: 'no-repeat',
+        color: '#F8FAFC',
+        minHeight: '100vh',
+      }} 
       className="w-full pb-20"
     >
       {/* Sticky App Header */}
@@ -643,6 +650,43 @@ function RunSheetContent() {
           </div>
         </section>
 
+        {/* Hero: Next Tip-Off */}
+        {(() => {
+          const nextGame = [...games].sort((a, b) => a.tipOffMinutes - b.tipOffMinutes)[0];
+          if (!nextGame) return null;
+          const nextDepart = nextGame.tipOffMinutes - nextGame.warmupBufferMin - nextGame.hotelTravelMin;
+          return (
+            <section className="relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 text-slate-950 shadow-2xl shadow-black/60 border-t border-t-white/40">
+              <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/25 blur-3xl" />
+              <div className="relative flex items-start justify-between gap-3">
+                <span className="text-[10px] font-black uppercase tracking-wider bg-slate-950/85 text-amber-300 px-3 py-1 rounded-full">
+                  Next Tip-Off
+                </span>
+                <span className="font-mono text-xs font-bold bg-slate-950/15 border border-slate-950/20 px-3 py-1 rounded-full">
+                  {nextGame.court}
+                </span>
+              </div>
+              <div className="relative mt-3 tabular-nums font-mono text-6xl font-black tracking-tighter leading-none">
+                {formatTime(nextGame.tipOffMinutes)}
+              </div>
+              <h2 className="relative mt-2 text-xl font-black tracking-tight truncate">vs. {nextGame.opponent}</h2>
+              <div className="relative mt-4 flex items-center justify-between gap-2">
+                <div className="text-[11px] font-bold uppercase tracking-wider">
+                  Leave hotel <span className="font-mono text-sm font-black tabular-nums">{formatTime(nextDepart)}</span>
+                </div>
+                <a
+                  href={getMapsUrl(`${nextGame.venueName} ${nextGame.venueAddress} ${nextGame.city}`)}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="shrink-0 bg-slate-950 text-amber-300 px-3.5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-lg shadow-black/40"
+                >
+                  <Navigation className="w-3.5 h-3.5" /> Navigate
+                </a>
+              </div>
+            </section>
+          );
+        })()}
+
         {/* Weekend Run-Sheet */}
         <section id="section-games" className="space-y-4 pt-1">
           <div className="flex items-center justify-between px-1">
@@ -681,17 +725,17 @@ function RunSheetContent() {
                 <div className="p-5 pt-4 space-y-4 text-xs">
                   <div className="grid grid-cols-3 gap-2">
                     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl px-2 py-3 text-center">
-                      <span className="block tabular-nums font-mono text-base font-extrabold text-white">{formatTime(departMinutes)}</span>
+                      <span className="block tabular-nums font-mono text-xl font-black text-white">{formatTime(departMinutes)}</span>
                       <span className="block mt-1 text-[10px] uppercase tracking-wider text-slate-400">Depart</span>
                       <span className="block text-[10px] text-slate-500">{game.hotelTravelMin}m drive</span>
                     </div>
                     <div className="bg-slate-900/60 border border-slate-800 rounded-2xl px-2 py-3 text-center">
-                      <span className="block tabular-nums font-mono text-base font-extrabold text-white">{formatTime(arrivalMinutes)}</span>
+                      <span className="block tabular-nums font-mono text-xl font-black text-white">{formatTime(arrivalMinutes)}</span>
                       <span className="block mt-1 text-[10px] uppercase tracking-wider text-slate-400">Gym Arrival</span>
                       <span className="block text-[10px] text-slate-500">warmup</span>
                     </div>
                     <div className="bg-amber-500/15 border border-amber-500/30 rounded-2xl px-2 py-3 text-center">
-                      <span className="block tabular-nums font-mono text-base font-extrabold text-amber-300">{formatTime(game.tipOffMinutes)}</span>
+                      <span className="block tabular-nums font-mono text-xl font-black text-amber-300">{formatTime(game.tipOffMinutes)}</span>
                       <span className="block mt-1 text-[10px] uppercase tracking-wider text-amber-400/80">Tip-Off</span>
                       <span className="block text-[10px] text-amber-400/60">game time</span>
                     </div>
@@ -700,7 +744,7 @@ function RunSheetContent() {
                   <div className="flex items-center justify-between gap-2 p-3 rounded-2xl border border-slate-800 bg-slate-900/60">
                     <div className="truncate pr-2">
                       <div className="flex items-center gap-1">
-                        <MapPin className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                        <MapPin className="w-3.5 h-3.5 text-amber-400 shrink-0" />
                         <span className="font-bold text-slate-100 text-xs truncate">{game.venueName}</span>
                       </div>
                       <span className="text-slate-400 text-[11px] font-medium truncate block ml-4">
@@ -803,7 +847,7 @@ function RunSheetContent() {
         <section id="section-meals" className="space-y-3.5 pt-2">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5">
-              <span className="p-1 rounded-md bg-slate-900 border border-slate-800 text-emerald-400 shadow-2xs">
+              <span className="p-1 rounded-md bg-slate-900 border border-slate-800 text-amber-400 shadow-2xs">
                 <Utensils className="w-3.5 h-3.5" />
               </span>
               <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-200">
@@ -828,7 +872,7 @@ function RunSheetContent() {
           <div className="bg-slate-950 text-white rounded-2xl p-4.5 shadow-sm hover:shadow-md transition-shadow border border-slate-800">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-white flex items-center gap-1.5">
-                {isLunch ? <Salad className="w-4 h-4 text-emerald-400" /> : <Utensils className="w-4 h-4 text-amber-400" />}
+                {isLunch ? <Salad className="w-4 h-4 text-amber-400" /> : <Utensils className="w-4 h-4 text-amber-400" />}
                 {isLunch ? "Lunch Downtime Window" : "Dinner Downtime Window"}
               </span>
               <span className="text-xs bg-slate-800 text-amber-400 px-3 py-1 rounded-full font-black tracking-wider uppercase border border-slate-700">
@@ -847,7 +891,7 @@ function RunSheetContent() {
                 <p className="text-[11px] uppercase tracking-wider font-extrabold text-slate-400">
                   {isLunch ? "Game 2 Arrival" : "Evening Wind-Down"}
                 </p>
-                <p className="text-xs font-black text-emerald-400 mt-0.5">
+                <p className="text-xs font-black text-amber-400 mt-0.5">
                   {isLunch 
                     ? `Be at gym by ${formatTime(activeWindowEnd)}`
                     : `Back at hotel by ${formatTime(activeWindowEnd)}`}
@@ -868,7 +912,7 @@ function RunSheetContent() {
                     No reservations needed — quick wraps, smoothies, & light carbs
                   </p>
                 </div>
-                <span className="text-[11px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
+                <span className="text-[11px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
                   Quick Turnaround
                 </span>
               </div>
@@ -879,7 +923,7 @@ function RunSheetContent() {
                     <div className="pr-1">
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm font-bold text-slate-100">{spot.name}</span>
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded-full">
+                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">
                           {spot.type}
                         </span>
                       </div>
@@ -1055,9 +1099,9 @@ function RunSheetContent() {
                   <button
                     type="button"
                     onClick={() => setIsRestaurantModalOpen(true)}
-                    className="py-2.5 px-3 rounded-xl border border-dashed border-slate-700 hover:border-slate-600 bg-slate-900/60 hover:bg-slate-800 text-[11px] font-extrabold uppercase tracking-wider text-slate-200 flex items-center justify-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-2xs"
+                    className="py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-white text-slate-950 text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-lg shadow-black/40"
                   >
-                    <Plus className="w-3.5 h-3.5 text-amber-400 stroke-[3]" /> Suggest a Spot
+                    <Plus className="w-3.5 h-3.5 text-slate-950 stroke-[3]" /> Suggest a Spot
                   </button>
 
                   <button
