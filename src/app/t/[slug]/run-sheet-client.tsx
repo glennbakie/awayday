@@ -578,7 +578,7 @@ function RunSheetContent() {
       className="w-full pb-20"
     >
       {/* Sticky App Header */}
-      <header className="sticky top-0 z-30 bg-[#0B101B]/85 text-white border-b border-white/10 shadow-2xl shadow-black/60 backdrop-blur-xl">
+      <header className="sticky top-0 z-30 pt-[max(1rem,env(safe-area-inset-top))] bg-[#0B101B]/85 text-white border-b border-white/10 shadow-2xl shadow-black/60 backdrop-blur-xl">
         <div className="max-w-md mx-auto px-4 py-3 flex items-center justify-between">
           <div>
             <div className="flex items-center gap-1.5">
@@ -1276,7 +1276,8 @@ function RunSheetContent() {
       </main>
 
       {/* Floating pill dock navigation */}
-      <nav className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-md grid grid-cols-4 gap-1 bg-[#0B101B]/85 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 shadow-2xl shadow-black/60">
+      <div className="fixed bottom-0 inset-x-0 z-40 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pointer-events-none">
+      <nav className="pointer-events-auto mx-auto w-full max-w-md grid grid-cols-4 gap-1 bg-[#0B101B]/85 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 shadow-2xl shadow-black/60">
         {[
           { id: "section-games", label: "Games", Icon: CalendarDays },
           { id: "section-meals", label: isLunch ? "Fuel" : "Dinner", Icon: Utensils },
@@ -1297,6 +1298,7 @@ function RunSheetContent() {
           </button>
         ))}
       </nav>
+      </div>
 
       {/* Suggest a Restaurant Modal */}
       {isRestaurantModalOpen && (

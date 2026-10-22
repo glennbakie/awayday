@@ -130,3 +130,18 @@
     @apply font-sans;
   }
 }
+/* Native-feel container physics (PWA standalone) */
+html, body {
+  overscroll-behavior-y: none;
+  -webkit-overflow-scrolling: touch;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
+  touch-action: pan-x pan-y;
+}
+
+/* Ensure inputs inside modals remain selectable and typeable */
+input, textarea {
+  user-select: text;
+  -webkit-user-select: text;
+}
