@@ -31,7 +31,8 @@ import {
   Building2,
   CalendarDays,
   Zap,
-  Salad
+  Salad,
+  ChevronDown
 } from "lucide-react";
 
 interface VenueAlert {
@@ -318,15 +319,15 @@ function RunSheetContent() {
     }));
   };
 
-  const [activeSection, setActiveSection] = useState<string>("section-games");
+  const [activeTab, setActiveTab] = useState<"schedule" | "fuel" | "basecamp">("schedule");
+  const [openTipsGameId, setOpenTipsGameId] = useState<string | null>(null);
 
-  const scrollToSection = (id: string) => {
-    setActiveSection(id);
-    const el = document.getElementById(id);
-    if (el) {
-      el.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
-  };
+  // Reset scroll to the top of the screen whenever the tab changes (no anchor scrolling)
+  useEffect(() => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+  }, [activeTab]);
 
   const handleSelectOption = (optionId: string) => {
     if (isVoteLocked) return;
@@ -566,16 +567,9 @@ function RunSheetContent() {
   };
 
   return (
-    <div 
-      style={{
-        backgroundColor: '#090D16',
-        backgroundImage:
-          'radial-gradient(120% 60% at 50% -10%, rgba(245,158,11,0.28) 0%, rgba(234,88,12,0.10) 38%, rgba(9,13,22,0) 70%), radial-gradient(80% 40% at 100% 30%, rgba(245,158,11,0.08) 0%, rgba(9,13,22,0) 70%)',
-        backgroundRepeat: 'no-repeat',
-        color: '#F8FAFC',
-        minHeight: '100vh',
-      }} 
-      className="w-full pb-20"
+    <div
+      style={{ color: '#F8FAFC' }}
+      className="stadium-canvas w-full pb-32"
     >
       {/* Sticky App Header */}
       <header className="sticky top-0 z-30 pt-[max(1rem,env(safe-area-inset-top))] bg-[#0B101B]/85 text-white border-b border-white/10 shadow-2xl shadow-black/60 backdrop-blur-xl">
@@ -616,6 +610,8 @@ function RunSheetContent() {
 
       <main className="max-w-md mx-auto px-4 pt-3.5 space-y-4">
         
+        {activeTab === "schedule" && (
+          <div key="schedule" className="space-y-4 animate-in fade-in-50 duration-200 ease-out">
         {/* Executive Trip Anchor Banner */}
         <section className="bg-gradient-to-br from-[#0B101B] via-[#121826] to-[#0B101B] text-white rounded-3xl p-5 shadow-2xl shadow-black/60 border border-slate-800/80 border-t border-t-white/15">
           <div className="flex items-start justify-between gap-3">
@@ -705,7 +701,7 @@ function RunSheetContent() {
             const gameAlerts = alerts.filter(a => a.gameId === game.id);
 
             return (
-              <div key={game.id} className="bg-[#121826]/90 border border-slate-800/80 border-t border-t-white/15 shadow-2xl shadow-black/60 rounded-3xl overflow-hidden">
+              <div key={game.id} className="bg-[#111827]/90 backdrop-blur-md border border-slate-800/80 border-t border-t-white/15 shadow-2xl shadow-black/60 rounded-3xl overflow-hidden">
                 <div className="p-5 pb-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Game {index + 1}</span>
@@ -761,42 +757,53 @@ function RunSheetContent() {
                     </a>
                   </div>
 
-                  <div className="border-t border-slate-800 pt-3 space-y-2.5">
-                    <div className="flex items-center justify-between">
+                  <div className="border-t border-slate-800 pt-3">
+                    <button
+                      type="button"
+                      onClick={() => setOpenTipsGameId(openTipsGameId === game.id ? null : game.id)}
+                      aria-expanded={openTipsGameId === game.id}
+                      className="w-full flex items-center justify-between gap-2 active:scale-[0.98] transition-transform duration-100 ease-out cursor-pointer"
+                    >
                       <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Venue Ground-Truth
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Ground-Truth Tips
+                        <span className="font-mono text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 rounded-full px-2 py-0.5">
+                          {gameAlerts.length}
+                        </span>
                       </span>
-                      <button 
-                        onClick={() => setActiveModalGameId(game.id)}
-                        className="flex items-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-amber-300 bg-amber-400/10 hover:bg-amber-400/20 px-2.5 py-1 rounded-lg border border-amber-400/30 shadow-2xs active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer"
-                      >
-                        <Plus className="w-3.5 h-3.5 stroke-[3]" /> Add Tip
-                      </button>
-                    </div>
+                      <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${openTipsGameId === game.id ? "rotate-180" : ""}`} />
+                    </button>
 
-                    {gameAlerts.length === 0 ? (
-                      <p className="text-[11px] text-slate-500 italic">No facility warnings posted yet for this gym.</p>
-                    ) : (
-                      <div className="space-y-2">
-                        {gameAlerts.map(alert => (
-                          <div key={alert.id} className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3 space-y-2 shadow-2xs">
-                            <div className="flex items-start justify-between gap-1.5">
-                              <div>
-                                <h4 className="text-xs font-black text-amber-200">{alert.title}</h4>
-                                <p className="text-xs text-amber-100/90 leading-snug mt-0.5">{alert.content}</p>
+                    {openTipsGameId === game.id && (
+                      <div className="mt-3 space-y-2.5 animate-in fade-in-50 slide-in-from-top-1 duration-200 ease-out">
+                        {gameAlerts.length === 0 ? (
+                          <p className="text-[11px] text-slate-500 italic">No facility warnings posted yet for this gym.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {gameAlerts.map(alert => (
+                              <div key={alert.id} className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3 space-y-2 shadow-2xs">
+                                <div>
+                                  <h4 className="text-xs font-black text-amber-200">{alert.title}</h4>
+                                  <p className="text-xs text-amber-100/90 leading-snug mt-0.5">{alert.content}</p>
+                                </div>
+                                <div className="flex items-center justify-between border-t border-amber-500/20 pt-1.5 text-[11px] text-amber-300/80 font-medium">
+                                  <span>By {alert.author}</span>
+                                  <button
+                                    onClick={() => upvoteAlert(alert.id)}
+                                    className="flex items-center gap-1.5 font-bold text-[11px] bg-slate-900 border border-amber-400/30 hover:bg-slate-800 text-amber-300 px-2.5 py-1 rounded-lg active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-2xs"
+                                  >
+                                    <ThumbsUp className="w-3 h-3 text-amber-400" /> Helpful ({alert.upvotes})
+                                  </button>
+                                </div>
                               </div>
-                            </div>
-                            <div className="flex items-center justify-between border-t border-amber-500/20 pt-1.5 text-[11px] text-amber-300/80 font-medium">
-                              <span>By {alert.author}</span>
-                              <button 
-                                onClick={() => upvoteAlert(alert.id)}
-                                className="flex items-center gap-1.5 font-bold text-[11px] bg-slate-900 border border-amber-400/30 hover:bg-slate-800 text-amber-300 px-2.5 py-1 rounded-lg active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-2xs"
-                              >
-                                <ThumbsUp className="w-3 h-3 text-amber-400" /> Helpful ({alert.upvotes})
-                              </button>
-                            </div>
+                            ))}
                           </div>
-                        ))}
+                        )}
+                        <button
+                          onClick={() => setActiveModalGameId(game.id)}
+                          className="w-full flex items-center justify-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-amber-300 bg-amber-400/10 hover:bg-amber-400/20 px-2.5 py-2 rounded-xl border border-amber-400/30 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer"
+                        >
+                          <Plus className="w-3.5 h-3.5 stroke-[3]" /> Add Tip
+                        </button>
                       </div>
                     )}
                   </div>
@@ -841,6 +848,11 @@ function RunSheetContent() {
           })}
         </section>
 
+          </div>
+        )}
+
+        {activeTab === "fuel" && (
+          <div key="fuel" className="space-y-4 animate-in fade-in-50 duration-200 ease-out">
         {/* =========================================================
             MEAL INFO SECTION (Dynamically Computed Timestamps)
         ========================================================= */}
@@ -902,7 +914,7 @@ function RunSheetContent() {
 
           {/* LUNCH: GRAB & GO */}
           {isLunch ? (
-            <div className="bg-[#121826]/90 border border-slate-800/80 border-t border-t-white/15 rounded-3xl p-5 shadow-2xl shadow-black/60 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3.5">
+            <div className="bg-[#111827]/90 backdrop-blur-md border border-slate-800/80 border-t border-t-white/15 rounded-3xl p-5 shadow-2xl shadow-black/60 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3.5">
               <div className="flex items-center justify-between">
                 <div>
                   <h4 className="text-xs font-bold uppercase tracking-wider text-slate-100 flex items-center gap-1.5">
@@ -946,7 +958,7 @@ function RunSheetContent() {
             </div>
           ) : (
             /* DINNER: FORMAL CONSENSUS & RESERVATION POLL */
-            <div className="bg-[#121826]/90 border border-slate-800/80 border-t border-t-white/15 rounded-3xl p-5 shadow-2xl shadow-black/60 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-4">
+            <div className="bg-[#111827]/90 backdrop-blur-md border border-slate-800/80 border-t border-t-white/15 rounded-3xl p-5 shadow-2xl shadow-black/60 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-4">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                   {isVoteLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Timer className="w-3.5 h-3.5 text-amber-400" />}
@@ -1194,8 +1206,46 @@ function RunSheetContent() {
           )}
         </section>
 
+          </div>
+        )}
+
+        {activeTab === "basecamp" && (
+          <div key="basecamp" className="space-y-4 animate-in fade-in-50 duration-200 ease-out">
+        {/* Hotel Base Camp */}
+        <section id="section-hotel" className="bg-[#111827]/90 backdrop-blur-md rounded-3xl p-5 shadow-2xl shadow-black/60 border border-slate-800/80 border-t border-t-white/15 space-y-3.5">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+                <Hotel className="w-3 h-3 text-indigo-400" /> Team Hotel Base Camp
+              </span>
+              <h2 className="text-lg font-bold text-slate-100 flex items-center gap-1.5 mt-2 tracking-tight">
+                {tournament.hotel.name}
+              </h2>
+              <p className="text-xs text-slate-400 font-medium mt-0.5">{tournament.hotel.address}</p>
+            </div>
+            <a 
+              href={getMapsUrl(tournament.hotel.address)} 
+              target="_blank" 
+              rel="noreferrer"
+              className="text-xs flex items-center gap-1.5 text-white font-extrabold uppercase tracking-wider bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3.5 py-2 rounded-xl active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-xs shrink-0"
+            >
+              <Navigation className="w-3.5 h-3.5 text-amber-400" /> Map
+            </a>
+          </div>
+
+          <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-800 pt-3">
+            <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Breakfast</span>
+              <span className="font-bold text-slate-100 text-sm mt-0.5 block">{tournament.hotel.breakfastHours}</span>
+            </div>
+            <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Checkout</span>
+              <span className="font-bold text-slate-100 text-sm mt-0.5 block">{tournament.hotel.checkoutTime}</span>
+            </div>
+          </div>
+        </section>
         {/* Sideline Fuel / Coffee Radar */}
-        <section id="section-coffee" className="bg-[#121826]/90 rounded-3xl p-5 shadow-2xl shadow-black/60 border border-slate-800/80 border-t border-t-white/15 space-y-3.5">
+        <section id="section-coffee" className="bg-[#111827]/90 backdrop-blur-md rounded-3xl p-5 shadow-2xl shadow-black/60 border border-slate-800/80 border-t border-t-white/15 space-y-3.5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="p-1 rounded-lg bg-amber-400/10 text-amber-400">
@@ -1240,64 +1290,33 @@ function RunSheetContent() {
           </div>
         </section>
 
-        {/* Hotel Base Camp */}
-        <section id="section-hotel" className="bg-[#121826]/90 rounded-3xl p-5 shadow-2xl shadow-black/60 border border-slate-800/80 border-t border-t-white/15 space-y-3.5">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
-                <Hotel className="w-3 h-3 text-indigo-400" /> Team Hotel Base Camp
-              </span>
-              <h2 className="text-lg font-bold text-slate-100 flex items-center gap-1.5 mt-2 tracking-tight">
-                {tournament.hotel.name}
-              </h2>
-              <p className="text-xs text-slate-400 font-medium mt-0.5">{tournament.hotel.address}</p>
-            </div>
-            <a 
-              href={getMapsUrl(tournament.hotel.address)} 
-              target="_blank" 
-              rel="noreferrer"
-              className="text-xs flex items-center gap-1.5 text-white font-extrabold uppercase tracking-wider bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3.5 py-2 rounded-xl active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-xs shrink-0"
-            >
-              <Navigation className="w-3.5 h-3.5 text-amber-400" /> Map
-            </a>
           </div>
-
-          <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-800 pt-3">
-            <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Breakfast</span>
-              <span className="font-bold text-slate-100 text-sm mt-0.5 block">{tournament.hotel.breakfastHours}</span>
-            </div>
-            <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-              <span className="text-slate-400 block text-[10px] uppercase font-bold tracking-wider">Checkout</span>
-              <span className="font-bold text-slate-100 text-sm mt-0.5 block">{tournament.hotel.checkoutTime}</span>
-            </div>
-          </div>
-        </section>
+        )}
       </main>
 
-      {/* Floating pill dock navigation */}
+      {/* Floating app dock: switches screens, never scrolls to anchors */}
       <div className="fixed bottom-0 inset-x-0 z-40 px-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] pointer-events-none">
-      <nav className="pointer-events-auto mx-auto w-full max-w-md grid grid-cols-4 gap-1 bg-[#0B101B]/85 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 shadow-2xl shadow-black/60">
-        {[
-          { id: "section-games", label: "Games", Icon: CalendarDays },
-          { id: "section-meals", label: isLunch ? "Fuel" : "Dinner", Icon: Utensils },
-          { id: "section-coffee", label: "Coffee", Icon: Coffee },
-          { id: "section-hotel", label: "Hotel", Icon: Hotel },
-        ].map(({ id, label, Icon }) => (
-          <button
-            key={id}
-            onClick={() => scrollToSection(id)}
-            className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] uppercase tracking-wider active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer ${
-              activeSection === id
-                ? "bg-slate-800 text-amber-400 font-bold"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
-          >
-            <Icon className="w-4 h-4 mb-0.5" />
-            <span>{label}</span>
-          </button>
-        ))}
-      </nav>
+        <nav className="pointer-events-auto mx-auto w-full max-w-md grid grid-cols-3 gap-1 bg-[#0a0f1d]/90 backdrop-blur-xl border border-white/10 rounded-2xl p-1.5 shadow-2xl">
+          {([
+            { id: "schedule", label: "Schedule", Icon: CalendarDays },
+            { id: "fuel", label: "Fuel", Icon: Utensils },
+            { id: "basecamp", label: "Basecamp", Icon: Hotel },
+          ] as const).map(({ id, label, Icon }) => (
+            <button
+              key={id}
+              onClick={() => setActiveTab(id)}
+              aria-current={activeTab === id ? "page" : undefined}
+              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] uppercase tracking-wider border active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer ${
+                activeTab === id
+                  ? "bg-amber-500/20 text-amber-300 border-amber-500/40 font-bold"
+                  : "border-transparent text-slate-400 hover:text-slate-200"
+              }`}
+            >
+              <Icon className="w-4 h-4 mb-0.5" />
+              <span>{label}</span>
+            </button>
+          ))}
+        </nav>
       </div>
 
       {/* Suggest a Restaurant Modal */}
