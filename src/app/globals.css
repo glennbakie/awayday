@@ -146,13 +146,18 @@ input, textarea {
   -webkit-user-select: text;
 }
 
-/* Luminous arena atmosphere */
+body {
+  background-color: #f8fafc;
+  color: #0f172a;
+}
+
+/* Athletic day-stadium canvas */
 .stadium-canvas {
-  background-color: #080d18;
-  background-image:
-    radial-gradient(circle at 50% -10%, rgba(245, 158, 11, 0.22) 0%, rgba(15, 23, 42, 0) 55%),
-    radial-gradient(circle at 100% 25%, rgba(234, 88, 12, 0.15) 0%, rgba(15, 23, 42, 0) 45%),
-    radial-gradient(circle at 0% 40%, rgba(16, 185, 129, 0.08) 0%, rgba(15, 23, 42, 0) 35%);
+  background-color: #f8fafc;
+  background-image: 
+    radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.12) 0%, rgba(248, 250, 252, 0) 50%),
+    radial-gradient(circle at 90% 20%, rgba(234, 88, 12, 0.08) 0%, rgba(248, 250, 252, 0) 40%),
+    radial-gradient(circle at 10% 40%, rgba(59, 130, 246, 0.06) 0%, rgba(248, 250, 252, 0) 35%);
   background-attachment: fixed;
   min-height: 100dvh;
 }
