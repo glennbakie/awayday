@@ -47,10 +47,18 @@ interface VenueAlert {
 }
 
 type GameStatus = "Upcoming" | "Warmups" | "Live" | "Final" | "Delayed";
-type JerseyColor = "Dark / Away" | "Light / Home";
+type JerseyColor = "White (Home)" | "Dark / Black (Away)" | "Dark / Away" | "Light / Home";
+
+interface DowntimeWindow {
+  duration: string;
+  type: string;
+  note: string;
+}
 
 interface Game {
   id: string;
+  dayLabel?: string;
+  matchup?: string;
   opponent: string;
   tipOffMinutes: number;
   court: string;
@@ -61,6 +69,8 @@ interface Game {
   hotelTravelMin: number;
   status?: GameStatus;
   jerseyColor?: JerseyColor;
+  telemetryFlag?: string;
+  downtimeAfter?: DowntimeWindow;
 }
 
 interface MealOption {
@@ -85,102 +95,153 @@ function RunSheetContent() {
   const isAdmin = searchParams.get("admin") === "true";
 
   const tournament = {
-    name: "Capital Classic Invitational",
-    leagueName: "Ontario Basketball Association (OBL)",
-    teamName: "Ottawa Elite U16 Boys",
-    city: "Ottawa, ON",
-    primaryHub: "Carleton Ravens Nest",
-    primaryHubAddress: "1125 Colonel By Dr, Ottawa, ON",
-    lastUpdatedText: "Updated 4 mins ago by Coach Mark",
+    name: "NPH Session #1 - Oakville",
+    division: "Grade 11 Tier 2",
+    leagueName: "Grade 11 Tier 2 • NPH Showcase",
+    teamName: "Ottawa Elite (U16)",
+    dates: "Oct 24 - 25, 2026",
+    city: "Oakville / Burlington, ON",
+    primaryHub: "St. Thomas Aquinas & Notre Dame",
+    primaryHubAddress: "124 Dorval Dr, Oakville, ON L6K 2W1",
+    lastUpdatedText: "Official NPH Session #1 Weekend Run-Sheet",
     hotel: {
-      name: "Brookstreet Hotel",
-      address: "525 Legget Dr, Kanata, ON",
-      breakfastHours: "6:30 AM - 10:00 AM",
-      checkoutTime: "11:00 AM"
+      name: "Fairfield Inn Toronto Oakville",
+      address: "2937 Sherwood Heights Dr, Oakville, ON L6J 7L3",
+      rate: "$169 / night (Ottawa Elite Room Block)",
+      breakfastHours: "6:30 AM - 9:30 AM (Included)",
+      checkoutTime: "12:00 PM"
     }
   };
 
   const coffeeSpots = [
     {
-      name: "Happy Goat Coffee Co.",
-      distance: "4 min drive (1.2 km)",
+      name: "Tribeca Coffee Co. (Oakville)",
+      distance: "4 min drive (1.6 km)",
       type: "Sit Down & Wi-Fi",
-      note: "Great pour-over bar, plenty of tables",
-      address: "Ottawa, ON"
+      note: "Craft espresso, warm pastries, great parent lounge spot near Dorval",
+      address: "Oakville, ON"
     },
     {
-      name: "Tim Hortons / Drive-Thru",
-      distance: "2 min drive (0.7 km)",
+      name: "Tim Hortons (Dorval Crossing)",
+      distance: "2 min drive (0.8 km)",
       type: "Drive-Thru",
-      note: "Fast line, mobile app orders ready quick",
-      address: "Ottawa, ON"
+      note: "Right off Dorval Dr & QEW — fast mobile order pickup before tip-off",
+      address: "Dorval Dr, Oakville, ON"
     },
     {
-      name: "Equator Coffee Roasters",
-      distance: "6 min drive (2.4 km)",
+      name: "Peach Coffee Co. (Burlington)",
+      distance: "5 min drive (2.2 km)",
       type: "Specialty / Fast",
-      note: "Excellent espresso & quick breakfast sandwiches",
-      address: "Ottawa, ON"
+      note: "Close to Notre Dame CSS for Sunday morning coffee run",
+      address: "Burlington, ON"
     }
   ];
 
   const quickLunchSpots = [
     {
-      name: "Freshii (Bank St)",
-      type: "Smoothies & Bowls",
-      distance: "4 min drive (1.5 km)",
-      note: "Fast wraps, protein bowls, energizing smoothies. Order ahead on app.",
-      address: "Ottawa, ON"
+      name: "Fortinos Hot Bar & Panini Counter",
+      type: "Deli Wraps, Pasta & Salad Bar",
+      distance: "4 min drive (1.8 km)",
+      note: "Huge fresh hot bar, grilled paninis, fruit & hydration — ideal for Sunday's 2h 45m window.",
+      address: "Upper Middle Rd, Burlington, ON"
     },
     {
-      name: "Firehouse Subs",
+      name: "Firehouse Subs (Burlington / Oakville)",
       type: "Hot & Cold Subs",
-      distance: "6 min drive (2.8 km)",
-      note: "Quick hearty subs, large seating area if parents want to sit.",
-      address: "Ottawa, ON"
+      distance: "5 min drive (2.1 km)",
+      note: "Quick hearty subs, easy seating for athletes & parents between Sunday games.",
+      address: "Burlington, ON"
     },
     {
-      name: "Farm Boy Hot Bar & Deli",
-      type: "Deli Wraps & Salad Bar",
-      distance: "5 min drive (2.0 km)",
-      note: "Ready-to-eat wraps, fruit cups, clean seating area inside.",
-      address: "Ottawa, ON"
+      name: "Freshii (Dorval Crossing)",
+      type: "Smoothies & Bowls",
+      distance: "3 min drive (1.3 km)",
+      note: "Fast wraps, protein bowls, energizing smoothies. Order ahead on app.",
+      address: "Dorval Dr, Oakville, ON"
     },
     {
       name: "Booster Juice",
       type: "Smoothies & Paninis",
-      distance: "5 min drive (2.1 km)",
-      note: "Quick athlete fuel between games. Light and easy on the stomach.",
-      address: "Ottawa, ON"
+      distance: "3 min drive (1.4 km)",
+      note: "Quick athlete fuel & hydration between back-to-back games.",
+      address: "Oakville, ON"
     }
   ];
 
   const [games, setGames] = useState<Game[]>([
     {
       id: "g1",
-      opponent: "Montreal Northern Stars",
-      tipOffMinutes: 615, // 10:15 AM
-      court: "Court 1",
-      venueName: "Carleton Ravens Nest",
-      venueAddress: "1125 Colonel By Dr",
-      city: "Ottawa, ON",
-      warmupBufferMin: 30,
-      hotelTravelMin: 25,
+      dayLabel: "Sat, Oct 24",
+      matchup: "Ottawa Elite vs Dragons de Gatineau - Gabriel",
+      opponent: "Dragons de Gatineau - Gabriel",
+      tipOffMinutes: 945, // 3:45 PM
+      court: "Court 2",
+      venueName: "St. Thomas Aquinas",
+      venueAddress: "124 Dorval Dr",
+      city: "Oakville, ON L6K 2W1",
+      warmupBufferMin: 60, // 2:45 PM arrival buffer
+      hotelTravelMin: 15,
       status: "Upcoming",
-      jerseyColor: "Dark / Away"
+      jerseyColor: "White (Home)",
+      telemetryFlag: "Home Opener",
+      downtimeAfter: {
+        duration: "1h 30m",
+        type: "Quick Turnaround (Stay On-Site)",
+        note: "Both games on Court 2. Fuel athletes with sideline snacks/hydration between games."
+      }
     },
     {
       id: "g2",
-      opponent: "Kingston Impact",
-      tipOffMinutes: 885, // 2:45 PM
-      court: "Court 3",
-      venueName: "Carleton Ravens Nest",
-      venueAddress: "1125 Colonel By Dr",
-      city: "Ottawa, ON",
-      warmupBufferMin: 30,
-      hotelTravelMin: 25,
+      dayLabel: "Sat, Oct 24",
+      matchup: "Ottawa Elite at MC Elite White",
+      opponent: "MC Elite White",
+      tipOffMinutes: 1095, // 6:15 PM
+      court: "Court 2",
+      venueName: "St. Thomas Aquinas",
+      venueAddress: "124 Dorval Dr",
+      city: "Oakville, ON L6K 2W1",
+      warmupBufferMin: 45,
+      hotelTravelMin: 15,
       status: "Upcoming",
-      jerseyColor: "Light / Home"
+      jerseyColor: "Dark / Black (Away)",
+      telemetryFlag: "Back-to-Back"
+    },
+    {
+      id: "g3",
+      dayLabel: "Sun, Oct 25",
+      matchup: "Ottawa Elite at YASO Basketball Academy (Black)",
+      opponent: "YASO Basketball Academy (Black)",
+      tipOffMinutes: 645, // 10:45 AM
+      court: "Court 1",
+      venueName: "Notre Dame",
+      venueAddress: "2333 Headon Forest Dr",
+      city: "Burlington, ON L7M 3X6",
+      warmupBufferMin: 60, // 9:45 AM warmup call
+      hotelTravelMin: 15,
+      status: "Upcoming",
+      jerseyColor: "Dark / Black (Away)",
+      telemetryFlag: "Morning Tip",
+      downtimeAfter: {
+        duration: "2h 45m Window",
+        type: "Athlete Lunch & Fuel Window",
+        note: "Prime window for team lunch and rest before Game 4."
+      }
+    },
+    {
+      id: "g4",
+      dayLabel: "Sun, Oct 25",
+      matchup: "Ottawa Elite vs Kingston Impact",
+      opponent: "Kingston Impact",
+      tipOffMinutes: 870, // 2:30 PM
+      court: "Court 1",
+      venueName: "Notre Dame",
+      venueAddress: "2333 Headon Forest Dr",
+      city: "Burlington, ON L7M 3X6",
+      warmupBufferMin: 45,
+      hotelTravelMin: 15,
+      status: "Upcoming",
+      jerseyColor: "White (Home)",
+      telemetryFlag: "Session Finale"
     }
   ]);
 
@@ -188,47 +249,56 @@ function RunSheetContent() {
     {
       id: "a1",
       gameId: "g1",
-      type: "gate",
-      title: "Gate Admission",
-      content: "$10/day adult admission. Cash or e-Transfer only at the door.",
-      author: "Coach Mark",
-      upvotes: 4
+      type: "note",
+      title: "Pre-Game Arrival Call: 2:45 PM",
+      content: "Arrive 60 mins before tip-off at St. Thomas Aquinas (Court 2) in White (Home) jerseys.",
+      author: "Team Manager",
+      upvotes: 6
     },
     {
       id: "a2",
-      gameId: "g1",
+      gameId: "g2",
+      type: "concessions",
+      title: "1h 30m On-Site Turnaround",
+      content: "Both Saturday games are on Court 2. Pack recovery snacks, electrolytes, and switch to Black (Away) jerseys.",
+      author: "Team Manager",
+      upvotes: 8
+    },
+    {
+      id: "a3",
+      gameId: "g3",
       type: "parking",
-      title: "Parking Alert",
-      content: "Lot P5 fills fast. Overflow is available in Lot P18 across campus.",
-      author: "Sarah (#11 Mom)",
+      title: "Notre Dame CSS Border Crossing (~15m)",
+      content: "Right across the Oakville/Burlington border at 2333 Headon Forest Dr. Warmup call is 9:45 AM on Court 1.",
+      author: "Team Manager",
+      upvotes: 5
+    },
+    {
+      id: "a4",
+      gameId: "g4",
+      type: "concessions",
+      title: "2h 45m Athlete Lunch Slot Before Finale",
+      content: "Prime recovery and lunch window after the 10:45 AM game before the 2:30 PM Session Finale vs Kingston Impact.",
+      author: "Team Manager",
       upvotes: 7
     },
     {
       id: "h1",
       gameId: "hotel",
-      type: "note",
-      title: "Ice Machines & Water Fill",
-      content: "High-capacity ice machines are on floors 2 & 4 near the North elevators. Filtered bottle station in the fitness lobby.",
-      author: "Coach Mark",
-      upvotes: 6
+      type: "concessions",
+      title: "Early Grab-and-Go Breakfast",
+      content: "Fairfield breakfast starts early; quick grab-and-go before Sunday morning tip-off.",
+      author: "Ottawa Elite Block",
+      upvotes: 9
     },
     {
       id: "h2",
       gameId: "hotel",
       type: "parking",
-      title: "Bus & Oversized SUV Parking",
-      content: "Use the North surface lot for team vans and roof boxes — underground parkade clearance is 6'4\".",
-      author: "Dave (#14 Dad)",
-      upvotes: 5
-    },
-    {
-      id: "h3",
-      gameId: "hotel",
-      type: "concessions",
-      title: "Early Grab-and-Go Breakfast",
-      content: "Front desk puts out fruit, yogurt & bagel bags at 6:00 AM for early tip-off groups.",
-      author: "Kelly (#7 Mom)",
-      upvotes: 8
+      title: "Surface Parking & Highway Access",
+      content: "Free surface parking on-site with easy access to QEW/403.",
+      author: "Ottawa Elite Block",
+      upvotes: 7
     }
   ]);
 
@@ -254,11 +324,11 @@ function RunSheetContent() {
 
   // Manager Suite State: Quick-Edit Game Drawer & Schedule Ingestion Modal
   const [editingGame, setEditingGame] = useState<Game | null>(null);
-  const [editTipOffTime, setEditTipOffTime] = useState("10:15");
+  const [editTipOffTime, setEditTipOffTime] = useState("15:45");
   const [editCourtLocation, setEditCourtLocation] = useState("");
   const [editOpponent, setEditOpponent] = useState("");
   const [editStatus, setEditStatus] = useState<GameStatus>("Upcoming");
-  const [editJerseyColor, setEditJerseyColor] = useState<JerseyColor>("Dark / Away");
+  const [editJerseyColor, setEditJerseyColor] = useState<JerseyColor>("White (Home)");
 
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
   const [ingestRawText, setIngestRawText] = useState("");
@@ -269,7 +339,7 @@ function RunSheetContent() {
     if (!slug) return;
 
     const storageMealKey = `awayday_meal_mode_${slug}`;
-    const storageGamesKey = `awayday_games_${slug}`;
+    const storageGamesKey = `awayday_games_nph1_${slug}`;
 
     // Load any cached local broadcast state immediately
     try {
@@ -378,36 +448,36 @@ function RunSheetContent() {
   const [options, setOptions] = useState<MealOption[]>([
     { 
       id: "p1", 
-      name: "Farm Boy Hot Bar & Seating", 
-      type: "Fast / Healthy", 
-      totalSeats: 12,
-      playerCount: 7, 
-      parentCount: 5, 
-      votes: 7,
-      phone: "(613) 247-1000",
-      address: "193 Metcalfe St, Ottawa, ON"
+      name: "Beertown Public House (Oakville)", 
+      type: "Team Sit-Down", 
+      totalSeats: 14,
+      playerCount: 8, 
+      parentCount: 6, 
+      votes: 8,
+      phone: "(905) 849-8696",
+      address: "271 Cornwall Rd, Oakville, ON"
     },
     { 
       id: "p2", 
-      name: "Shawarma Palace (Bank St)", 
-      type: "Casual / Fast", 
+      name: "Scaddabush Italian Kitchen (Oakville)", 
+      type: "Pasta & Team Tables", 
       totalSeats: 19,
       playerCount: 11, 
       parentCount: 8, 
       votes: 11,
-      phone: "(613) 736-7776",
-      address: "2440 Bank St, Ottawa, ON"
+      phone: "(905) 829-0070",
+      address: "2095 Winston Park Dr, Oakville, ON"
     },
     { 
       id: "p3", 
-      name: "Montanas BBQ", 
-      type: "Sit Down", 
-      totalSeats: 6,
-      playerCount: 3, 
+      name: "State & Main Kitchen (Oakville)", 
+      type: "Casual / Group Seating", 
+      totalSeats: 7,
+      playerCount: 4, 
       parentCount: 3, 
-      votes: 3,
-      phone: "(613) 737-0200",
-      address: "2210 Bank St, Ottawa, ON"
+      votes: 4,
+      phone: "(289) 291-0022",
+      address: "478 Dundas St W, Oakville, ON"
     }
   ]);
 
@@ -452,7 +522,7 @@ function RunSheetContent() {
 
   const broadcastGamesSync = async (updatedGames: Game[]) => {
     try {
-      window.localStorage.setItem(`awayday_games_${slug}`, JSON.stringify(updatedGames));
+      window.localStorage.setItem(`awayday_games_nph1_${slug}`, JSON.stringify(updatedGames));
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
         const bc = new BroadcastChannel(`awayday_sync_${slug}`);
         bc.postMessage({ type: "games_sync", games: updatedGames });
@@ -475,7 +545,7 @@ function RunSheetContent() {
     setEditCourtLocation(`${game.court} • ${game.venueName}`);
     setEditOpponent(game.opponent);
     setEditStatus(game.status || "Upcoming");
-    setEditJerseyColor(game.jerseyColor || "Dark / Away");
+    setEditJerseyColor(game.jerseyColor || "White (Home)");
   };
 
   const handleSaveGameEdit = async (e: React.FormEvent) => {
@@ -486,15 +556,18 @@ function RunSheetContent() {
     const nextCourt = parts[0] || editingGame.court;
     const nextVenue = parts[1] || editingGame.venueName;
     const nextTipOff = timeInputToMinutes(editTipOffTime);
+    const nextOpponent = editOpponent.trim() || editingGame.opponent;
 
     const updatedGames = games.map(g => {
       if (g.id !== editingGame.id) return g;
+      const isAway = editJerseyColor.toLowerCase().includes("black") || editJerseyColor.toLowerCase().includes("away");
       return {
         ...g,
         tipOffMinutes: nextTipOff,
         court: nextCourt,
         venueName: nextVenue,
-        opponent: editOpponent.trim() || g.opponent,
+        opponent: nextOpponent,
+        matchup: `Ottawa Elite ${isAway ? "at" : "vs"} ${nextOpponent}`,
         status: editStatus,
         jerseyColor: editJerseyColor
       };
@@ -809,13 +882,15 @@ function RunSheetContent() {
 
   const estimatedPizzas = Math.ceil(confirmedReservationSeats / 2.5);
 
-  // Time calculations
-  const game1EndMinutes = games[0].tipOffMinutes + 75; // ~11:30 AM
-  const game2WarmupMinutes = games[1].tipOffMinutes - games[1].warmupBufferMin; // ~2:15 PM
-  const game2EndMinutes = games[1].tipOffMinutes + 75; // ~4:00 PM
+  // Time calculations (Sunday Game 3 -> Game 4 is the 2h 45m Lunch Window; Saturday post-Game 2 is Dinner)
+  const lunchGameStart = games[2] || games[0];
+  const lunchGameNext = games[3] || games[1] || games[0];
+  const game1EndMinutes = lunchGameStart.tipOffMinutes + 60; // ~11:45 AM Sunday
+  const game2WarmupMinutes = lunchGameNext.tipOffMinutes; // 2:30 PM Sunday (2h 45m window)
+  const game2EndMinutes = (games[1] || games[0]).tipOffMinutes + 75; // ~7:30 PM Saturday after 6:15 PM game
 
-  // Evening block reference: 7:30 PM (1170 mins) wind-down / hotel return
-  const eveningEndMinutes = 1170;
+  // Evening block reference: 9:30 PM (1290 mins) wind-down / hotel return
+  const eveningEndMinutes = Math.max(1290, game2EndMinutes + 120);
 
   // LUNCH vs DINNER DETERMINATION
   const gapMidpointMinutes = Math.floor((game1EndMinutes + game2WarmupMinutes) / 2);
@@ -830,7 +905,7 @@ function RunSheetContent() {
   const windowRemainingMins = totalWindowMinutes % 60;
 
   // Vote closing time: for lunch it's midday; for dinner it locks before Game 2 starts
-  const voteClosingMinutes = isLunch ? (game1EndMinutes - 30) : (games[1].tipOffMinutes - 30);
+  const voteClosingMinutes = isLunch ? (game1EndMinutes - 30) : ((games[1] || games[0]).tipOffMinutes - 30);
 
   const handleSetMealMode = async (nextMode: "lunch" | "dinner") => {
     setManualMealMode(nextMode);
@@ -912,7 +987,7 @@ function RunSheetContent() {
             <span className="truncate">{tournament.lastUpdatedText}</span>
           </div>
           <span className="text-slate-600 font-bold">•</span>
-          <span className="text-[11px] text-amber-400 font-extrabold shrink-0">Sat, Oct 3</span>
+          <span className="text-[11px] text-amber-400 font-extrabold shrink-0">{tournament.dates}</span>
         </div>
 
         {/* Persistent Manager Utility Banner docked directly below trip header */}
@@ -950,10 +1025,10 @@ function RunSheetContent() {
             <div className="space-y-1.5 pr-1">
               <div className="flex flex-wrap items-center gap-1.5">
                 <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
-                  <MapPin className="w-3 h-3 text-amber-400" /> {tournament.city}
+                  <MapPin className="w-3 h-3 text-amber-400" /> {tournament.dates}
                 </span>
                 <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
-                  <Shield className="w-2.5 h-2.5 text-slate-300" /> {tournament.leagueName}
+                  <Shield className="w-2.5 h-2.5 text-slate-300" /> {tournament.division}
                 </span>
               </div>
 
@@ -963,7 +1038,7 @@ function RunSheetContent() {
               
               <div className="flex items-center gap-1.5 text-xs text-slate-300 font-medium pt-0.5">
                 <Building2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                <span>Primary Hub: <strong className="text-white font-black">{tournament.primaryHub}</strong></span>
+                <span>Venues: <strong className="text-white font-black">{tournament.primaryHub}</strong></span>
               </div>
             </div>
 
@@ -980,16 +1055,23 @@ function RunSheetContent() {
 
         {/* Hero: Next Tip-Off */}
         {(() => {
-          const nextGame = [...games].sort((a, b) => a.tipOffMinutes - b.tipOffMinutes)[0];
+          const nextGame = games[0];
           if (!nextGame) return null;
           const nextDepart = nextGame.tipOffMinutes - nextGame.warmupBufferMin - nextGame.hotelTravelMin;
           return (
             <section className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-[#182235] to-[#111827] border border-amber-500/40 text-white shadow-2xl">
               <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-amber-500/15 blur-3xl" />
               <div className="relative flex items-start justify-between gap-3">
-                <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
-                  Next Tip-Off
-                </span>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                    Next Tip-Off {nextGame.dayLabel ? `• ${nextGame.dayLabel}` : ""}
+                  </span>
+                  {nextGame.telemetryFlag && (
+                    <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/10 text-emerald-300 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                      {nextGame.telemetryFlag}
+                    </span>
+                  )}
+                </div>
                 <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none shrink-0">
                   {nextGame.court}
                 </span>
@@ -997,7 +1079,9 @@ function RunSheetContent() {
               <div className="relative mt-3 tabular-nums font-mono text-6xl font-black tracking-tighter leading-none text-amber-400">
                 {formatTime(nextGame.tipOffMinutes)}
               </div>
-              <h2 className="relative mt-2 text-xl font-black tracking-tight truncate text-white">vs. {nextGame.opponent}</h2>
+              <h2 className="relative mt-2 text-xl font-black tracking-tight truncate text-white">
+                {nextGame.matchup || `vs. ${nextGame.opponent}`}
+              </h2>
               <div className="relative mt-4 flex items-center justify-between gap-2">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
                   Leave hotel <span className="font-mono text-sm font-black tabular-nums text-white">{formatTime(nextDepart)}</span>
@@ -1031,13 +1115,33 @@ function RunSheetContent() {
             const departMinutes = game.tipOffMinutes - game.warmupBufferMin - game.hotelTravelMin;
             const arrivalMinutes = game.tipOffMinutes - game.warmupBufferMin;
             const gameAlerts = alerts.filter(a => a.gameId === game.id);
+            const showDayHeader = index === 0 || game.dayLabel !== games[index - 1]?.dayLabel;
 
             return (
-              <div key={game.id} className="bg-[#111827] border border-slate-800/90 shadow-2xl rounded-2xl overflow-hidden">
+              <React.Fragment key={game.id}>
+                {showDayHeader && game.dayLabel && (
+                  <div className="flex items-center justify-between px-1 pt-2">
+                    <span className="inline-flex items-center gap-1.5 border-l-2 border-l-amber-500 bg-[#111827] text-amber-300 font-mono text-[11px] font-bold uppercase tracking-wider px-2.5 py-1 rounded-r shadow-xs">
+                      <CalendarClock className="w-3.5 h-3.5 text-amber-400" />
+                      {game.dayLabel === "Sat, Oct 24" ? "Saturday, Oct 24" : game.dayLabel === "Sun, Oct 25" ? "Sunday, Oct 25" : game.dayLabel}
+                    </span>
+                    <span className="text-[11px] font-mono font-bold text-slate-600 truncate">
+                      {game.venueName} ({game.venueAddress})
+                    </span>
+                  </div>
+                )}
+              <div className="bg-[#111827] border border-slate-800/90 shadow-2xl rounded-2xl overflow-hidden">
                 <div className="p-5 pb-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                      <span className="text-slate-400 font-mono text-xs uppercase tracking-wider">Game {index + 1}</span>
+                      <span className="text-slate-400 font-mono text-xs uppercase tracking-wider">
+                        Game {index + 1}{game.dayLabel ? ` • ${game.dayLabel}` : ""}
+                      </span>
+                      {game.telemetryFlag && (
+                        <span className="inline-flex items-center border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                          {game.telemetryFlag}
+                        </span>
+                      )}
                       {game.status && (
                         <span className={`inline-flex items-center border-l-2 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none ${
                           game.status === "Live"
@@ -1055,7 +1159,9 @@ function RunSheetContent() {
                         </span>
                       )}
                     </div>
-                    <h3 className="text-xl font-black text-white tracking-tight truncate">vs. {game.opponent}</h3>
+                    <h3 className="text-lg sm:text-xl font-black text-white tracking-tight leading-snug">
+                      {game.matchup || `vs. ${game.opponent}`}
+                    </h3>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
@@ -1207,6 +1313,25 @@ function RunSheetContent() {
                   )}
                 </div>
               </div>
+
+              {game.downtimeAfter && (
+                <div className="bg-[#111827]/95 border border-amber-500/30 rounded-2xl p-4 shadow-xl flex items-start justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                        <Timer className="w-3 h-3 text-amber-400" /> {game.downtimeAfter.duration}
+                      </span>
+                      <span className="text-xs font-black uppercase tracking-wider text-white">
+                        {game.downtimeAfter.type}
+                      </span>
+                    </div>
+                    <p className="text-xs text-slate-300 font-medium leading-snug">
+                      {game.downtimeAfter.note}
+                    </p>
+                  </div>
+                </div>
+              )}
+              </React.Fragment>
             );
           })}
         </section>
@@ -1644,6 +1769,11 @@ function RunSheetContent() {
             </a>
           </div>
 
+          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between text-xs">
+            <span className="text-amber-300 font-mono text-[10px] uppercase tracking-wider">Team Room Block Rate</span>
+            <span className="font-black text-amber-300 text-xs font-mono">{tournament.hotel.rate}</span>
+          </div>
+
           <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-800 pt-3">
             <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
               <span className="text-slate-400 font-mono block text-[10px] uppercase tracking-wider">Breakfast</span>
@@ -2029,7 +2159,7 @@ function RunSheetContent() {
                   Jersey Color
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  {(["Dark / Away", "Light / Home"] as JerseyColor[]).map((jersey) => (
+                  {(["White (Home)", "Dark / Black (Away)"] as JerseyColor[]).map((jersey) => (
                     <button
                       key={jersey}
                       type="button"
