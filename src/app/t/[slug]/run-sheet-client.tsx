@@ -192,6 +192,33 @@ function RunSheetContent() {
       content: "Lot P5 fills fast. Overflow is available in Lot P18 across campus.",
       author: "Sarah (#11 Mom)",
       upvotes: 7
+    },
+    {
+      id: "h1",
+      gameId: "hotel",
+      type: "note",
+      title: "Ice Machines & Water Fill",
+      content: "High-capacity ice machines are on floors 2 & 4 near the North elevators. Filtered bottle station in the fitness lobby.",
+      author: "Coach Mark",
+      upvotes: 6
+    },
+    {
+      id: "h2",
+      gameId: "hotel",
+      type: "parking",
+      title: "Bus & Oversized SUV Parking",
+      content: "Use the North surface lot for team vans and roof boxes — underground parkade clearance is 6'4\".",
+      author: "Dave (#14 Dad)",
+      upvotes: 5
+    },
+    {
+      id: "h3",
+      gameId: "hotel",
+      type: "concessions",
+      title: "Early Grab-and-Go Breakfast",
+      content: "Front desk puts out fruit, yogurt & bagel bags at 6:00 AM for early tip-off groups.",
+      author: "Kelly (#7 Mom)",
+      upvotes: 8
     }
   ]);
 
@@ -319,7 +346,7 @@ function RunSheetContent() {
     }));
   };
 
-  const [activeTab, setActiveTab] = useState<"schedule" | "fuel" | "basecamp">("schedule");
+  const [activeTab, setActiveTab] = useState<"schedule" | "fuel" | "hotel">("schedule");
   const [openTipsGameId, setOpenTipsGameId] = useState<string | null>(null);
 
   // Reset scroll to the top of the screen whenever the tab changes (no anchor scrolling)
@@ -578,7 +605,7 @@ function RunSheetContent() {
             <div className="flex items-center gap-1.5">
               <span className="text-[11px] font-black uppercase tracking-wider text-amber-400">AwayDay Run-Sheet</span>
               {isAdmin && (
-                <span className="text-[10px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full shadow-2xs">
+                <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none shrink-0">
                   Manager Mode
                 </span>
               )}
@@ -617,10 +644,10 @@ function RunSheetContent() {
           <div className="flex items-start justify-between gap-3">
             <div className="space-y-1.5 pr-1">
               <div className="flex flex-wrap items-center gap-1.5">
-                <span className="text-[11px] font-extrabold uppercase tracking-wider bg-amber-400 text-slate-950 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
-                  <MapPin className="w-3 h-3 text-slate-950" /> {tournament.city}
+                <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
+                  <MapPin className="w-3 h-3 text-amber-400" /> {tournament.city}
                 </span>
-                <span className="text-[11px] font-extrabold uppercase tracking-wider bg-slate-800/90 text-slate-200 border border-slate-700 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-500/10 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
                   <Shield className="w-2.5 h-2.5 text-indigo-400" /> {tournament.leagueName}
                 </span>
               </div>
@@ -655,10 +682,10 @@ function RunSheetContent() {
             <section className="relative overflow-hidden rounded-3xl p-5 bg-gradient-to-br from-amber-400 via-amber-500 to-orange-600 text-slate-950 shadow-2xl shadow-black/60 border-t border-t-white/40">
               <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-white/25 blur-3xl" />
               <div className="relative flex items-start justify-between gap-3">
-                <span className="text-[10px] font-black uppercase tracking-wider bg-slate-950/85 text-amber-300 px-3 py-1 rounded-full">
+                <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-950 bg-slate-950/15 text-slate-950 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
                   Next Tip-Off
                 </span>
-                <span className="font-mono text-xs font-bold bg-slate-950/15 border border-slate-950/20 px-3 py-1 rounded-full">
+                <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-950 bg-slate-950/15 text-slate-950 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none shrink-0">
                   {nextGame.court}
                 </span>
               </div>
@@ -707,7 +734,7 @@ function RunSheetContent() {
                     <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block">Game {index + 1}</span>
                     <h3 className="text-xl font-black text-white tracking-tight truncate">vs. {game.opponent}</h3>
                   </div>
-                  <span className="shrink-0 bg-slate-800/80 text-amber-400 border border-slate-700 font-mono text-xs px-3 py-1 rounded-full">
+                  <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none shrink-0">
                     {game.court}
                   </span>
                 </div>
@@ -766,7 +793,7 @@ function RunSheetContent() {
                     >
                       <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
                         <AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Ground-Truth Tips
-                        <span className="font-mono text-[10px] bg-amber-500/15 text-amber-300 border border-amber-500/30 rounded-full px-2 py-0.5">
+                        <span className="inline-flex items-center border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
                           {gameAlerts.length}
                         </span>
                       </span>
@@ -881,13 +908,13 @@ function RunSheetContent() {
           </div>
 
           {/* Downtime Window Card with Corrected Timestamps */}
-          <div className="bg-slate-950 text-white rounded-2xl p-4.5 shadow-sm hover:shadow-md transition-shadow border border-slate-800">
+          <div className="bg-slate-950 text-white rounded-2xl p-4.5 shadow-sm border border-slate-800">
             <div className="flex items-center justify-between">
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-white flex items-center gap-1.5">
                 {isLunch ? <Salad className="w-4 h-4 text-amber-400" /> : <Utensils className="w-4 h-4 text-amber-400" />}
                 {isLunch ? "Lunch Downtime Window" : "Dinner Downtime Window"}
               </span>
-              <span className="text-xs bg-slate-800 text-amber-400 px-3 py-1 rounded-full font-black tracking-wider uppercase border border-slate-700">
+              <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
                 {windowHours}h {windowRemainingMins}m Window
               </span>
             </div>
@@ -924,7 +951,7 @@ function RunSheetContent() {
                     No reservations needed — quick wraps, smoothies, & light carbs
                   </p>
                 </div>
-                <span className="text-[11px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full shrink-0 shadow-2xs">
+                <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none shrink-0">
                   Quick Turnaround
                 </span>
               </div>
@@ -935,7 +962,7 @@ function RunSheetContent() {
                     <div className="pr-1">
                       <div className="flex items-center gap-1.5">
                         <span className="text-sm font-bold text-slate-100">{spot.name}</span>
-                        <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-500/15 text-amber-300 border border-amber-500/30 px-2 py-0.5 rounded-full">
+                        <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
                           {spot.type}
                         </span>
                       </div>
@@ -964,8 +991,8 @@ function RunSheetContent() {
                   {isVoteLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Timer className="w-3.5 h-3.5 text-amber-400" />}
                   {isVoteLocked ? "Confirmed Team Dinner Reservation" : "Team Dinner Reservation Poll"}
                 </span>
-                <span className={`text-[11px] font-extrabold uppercase tracking-wider px-2.5 py-0.5 rounded-full ${
-                  isVoteLocked ? "bg-amber-400/10 text-amber-300 border border-amber-400/30 shadow-2xs" : "bg-slate-800 text-slate-300 border border-slate-700"
+                <span className={`inline-flex items-center gap-1 border-l-2 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none ${
+                  isVoteLocked ? "border-l-amber-400 bg-amber-400/10 text-amber-300" : "border-l-slate-400 bg-slate-500/10 text-slate-300"
                 }`}>
                   {isVoteLocked ? "Poll Closed" : "Tap to vote"}
                 </span>
@@ -978,7 +1005,7 @@ function RunSheetContent() {
                       {winningOption.isDelivery ? <Pizza className="w-3.5 h-3.5 text-amber-400" /> : <Users className="w-3.5 h-3.5 text-amber-400" />}
                       {winningOption.isDelivery ? "Lobby Delivery Target" : "Final Reservation Target"}
                     </span>
-                    <span className="text-xs font-black uppercase tracking-wider bg-emerald-400 text-slate-950 px-2.5 py-0.5 rounded shadow-2xs">
+                    <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/10 text-emerald-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
                       {confirmedReservationSeats} Total Seats
                     </span>
                   </div>
@@ -1056,7 +1083,7 @@ function RunSheetContent() {
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                     <span className="font-extrabold">You are included in the headcount ({userPartyTotal} seats)</span>
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 px-2 py-0.5 rounded">
+                  <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/10 text-emerald-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
                     Confirmed
                   </span>
                 </div>
@@ -1068,7 +1095,7 @@ function RunSheetContent() {
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-200 flex items-center gap-1.5">
                       <UserCheck className="w-3.5 h-3.5 text-amber-400" /> Your Family Count:
                     </span>
-                    <span className="text-xs font-black text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2.5 py-0.5 rounded-md shadow-2xs">
+                    <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
                       {userPartyTotal} Seat{userPartyTotal > 1 ? "s" : ""}
                     </span>
                   </div>
@@ -1139,7 +1166,7 @@ function RunSheetContent() {
                       </span>
                     </div>
                   </div>
-                  <span className="text-[10px] font-black uppercase tracking-wider bg-amber-400/10 text-amber-300 border border-amber-400/30 px-2 py-0.5 rounded-full shrink-0">
+                  <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none shrink-0">
                     Locks Soon
                   </span>
                 </div>
@@ -1171,12 +1198,12 @@ function RunSheetContent() {
                             {option.name}
                           </span>
                           {isWinner && (
-                            <span className="flex items-center gap-0.5 text-[10px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full shadow-2xs">
+                            <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
                               <Trophy className="w-2.5 h-2.5" /> {isVoteLocked ? "Selected Choice" : "Leading"}
                             </span>
                           )}
                           {option.isCustom && !isWinner && (
-                            <span className="text-[10px] font-extrabold uppercase tracking-wider bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full flex items-center gap-0.5 border border-slate-700">
+                            <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-500/10 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
                               <Sparkles className="w-2.5 h-2.5 text-amber-400" /> Parent Pick
                             </span>
                           )}
@@ -1206,16 +1233,64 @@ function RunSheetContent() {
           )}
         </section>
 
+        {/* Sideline Fuel / Coffee Radar */}
+        <section id="section-coffee" className="bg-[#111827]/90 backdrop-blur-md rounded-3xl p-5 shadow-2xl shadow-black/60 border border-slate-800/80 border-t border-t-white/15 space-y-3.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="p-1 rounded-lg bg-amber-400/10 text-amber-400">
+                <Coffee className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-100">
+                  Sideline Fuel
+                </h3>
+                <span className="text-[10px] text-slate-400 font-medium">Coffee Radar & Parent Pit Stops</span>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
+              Nearby Gym
+            </span>
+          </div>
+
+          <div className="space-y-2.5">
+            {coffeeSpots.map((spot, i) => (
+              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 text-xs shadow-2xs transition-colors">
+                <div className="pr-2">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-sm font-bold text-slate-100">{spot.name}</span>
+                    <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
+                      {spot.type}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-slate-400 block mt-0.5 font-medium">
+                    {spot.distance} • <span className="text-slate-400">{spot.note}</span>
+                  </span>
+                </div>
+                <a 
+                  href={getMapsUrl(spot.name + " " + spot.address)} 
+                  target="_blank" 
+                  rel="noreferrer"
+                  className="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-100 px-3 py-1.5 rounded-xl text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-2xs"
+                >
+                  <Navigation className="w-3.5 h-3.5 text-amber-400" /> Map
+                </a>
+              </div>
+            ))}
+          </div>
+        </section>
+
           </div>
         )}
 
-        {activeTab === "basecamp" && (
-          <div key="basecamp" className="space-y-4 animate-in fade-in-50 duration-200 ease-out">
+        {activeTab === "hotel" && (() => {
+          const hotelAlerts = alerts.filter(a => a.gameId === "hotel");
+          return (
+          <div key="hotel" className="space-y-4 animate-in fade-in-50 duration-200 ease-out">
         {/* Hotel Base Camp */}
         <section id="section-hotel" className="bg-[#111827]/90 backdrop-blur-md rounded-3xl p-5 shadow-2xl shadow-black/60 border border-slate-800/80 border-t border-t-white/15 space-y-3.5">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-indigo-300 bg-indigo-500/15 border border-indigo-500/30 px-2.5 py-0.5 rounded-full flex items-center gap-1 shadow-2xs">
+              <span className="inline-flex items-center gap-1 border-l-2 border-l-indigo-400 bg-indigo-500/10 text-indigo-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
                 <Hotel className="w-3 h-3 text-indigo-400" /> Team Hotel Base Camp
               </span>
               <h2 className="text-lg font-bold text-slate-100 flex items-center gap-1.5 mt-2 tracking-tight">
@@ -1243,55 +1318,63 @@ function RunSheetContent() {
               <span className="font-bold text-slate-100 text-sm mt-0.5 block">{tournament.hotel.checkoutTime}</span>
             </div>
           </div>
-        </section>
-        {/* Sideline Fuel / Coffee Radar */}
-        <section id="section-coffee" className="bg-[#111827]/90 backdrop-blur-md rounded-3xl p-5 shadow-2xl shadow-black/60 border border-slate-800/80 border-t border-t-white/15 space-y-3.5">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="p-1 rounded-lg bg-amber-400/10 text-amber-400">
-                <Coffee className="w-4 h-4" />
+
+          {/* Hotel Intel / Tips Collapsible Accordion */}
+          <div className="border-t border-slate-800 pt-3">
+            <button
+              type="button"
+              onClick={() => setOpenTipsGameId(openTipsGameId === "hotel" ? null : "hotel")}
+              aria-expanded={openTipsGameId === "hotel"}
+              className="w-full flex items-center justify-between gap-2 active:scale-[0.98] transition-transform duration-100 ease-out cursor-pointer"
+            >
+              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Hotel Intel / Tips
+                <span className="inline-flex items-center border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs px-2 py-0.5 rounded-r cursor-default pointer-events-none select-none">
+                  {hotelAlerts.length}
+                </span>
               </span>
-              <div>
-                <h3 className="text-[11px] font-extrabold uppercase tracking-wider text-slate-100">
-                  Sideline Fuel
-                </h3>
-                <span className="text-[10px] text-slate-400 font-medium">Coffee Radar & Parent Pit Stops</span>
-              </div>
-            </div>
-            <span className="text-[11px] font-extrabold uppercase tracking-wider text-amber-300 bg-amber-400/10 border border-amber-400/30 px-2.5 py-0.5 rounded-full shadow-2xs">
-              Nearby Gym
-            </span>
-          </div>
+              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${openTipsGameId === "hotel" ? "rotate-180" : ""}`} />
+            </button>
 
-          <div className="space-y-2.5">
-            {coffeeSpots.map((spot, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 text-xs shadow-2xs transition-colors">
-                <div className="pr-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-bold text-slate-100">{spot.name}</span>
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider bg-amber-400/10 text-amber-300 px-2 py-0.5 rounded-full border border-amber-400/20">
-                      {spot.type}
-                    </span>
+            {openTipsGameId === "hotel" && (
+              <div className="mt-3 space-y-2.5 animate-in fade-in-50 slide-in-from-top-1 duration-200 ease-out">
+                {hotelAlerts.length === 0 ? (
+                  <p className="text-[11px] text-slate-500 italic">No hotel tips posted yet.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {hotelAlerts.map(alert => (
+                      <div key={alert.id} className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3 space-y-2 shadow-2xs">
+                        <div>
+                          <h4 className="text-xs font-black text-amber-200">{alert.title}</h4>
+                          <p className="text-xs text-amber-100/90 leading-snug mt-0.5">{alert.content}</p>
+                        </div>
+                        <div className="flex items-center justify-between border-t border-amber-500/20 pt-1.5 text-[11px] text-amber-300/80 font-medium">
+                          <span>By {alert.author}</span>
+                          <button
+                            onClick={() => upvoteAlert(alert.id)}
+                            className="flex items-center gap-1.5 font-bold text-[11px] bg-slate-900 border border-amber-400/30 hover:bg-slate-800 text-amber-300 px-2.5 py-1 rounded-lg active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-2xs"
+                          >
+                            <ThumbsUp className="w-3 h-3 text-amber-400" /> Helpful ({alert.upvotes})
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                  <span className="text-[11px] text-slate-400 block mt-0.5 font-medium">
-                    {spot.distance} • <span className="text-slate-400">{spot.note}</span>
-                  </span>
-                </div>
-                <a 
-                  href={getMapsUrl(spot.name + " " + spot.address)} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-100 px-3 py-1.5 rounded-xl text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-2xs"
+                )}
+                <button
+                  onClick={() => setActiveModalGameId("hotel")}
+                  className="w-full flex items-center justify-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-amber-300 bg-amber-400/10 hover:bg-amber-400/20 px-2.5 py-2 rounded-xl border border-amber-400/30 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer"
                 >
-                  <Navigation className="w-3.5 h-3.5 text-amber-400" /> Map
-                </a>
+                  <Plus className="w-3.5 h-3.5 stroke-[3]" /> Add Tip
+                </button>
               </div>
-            ))}
+            )}
           </div>
         </section>
 
           </div>
-        )}
+          );
+        })()}
       </main>
 
       {/* Floating app dock: switches screens, never scrolls to anchors */}
@@ -1300,7 +1383,7 @@ function RunSheetContent() {
           {([
             { id: "schedule", label: "Schedule", Icon: CalendarDays },
             { id: "fuel", label: "Fuel", Icon: Utensils },
-            { id: "basecamp", label: "Basecamp", Icon: Hotel },
+            { id: "hotel", label: "Hotel", Icon: Hotel },
           ] as const).map(({ id, label, Icon }) => (
             <button
               key={id}
@@ -1422,9 +1505,11 @@ function RunSheetContent() {
           <div className="bg-[#121826] border-t border-t-white/15 rounded-t-3xl sm:rounded-3xl w-full max-w-md p-5 space-y-4 shadow-2xl border border-slate-800">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
-                <h3 className="text-base font-bold text-slate-100">Add Venue Ground-Truth Tip</h3>
+                <h3 className="text-base font-bold text-slate-100">
+                  {activeModalGameId === "hotel" ? "Add Hotel Intel / Tip" : "Add Venue Ground-Truth Tip"}
+                </h3>
                 <p className="text-xs text-slate-400">
-                  For {games.find(g => g.id === activeModalGameId)?.venueName || "this gym"}
+                  For {activeModalGameId === "hotel" ? tournament.hotel.name : (games.find(g => g.id === activeModalGameId)?.venueName || "this gym")}
                 </p>
               </div>
               <button 
