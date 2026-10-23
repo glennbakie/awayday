@@ -32,7 +32,8 @@ import {
   CalendarDays,
   Zap,
   Salad,
-  ChevronDown
+  ChevronDown,
+  Pencil
 } from "lucide-react";
 
 interface VenueAlert {
@@ -45,6 +46,9 @@ interface VenueAlert {
   upvotes: number;
 }
 
+type GameStatus = "Upcoming" | "Warmups" | "Live" | "Final" | "Delayed";
+type JerseyColor = "Dark / Away" | "Light / Home";
+
 interface Game {
   id: string;
   opponent: string;
@@ -55,6 +59,8 @@ interface Game {
   city: string;
   warmupBufferMin: number;
   hotelTravelMin: number;
+  status?: GameStatus;
+  jerseyColor?: JerseyColor;
 }
 
 interface MealOption {
@@ -159,7 +165,9 @@ function RunSheetContent() {
       venueAddress: "1125 Colonel By Dr",
       city: "Ottawa, ON",
       warmupBufferMin: 30,
-      hotelTravelMin: 25
+      hotelTravelMin: 25,
+      status: "Upcoming",
+      jerseyColor: "Dark / Away"
     },
     {
       id: "g2",
@@ -170,7 +178,9 @@ function RunSheetContent() {
       venueAddress: "1125 Colonel By Dr",
       city: "Ottawa, ON",
       warmupBufferMin: 30,
-      hotelTravelMin: 25
+      hotelTravelMin: 25,
+      status: "Upcoming",
+      jerseyColor: "Light / Home"
     }
   ]);
 
@@ -242,11 +252,43 @@ function RunSheetContent() {
   // Manual test override for Lunch vs. Dinner
   const [manualMealMode, setManualMealMode] = useState<"lunch" | "dinner" | "auto">("auto");
 
-  // Real-time synchronization for Meal Mode via Supabase Realtime
+  // Manager Suite State: Quick-Edit Game Drawer & Schedule Ingestion Modal
+  const [editingGame, setEditingGame] = useState<Game | null>(null);
+  const [editTipOffTime, setEditTipOffTime] = useState("10:15");
+  const [editCourtLocation, setEditCourtLocation] = useState("");
+  const [editOpponent, setEditOpponent] = useState("");
+  const [editStatus, setEditStatus] = useState<GameStatus>("Upcoming");
+  const [editJerseyColor, setEditJerseyColor] = useState<JerseyColor>("Dark / Away");
+
+  const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
+  const [ingestRawText, setIngestRawText] = useState("");
+  const [parsedPreviewGames, setParsedPreviewGames] = useState<Game[] | null>(null);
+
+  // Real-time synchronization for Meal Mode & Games via Supabase Realtime + Broadcast fallback
   useEffect(() => {
     if (!slug) return;
 
-    // 1. Initial data fetch
+    const storageMealKey = `awayday_meal_mode_${slug}`;
+    const storageGamesKey = `awayday_games_${slug}`;
+
+    // Load any cached local broadcast state immediately
+    try {
+      const savedMeal = window.localStorage.getItem(storageMealKey);
+      if (savedMeal === "lunch" || savedMeal === "dinner" || savedMeal === "auto") {
+        setManualMealMode(savedMeal);
+      }
+      const savedGames = window.localStorage.getItem(storageGamesKey);
+      if (savedGames) {
+        const parsed = JSON.parse(savedGames);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setGames(parsed);
+        }
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+
+    // 1. Initial data fetch from Supabase
     async function fetchInitialMealMode() {
       try {
         const { data, error } = await supabase
@@ -265,9 +307,11 @@ function RunSheetContent() {
 
     fetchInitialMealMode();
 
-    // 2. Realtime channel subscription listening to postgres_changes
+    // 2. Realtime channel subscription listening to postgres_changes AND broadcast events
     const channel = supabase
-      .channel(`team_trips_meal_mode_${slug}`)
+      .channel(`team_trips_meal_mode_${slug}`, {
+        config: { broadcast: { self: false } }
+      })
       .on(
         "postgres_changes",
         {
@@ -282,11 +326,52 @@ function RunSheetContent() {
           }
         }
       )
+      .on("broadcast", { event: "meal_mode_sync" }, ({ payload }: any) => {
+        if (payload?.mealType === "lunch" || payload?.mealType === "dinner") {
+          setManualMealMode(payload.mealType);
+        }
+      })
+      .on("broadcast", { event: "games_sync" }, ({ payload }: any) => {
+        if (Array.isArray(payload?.games)) {
+          setGames(payload.games);
+        }
+      })
       .subscribe();
 
-    // 3. Clean up channel subscription on component unmount
+    // 3. Browser BroadcastChannel + storage listener for instant cross-tab sync
+    let bc: BroadcastChannel | null = null;
+    if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+      bc = new BroadcastChannel(`awayday_sync_${slug}`);
+      bc.onmessage = (ev) => {
+        if (ev.data?.type === "meal_mode_sync" && ev.data.mealType) {
+          setManualMealMode(ev.data.mealType);
+        }
+        if (ev.data?.type === "games_sync" && Array.isArray(ev.data.games)) {
+          setGames(ev.data.games);
+        }
+      };
+    }
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === storageMealKey && (e.newValue === "lunch" || e.newValue === "dinner" || e.newValue === "auto")) {
+        setManualMealMode(e.newValue);
+      }
+      if (e.key === storageGamesKey && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setGames(parsed);
+        } catch {
+          // Ignore malformed storage payload
+        }
+      }
+    };
+    window.addEventListener("storage", handleStorage);
+
+    // 4. Clean up subscriptions on component unmount
     return () => {
       supabase.removeChannel(channel);
+      if (bc) bc.close();
+      window.removeEventListener("storage", handleStorage);
     };
   }, [slug]);
 
@@ -340,10 +425,182 @@ function RunSheetContent() {
   };
 
   const shiftGameTime = (gameId: string, deltaMinutes: number) => {
-    setGames(prev => prev.map(g => {
-      if (g.id !== gameId) return g;
-      return { ...g, tipOffMinutes: g.tipOffMinutes + deltaMinutes };
-    }));
+    setGames(prev => {
+      const updated = prev.map(g => {
+        if (g.id !== gameId) return g;
+        return { ...g, tipOffMinutes: g.tipOffMinutes + deltaMinutes };
+      });
+      broadcastGamesSync(updated);
+      return updated;
+    });
+  };
+
+  const minutesToTimeInput = (totalMinutes: number) => {
+    const normalized = (totalMinutes + 1440) % 1440;
+    const hours24 = Math.floor(normalized / 60);
+    const mins = normalized % 60;
+    return `${hours24 < 10 ? "0" : ""}${hours24}:${mins < 10 ? "0" : ""}${mins}`;
+  };
+
+  const timeInputToMinutes = (timeStr: string) => {
+    const [hStr, mStr] = timeStr.split(":");
+    const h = parseInt(hStr || "0", 10);
+    const m = parseInt(mStr || "0", 10);
+    if (isNaN(h) || isNaN(m)) return 600;
+    return h * 60 + m;
+  };
+
+  const broadcastGamesSync = async (updatedGames: Game[]) => {
+    try {
+      window.localStorage.setItem(`awayday_games_${slug}`, JSON.stringify(updatedGames));
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        const bc = new BroadcastChannel(`awayday_sync_${slug}`);
+        bc.postMessage({ type: "games_sync", games: updatedGames });
+        bc.close();
+      }
+      const ch = supabase.channel(`team_trips_meal_mode_${slug}`);
+      await ch.send({
+        type: "broadcast",
+        event: "games_sync",
+        payload: { games: updatedGames }
+      });
+    } catch (err) {
+      console.error("Failed to broadcast games update:", err);
+    }
+  };
+
+  const openEditDrawer = (game: Game) => {
+    setEditingGame(game);
+    setEditTipOffTime(minutesToTimeInput(game.tipOffMinutes));
+    setEditCourtLocation(`${game.court} • ${game.venueName}`);
+    setEditOpponent(game.opponent);
+    setEditStatus(game.status || "Upcoming");
+    setEditJerseyColor(game.jerseyColor || "Dark / Away");
+  };
+
+  const handleSaveGameEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGame) return;
+
+    const parts = editCourtLocation.split("•").map(s => s.trim());
+    const nextCourt = parts[0] || editingGame.court;
+    const nextVenue = parts[1] || editingGame.venueName;
+    const nextTipOff = timeInputToMinutes(editTipOffTime);
+
+    const updatedGames = games.map(g => {
+      if (g.id !== editingGame.id) return g;
+      return {
+        ...g,
+        tipOffMinutes: nextTipOff,
+        court: nextCourt,
+        venueName: nextVenue,
+        opponent: editOpponent.trim() || g.opponent,
+        status: editStatus,
+        jerseyColor: editJerseyColor
+      };
+    });
+
+    setGames(updatedGames);
+    setEditingGame(null);
+    await broadcastGamesSync(updatedGames);
+
+    try {
+      await supabase
+        .from("games")
+        .update({
+          opponent: editOpponent.trim() || editingGame.opponent,
+          court: nextCourt,
+          venue_name: nextVenue,
+          status: editStatus,
+          jersey_color: editJerseyColor
+        })
+        .eq("id", editingGame.id);
+    } catch (err) {
+      console.error("Supabase game update fallback:", err);
+    }
+  };
+
+  const handleParseSchedule = () => {
+    const lines = ingestRawText
+      .split("\n")
+      .map(l => l.trim())
+      .filter(Boolean);
+
+    if (lines.length === 0) {
+      setParsedPreviewGames([
+        {
+          id: `g-${Date.now()}-1`,
+          opponent: "Toronto Bounce U16",
+          tipOffMinutes: 570, // 9:30 AM
+          court: "Court 2",
+          venueName: tournament.primaryHub,
+          venueAddress: "1125 Colonel By Dr",
+          city: tournament.city,
+          warmupBufferMin: 30,
+          hotelTravelMin: 25,
+          status: "Upcoming",
+          jerseyColor: "Dark / Away"
+        },
+        {
+          id: `g-${Date.now()}-2`,
+          opponent: "Hamilton Huskies",
+          tipOffMinutes: 840, // 2:00 PM
+          court: "Court 1",
+          venueName: tournament.primaryHub,
+          venueAddress: "1125 Colonel By Dr",
+          city: tournament.city,
+          warmupBufferMin: 30,
+          hotelTravelMin: 25,
+          status: "Upcoming",
+          jerseyColor: "Light / Home"
+        }
+      ]);
+      return;
+    }
+
+    const parsed: Game[] = lines.map((line, idx) => {
+      const timeMatch = line.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+      let mins = 600 + idx * 240;
+      if (timeMatch) {
+        let h = parseInt(timeMatch[1], 10);
+        const m = parseInt(timeMatch[2], 10);
+        const mer = (timeMatch[3] || "").toUpperCase();
+        if (mer === "PM" && h < 12) h += 12;
+        if (mer === "AM" && h === 12) h = 0;
+        mins = h * 60 + m;
+      }
+
+      const courtMatch = line.match(/Court\s*\d+/i);
+      const court = courtMatch ? courtMatch[0] : `Court ${idx + 1}`;
+
+      const vsMatch = line.match(/(?:vs\.?|versus|-)\s*([^,|•]+)/i);
+      const opponent = vsMatch ? vsMatch[1].trim() : line.replace(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i, "").replace(/Court\s*\d+/i, "").replace(/[-|,•]/g, " ").trim() || `Opponent ${idx + 1}`;
+
+      return {
+        id: `ingested-${Date.now()}-${idx}`,
+        opponent,
+        tipOffMinutes: mins,
+        court,
+        venueName: tournament.primaryHub,
+        venueAddress: "1125 Colonel By Dr",
+        city: tournament.city,
+        warmupBufferMin: 30,
+        hotelTravelMin: 25,
+        status: "Upcoming",
+        jerseyColor: idx % 2 === 0 ? "Dark / Away" : "Light / Home"
+      };
+    });
+
+    setParsedPreviewGames(parsed);
+  };
+
+  const handleApplyIngestedSchedule = async () => {
+    if (!parsedPreviewGames || parsedPreviewGames.length === 0) return;
+    setGames(parsedPreviewGames);
+    await broadcastGamesSync(parsedPreviewGames);
+    setParsedPreviewGames(null);
+    setIngestRawText("");
+    setIsIngestModalOpen(false);
   };
 
   const [activeTab, setActiveTab] = useState<"schedule" | "fuel" | "hotel">("schedule");
@@ -575,11 +832,30 @@ function RunSheetContent() {
   // Vote closing time: for lunch it's midday; for dinner it locks before Game 2 starts
   const voteClosingMinutes = isLunch ? (game1EndMinutes - 30) : (games[1].tipOffMinutes - 30);
 
-  const handleToggleMealMode = async () => {
-    const nextMode = isLunch ? "dinner" : "lunch";
+  const handleSetMealMode = async (nextMode: "lunch" | "dinner") => {
     setManualMealMode(nextMode);
 
+    // 1. Sync to localStorage & BroadcastChannel immediately for instant cross-tab reactivity
     try {
+      window.localStorage.setItem(`awayday_meal_mode_${slug}`, nextMode);
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        const bc = new BroadcastChannel(`awayday_sync_${slug}`);
+        bc.postMessage({ type: "meal_mode_sync", mealType: nextMode });
+        bc.close();
+      }
+    } catch {
+      // Ignore local storage errors
+    }
+
+    // 2. Broadcast over Supabase Realtime channel + persist to team_trips table
+    try {
+      const ch = supabase.channel(`team_trips_meal_mode_${slug}`);
+      await ch.send({
+        type: "broadcast",
+        event: "meal_mode_sync",
+        payload: { mealType: nextMode }
+      });
+
       const { error } = await supabase
         .from("team_trips")
         .update({ active_meal_mode: nextMode })
@@ -591,6 +867,11 @@ function RunSheetContent() {
     } catch (err) {
       console.error("Failed to persist meal mode to Supabase:", err);
     }
+  };
+
+  const handleToggleMealMode = async () => {
+    const nextMode = isLunch ? "dinner" : "lunch";
+    await handleSetMealMode(nextMode);
   };
 
   return (
@@ -633,6 +914,30 @@ function RunSheetContent() {
           <span className="text-slate-600 font-bold">•</span>
           <span className="text-[11px] text-amber-400 font-extrabold shrink-0">Sat, Oct 3</span>
         </div>
+
+        {/* Persistent Manager Utility Banner docked directly below trip header */}
+        {isAdmin && (
+          <div className="bg-[#0b111e] border-t border-amber-500/30 px-4 py-2">
+            <div className="max-w-md mx-auto flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="bg-amber-500 text-slate-950 text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-widest uppercase">
+                  MANAGER MODE
+                </span>
+                <span className="text-[11px] text-slate-300 font-mono hidden sm:inline">Live Controls</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setParsedPreviewGames(null);
+                  setIsIngestModalOpen(true);
+                }}
+                className="bg-[#111827] hover:bg-slate-800 text-amber-400 border border-amber-500/30 text-xs font-mono px-3 py-1 rounded-lg transition-all cursor-pointer active:scale-[0.96]"
+              >
+                + Ingest Schedule
+              </button>
+            </div>
+          </div>
+        )}
       </header>
 
       <main className="max-w-md mx-auto px-4 pt-3.5 space-y-4">
@@ -731,12 +1036,43 @@ function RunSheetContent() {
               <div key={game.id} className="bg-[#111827] border border-slate-800/90 shadow-2xl rounded-2xl overflow-hidden">
                 <div className="p-5 pb-4 flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <span className="text-slate-400 font-mono text-xs uppercase tracking-wider block">Game {index + 1}</span>
+                    <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                      <span className="text-slate-400 font-mono text-xs uppercase tracking-wider">Game {index + 1}</span>
+                      {game.status && (
+                        <span className={`inline-flex items-center border-l-2 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none ${
+                          game.status === "Live"
+                            ? "border-l-emerald-400 bg-emerald-400/10 text-emerald-300"
+                            : game.status === "Delayed"
+                            ? "border-l-amber-400 bg-amber-400/10 text-amber-300"
+                            : "border-l-slate-400 bg-slate-800 text-slate-300"
+                        }`}>
+                          {game.status}
+                        </span>
+                      )}
+                      {game.jerseyColor && (
+                        <span className="inline-flex items-center border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                          Jersey: {game.jerseyColor}
+                        </span>
+                      )}
+                    </div>
                     <h3 className="text-xl font-black text-white tracking-tight truncate">vs. {game.opponent}</h3>
                   </div>
-                  <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none shrink-0">
-                    {game.court}
-                  </span>
+                  <div className="flex items-center gap-1.5 shrink-0">
+                    <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                      {game.court}
+                    </span>
+                    {isAdmin && (
+                      <button
+                        type="button"
+                        onClick={() => openEditDrawer(game)}
+                        title="Quick-Edit Game"
+                        aria-label={`Edit Game ${index + 1}`}
+                        className="p-1.5 rounded-lg bg-slate-800/90 hover:bg-slate-700 text-amber-400 border border-amber-500/30 transition-colors cursor-pointer active:scale-95"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {/* Perforated ticket divider */}
@@ -792,7 +1128,7 @@ function RunSheetContent() {
                       className="w-full flex items-center justify-between gap-2 active:scale-[0.98] transition-transform duration-100 ease-out cursor-pointer"
                     >
                       <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                        <AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Ground-Truth Tips
+                        <AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Hub Tips ({gameAlerts.length})
                         <span className="inline-flex items-center border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
                           {gameAlerts.length}
                         </span>
@@ -1319,7 +1655,7 @@ function RunSheetContent() {
             </div>
           </div>
 
-          {/* Hotel Intel / Tips Collapsible Accordion */}
+          {/* Hub Tips Collapsible Accordion */}
           <div className="border-t border-slate-800 pt-3">
             <button
               type="button"
@@ -1328,7 +1664,7 @@ function RunSheetContent() {
               className="w-full flex items-center justify-between gap-2 active:scale-[0.98] transition-transform duration-100 ease-out cursor-pointer"
             >
               <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Hotel Intel / Tips
+                <AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Hub Tips ({hotelAlerts.length})
                 <span className="inline-flex items-center border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
                   {hotelAlerts.length}
                 </span>
@@ -1499,14 +1835,14 @@ function RunSheetContent() {
         </div>
       )}
 
-      {/* Parent Ground-Truth Modal */}
+      {/* Parent Hub Tip Modal */}
       {activeModalGameId && (
         <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-end sm:items-center justify-center p-0 sm:p-4">
           <div className="bg-[#111827] rounded-t-2xl sm:rounded-2xl w-full max-w-md p-5 space-y-4 shadow-2xl border border-slate-800/90">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <h3 className="text-base font-black text-white">
-                  {activeModalGameId === "hotel" ? "Add Hotel Intel / Tip" : "Add Venue Ground-Truth Tip"}
+                  Add Hub Tip
                 </h3>
                 <p className="text-xs text-slate-300 font-medium">
                   For {activeModalGameId === "hotel" ? tournament.hotel.name : (games.find(g => g.id === activeModalGameId)?.venueName || "this gym")}
@@ -1598,6 +1934,224 @@ function RunSheetContent() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quick-Edit Game Drawer (Bottom Slide-Up Sheet) */}
+      {editingGame && (
+        <div
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50"
+          onClick={() => setEditingGame(null)}
+        >
+          <div
+            className="fixed bottom-0 inset-x-0 bg-[#111827] border-t border-slate-800 shadow-2xl rounded-t-3xl p-6 max-w-lg mx-auto z-50 animate-in slide-in-from-bottom duration-200 text-white max-h-[85dvh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="w-10 h-1 bg-slate-700 rounded-full mx-auto mb-4" />
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3 mb-4">
+              <div>
+                <span className="bg-amber-500 text-slate-950 text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-widest uppercase">
+                  MANAGER QUICK-EDIT
+                </span>
+                <h3 className="text-base font-black text-white mt-1.5">
+                  Edit Game {games.findIndex((g) => g.id === editingGame.id) + 1}
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingGame(null)}
+                className="p-1.5 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveGameEdit} className="space-y-4">
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-slate-400 font-mono text-xs uppercase tracking-wider mb-1.5">
+                    Tip-Off Time
+                  </label>
+                  <input
+                    type="time"
+                    value={editTipOffTime}
+                    onChange={(e) => setEditTipOffTime(e.target.value)}
+                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-2 font-mono text-sm focus:border-amber-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 font-mono text-xs uppercase tracking-wider mb-1.5">
+                    Game Status
+                  </label>
+                  <select
+                    value={editStatus}
+                    onChange={(e) => setEditStatus(e.target.value as GameStatus)}
+                    className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-2 font-mono text-sm focus:border-amber-500 focus:outline-none"
+                  >
+                    <option value="Upcoming">Upcoming</option>
+                    <option value="Warmups">Warmups</option>
+                    <option value="Live">Live</option>
+                    <option value="Final">Final</option>
+                    <option value="Delayed">Delayed</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-mono text-xs uppercase tracking-wider mb-1.5">
+                  Court / Gym Location
+                </label>
+                <input
+                  type="text"
+                  value={editCourtLocation}
+                  onChange={(e) => setEditCourtLocation(e.target.value)}
+                  placeholder="e.g. Rim Park — Court 3"
+                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-2 text-sm focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-mono text-xs uppercase tracking-wider mb-1.5">
+                  Opponent Name
+                </label>
+                <input
+                  type="text"
+                  value={editOpponent}
+                  onChange={(e) => setEditOpponent(e.target.value)}
+                  placeholder="e.g. London Ramblers"
+                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-2 text-sm focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-mono text-xs uppercase tracking-wider mb-1.5">
+                  Jersey Color
+                </label>
+                <div className="grid grid-cols-2 gap-2">
+                  {(["Dark / Away", "Light / Home"] as JerseyColor[]).map((jersey) => (
+                    <button
+                      key={jersey}
+                      type="button"
+                      onClick={() => setEditJerseyColor(jersey)}
+                      className={`py-2.5 px-3 rounded-lg border font-mono text-xs font-bold transition-all cursor-pointer ${
+                        editJerseyColor === jersey
+                          ? "bg-amber-500 text-slate-950 border-amber-400 shadow-sm"
+                          : "bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800"
+                      }`}
+                    >
+                      {jersey}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="pt-2 flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => setEditingGame(null)}
+                  className="w-1/2 py-2.5 rounded-xl border border-slate-700 text-slate-300 text-xs font-bold uppercase tracking-wider hover:bg-slate-800 transition-all cursor-pointer"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="w-1/2 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 text-xs font-bold uppercase tracking-wider transition-all cursor-pointer"
+                >
+                  Save Changes
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Schedule Ingestion Launcher Modal */}
+      {isIngestModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/70 backdrop-blur-xs z-50 flex items-center justify-center p-4"
+          onClick={() => setIsIngestModalOpen(false)}
+        >
+          <div
+            className="bg-[#111827] border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl text-white space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <div>
+                <span className="bg-amber-500 text-slate-950 text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-widest uppercase">
+                  MANAGER SUITE
+                </span>
+                <h3 className="text-base font-black text-white mt-1.5">
+                  Ingest Tournament Schedule
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setIsIngestModalOpen(false)}
+                className="p-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <div>
+              <label className="block text-slate-400 font-mono text-xs uppercase tracking-wider mb-1.5">
+                Paste Raw Schedule / Bracket Text or URL
+              </label>
+              <textarea
+                value={ingestRawText}
+                onChange={(e) => setIngestRawText(e.target.value)}
+                placeholder={"10:30 AM | vs London Ramblers | Rim Park — Court 3\n4:00 PM | vs Burlington Force | Rim Park — Court 1"}
+                className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-xl p-3 text-sm font-mono focus:border-amber-500 focus:outline-none min-h-[140px]"
+              />
+            </div>
+
+            {parsedPreviewGames && parsedPreviewGames.length > 0 && (
+              <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2 max-h-44 overflow-y-auto">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-400">
+                    Parsed Preview ({parsedPreviewGames.length} Games)
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleApplyIngestedSchedule}
+                    className="text-[11px] font-mono font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                  >
+                    Apply to Run-Sheet
+                  </button>
+                </div>
+                {parsedPreviewGames.map((g) => (
+                  <div key={g.id} className="text-xs border-t border-slate-800 pt-1.5 flex items-center justify-between gap-2">
+                    <div>
+                      <span className="font-mono text-amber-300 font-bold">{formatTime(g.tipOffMinutes)}</span>
+                      <span className="text-white font-bold ml-2">vs {g.opponent}</span>
+                      <span className="block text-[11px] text-slate-400 font-mono">{g.venueName} — {g.court}</span>
+                    </div>
+                    <span className="text-[10px] font-mono text-slate-400 uppercase">{g.status || "Upcoming"}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex items-center justify-end gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => {
+                  setIsIngestModalOpen(false);
+                  setParsedPreviewGames(null);
+                }}
+                className="py-2.5 px-4 rounded-xl border border-slate-700 text-slate-300 text-xs font-bold uppercase tracking-wider hover:bg-slate-800 transition-all cursor-pointer"
+              >
+                Close
+              </button>
+              <button
+                type="button"
+                onClick={handleParseSchedule}
+                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+              >
+                Parse & Preview
+              </button>
+            </div>
           </div>
         </div>
       )}
