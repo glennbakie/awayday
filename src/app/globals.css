@@ -147,17 +147,16 @@ input, textarea {
 }
 
 body {
-  background-color: #f8fafc;
+  background-color: #f6f4ee;
   color: #0f172a;
 }
 
-/* Athletic day-stadium canvas */
+/* Warm cream stadium canvas */
 .stadium-canvas {
-  background-color: #f8fafc;
+  background-color: #f6f4ee;
   background-image: 
-    radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.12) 0%, rgba(248, 250, 252, 0) 50%),
-    radial-gradient(circle at 90% 20%, rgba(234, 88, 12, 0.08) 0%, rgba(248, 250, 252, 0) 40%),
-    radial-gradient(circle at 10% 40%, rgba(59, 130, 246, 0.06) 0%, rgba(248, 250, 252, 0) 35%);
+    radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.08) 0%, rgba(246, 244, 238, 0) 50%),
+    radial-gradient(circle at 85% 20%, rgba(217, 119, 6, 0.05) 0%, rgba(246, 244, 238, 0) 40%);
   background-attachment: fixed;
   min-height: 100dvh;
 }
