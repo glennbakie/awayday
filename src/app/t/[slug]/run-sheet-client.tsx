@@ -179,7 +179,7 @@ function RunSheetContent() {
       venueName: "St. Thomas Aquinas",
       venueAddress: "124 Dorval Dr",
       city: "Oakville, ON L6K 2W1",
-      warmupBufferMin: 60, // 2:45 PM arrival buffer
+      warmupBufferMin: 30, // 3:15 PM arrival buffer (30m before tip)
       hotelTravelMin: 15,
       status: "Upcoming",
       jerseyColor: "White (Home)",
@@ -200,7 +200,7 @@ function RunSheetContent() {
       venueName: "St. Thomas Aquinas",
       venueAddress: "124 Dorval Dr",
       city: "Oakville, ON L6K 2W1",
-      warmupBufferMin: 45,
+      warmupBufferMin: 30, // 5:45 PM arrival buffer (30m before tip)
       hotelTravelMin: 15,
       status: "Upcoming",
       jerseyColor: "Dark / Black (Away)",
@@ -216,7 +216,7 @@ function RunSheetContent() {
       venueName: "Notre Dame",
       venueAddress: "2333 Headon Forest Dr",
       city: "Burlington, ON L7M 3X6",
-      warmupBufferMin: 60, // 9:45 AM warmup call
+      warmupBufferMin: 30, // 10:15 AM arrival buffer (30m before tip)
       hotelTravelMin: 15,
       status: "Upcoming",
       jerseyColor: "Dark / Black (Away)",
@@ -237,7 +237,7 @@ function RunSheetContent() {
       venueName: "Notre Dame",
       venueAddress: "2333 Headon Forest Dr",
       city: "Burlington, ON L7M 3X6",
-      warmupBufferMin: 45,
+      warmupBufferMin: 30, // 2:00 PM arrival buffer (30m before tip)
       hotelTravelMin: 15,
       status: "Upcoming",
       jerseyColor: "White (Home)",
@@ -250,8 +250,8 @@ function RunSheetContent() {
       id: "a1",
       gameId: "g1",
       type: "note",
-      title: "Pre-Game Arrival Call: 2:45 PM",
-      content: "Arrive 60 mins before tip-off at St. Thomas Aquinas (Court 2) in White (Home) jerseys.",
+      title: "Pre-Game Arrival Call: 3:15 PM",
+      content: "Arrive 30 mins before tip-off at St. Thomas Aquinas (Court 2) in White (Home) jerseys.",
       author: "Team Manager",
       upvotes: 6
     },
@@ -269,7 +269,7 @@ function RunSheetContent() {
       gameId: "g3",
       type: "parking",
       title: "Notre Dame CSS Border Crossing (~15m)",
-      content: "Right across the Oakville/Burlington border at 2333 Headon Forest Dr. Warmup call is 9:45 AM on Court 1.",
+      content: "Right across the Oakville/Burlington border at 2333 Headon Forest Dr. Arrival call is 10:15 AM (30m before tip) on Court 1.",
       author: "Team Manager",
       upvotes: 5
     },
@@ -315,12 +315,22 @@ function RunSheetContent() {
   const [suggestAuthor, setSuggestAuthor] = useState("");
 
   const [isVoteLocked, setIsVoteLocked] = useState(false);
-  const [userVotedId, setUserVotedId] = useState<string | null>("p3");
+  const [userVotedOptionId, setUserVotedOptionId] = useState<string | null>(null);
   const [userParty, setUserParty] = useState({ players: 1, parents: 1 });
   const [userFinalAttendance, setUserFinalAttendance] = useState<"attending" | "declined" | null>(null);
 
   // Manual test override for Lunch vs. Dinner
   const [manualMealMode, setManualMealMode] = useState<"lunch" | "dinner" | "auto">("auto");
+
+  // Live clock state for Hero Card auto-advance evaluation
+  const [nowMs, setNowMs] = useState<number>(() => Date.now());
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, 30000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Manager Suite State: Quick-Edit Game Drawer & Schedule Ingestion Modal
   const [editingGame, setEditingGame] = useState<Game | null>(null);
@@ -329,17 +339,20 @@ function RunSheetContent() {
   const [editOpponent, setEditOpponent] = useState("");
   const [editStatus, setEditStatus] = useState<GameStatus>("Upcoming");
   const [editJerseyColor, setEditJerseyColor] = useState<JerseyColor>("White (Home)");
+  const [editWarmupBuffer, setEditWarmupBuffer] = useState<number>(30);
 
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
   const [ingestRawText, setIngestRawText] = useState("");
   const [parsedPreviewGames, setParsedPreviewGames] = useState<Game[] | null>(null);
 
-  // Real-time synchronization for Meal Mode & Games via Supabase Realtime + Broadcast fallback
+  // Real-time synchronization for Meal Mode, Games & Dinner Poll via Supabase Realtime + Broadcast fallback
   useEffect(() => {
     if (!slug) return;
 
     const storageMealKey = `awayday_meal_mode_${slug}`;
-    const storageGamesKey = `awayday_games_nph1_${slug}`;
+    const storageGamesKey = `awayday_games_sprint1_${slug}`;
+    const storagePollOptionsKey = `awayday_poll_options_v2_${slug}`;
+    const storageVotedOptionKey = `awayday_voted_opt_${slug}`;
 
     // Load any cached local broadcast state immediately
     try {
@@ -353,6 +366,17 @@ function RunSheetContent() {
         if (Array.isArray(parsed) && parsed.length > 0) {
           setGames(parsed);
         }
+      }
+      const savedPoll = window.localStorage.getItem(storagePollOptionsKey);
+      if (savedPoll) {
+        const parsedPoll = JSON.parse(savedPoll);
+        if (Array.isArray(parsedPoll) && parsedPoll.length > 0) {
+          setOptions(parsedPoll);
+        }
+      }
+      const savedVotedId = window.localStorage.getItem(storageVotedOptionKey);
+      if (savedVotedId) {
+        setUserVotedOptionId(savedVotedId);
       }
     } catch {
       // Ignore storage access errors
@@ -406,6 +430,11 @@ function RunSheetContent() {
           setGames(payload.games);
         }
       })
+      .on("broadcast", { event: "poll_options_sync" }, ({ payload }: any) => {
+        if (Array.isArray(payload?.options)) {
+          setOptions(payload.options);
+        }
+      })
       .subscribe();
 
     // 3. Browser BroadcastChannel + storage listener for instant cross-tab sync
@@ -418,6 +447,9 @@ function RunSheetContent() {
         }
         if (ev.data?.type === "games_sync" && Array.isArray(ev.data.games)) {
           setGames(ev.data.games);
+        }
+        if (ev.data?.type === "poll_options_sync" && Array.isArray(ev.data.options)) {
+          setOptions(ev.data.options);
         }
       };
     }
@@ -433,6 +465,17 @@ function RunSheetContent() {
         } catch {
           // Ignore malformed storage payload
         }
+      }
+      if (e.key === storagePollOptionsKey && e.newValue) {
+        try {
+          const parsed = JSON.parse(e.newValue);
+          if (Array.isArray(parsed)) setOptions(parsed);
+        } catch {
+          // Ignore malformed storage payload
+        }
+      }
+      if (e.key === storageVotedOptionKey) {
+        setUserVotedOptionId(e.newValue);
       }
     };
     window.addEventListener("storage", handleStorage);
@@ -520,9 +563,14 @@ function RunSheetContent() {
     return h * 60 + m;
   };
 
+  const getArrivalCallMinutes = (tipOffTime: number, bufferMinutes = 30) => {
+    const arrivalCallTime = tipOffTime - (bufferMinutes || 30);
+    return arrivalCallTime;
+  };
+
   const broadcastGamesSync = async (updatedGames: Game[]) => {
     try {
-      window.localStorage.setItem(`awayday_games_nph1_${slug}`, JSON.stringify(updatedGames));
+      window.localStorage.setItem(`awayday_games_sprint1_${slug}`, JSON.stringify(updatedGames));
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
         const bc = new BroadcastChannel(`awayday_sync_${slug}`);
         bc.postMessage({ type: "games_sync", games: updatedGames });
@@ -539,6 +587,77 @@ function RunSheetContent() {
     }
   };
 
+  const broadcastPollOptionsSync = async (updatedOptions: MealOption[], nextVotedId?: string | null) => {
+    try {
+      window.localStorage.setItem(`awayday_poll_options_v2_${slug}`, JSON.stringify(updatedOptions));
+      if (nextVotedId !== undefined) {
+        if (nextVotedId) {
+          window.localStorage.setItem(`awayday_voted_opt_${slug}`, nextVotedId);
+        } else {
+          window.localStorage.removeItem(`awayday_voted_opt_${slug}`);
+        }
+      }
+      if (typeof window !== "undefined" && "BroadcastChannel" in window) {
+        const bc = new BroadcastChannel(`awayday_sync_${slug}`);
+        bc.postMessage({ type: "poll_options_sync", options: updatedOptions });
+        bc.close();
+      }
+      const ch = supabase.channel(`team_trips_meal_mode_${slug}`);
+      await ch.send({
+        type: "broadcast",
+        event: "poll_options_sync",
+        payload: { options: updatedOptions }
+      });
+    } catch (err) {
+      console.error("Failed to broadcast poll options update:", err);
+    }
+  };
+
+  const isGameElapsedByClock = (game: Game, currentMs: number) => {
+    if (game.status === "Final") return true;
+
+    const nowDate = new Date(currentMs);
+    const currentMonth = nowDate.getMonth(); // 9 = Oct
+    const currentDay = nowDate.getDate();
+    const currentMinutesOfDay = nowDate.getHours() * 60 + nowDate.getMinutes();
+
+    const dayMatch = (game.dayLabel || "").match(/Oct\s+(\d+)/i);
+    if (!dayMatch) return false;
+
+    const gameDay = parseInt(dayMatch[1], 10);
+    // Only auto-expire by clock when the live date is one of the active tournament days (Oct 24 or Oct 25)
+    if (currentMonth === 9 && (currentDay === 24 || currentDay === 25)) {
+      if (currentDay > gameDay) return true;
+      if (currentDay === gameDay && currentMinutesOfDay >= game.tipOffMinutes + 75) {
+        return true;
+      }
+    }
+    return false;
+  };
+
+  const handleMarkFinalAndAdvance = async (gameId: string) => {
+    const updatedGames = games.map((g) =>
+      g.id === gameId ? { ...g, status: "Final" as GameStatus } : g
+    );
+    setGames(updatedGames);
+    await broadcastGamesSync(updatedGames);
+
+    try {
+      await supabase
+        .from("games")
+        .update({ status: "Final" })
+        .eq("id", gameId);
+    } catch (err) {
+      console.error("Supabase mark final fallback:", err);
+    }
+  };
+
+  const handleResetGamesStatus = async () => {
+    const updatedGames = games.map((g) => ({ ...g, status: "Upcoming" as GameStatus }));
+    setGames(updatedGames);
+    await broadcastGamesSync(updatedGames);
+  };
+
   const openEditDrawer = (game: Game) => {
     setEditingGame(game);
     setEditTipOffTime(minutesToTimeInput(game.tipOffMinutes));
@@ -546,6 +665,7 @@ function RunSheetContent() {
     setEditOpponent(game.opponent);
     setEditStatus(game.status || "Upcoming");
     setEditJerseyColor(game.jerseyColor || "White (Home)");
+    setEditWarmupBuffer(game.warmupBufferMin || 30);
   };
 
   const handleSaveGameEdit = async (e: React.FormEvent) => {
@@ -564,6 +684,7 @@ function RunSheetContent() {
       return {
         ...g,
         tipOffMinutes: nextTipOff,
+        warmupBufferMin: editWarmupBuffer,
         court: nextCourt,
         venueName: nextVenue,
         opponent: nextOpponent,
@@ -686,13 +807,16 @@ function RunSheetContent() {
     document.body.scrollTop = 0;
   }, [activeTab]);
 
-  const handleSelectOption = (optionId: string) => {
+  const handleVote = (targetId: string) => {
     if (isVoteLocked) return;
-    const total = userParty.players + userParty.parents;
+    // Prevent spamming votes on the already-selected option
+    if (userVotedOptionId === targetId) return;
 
-    if (userVotedId === optionId) {
-      setOptions(prev => prev.map(opt => {
-        if (opt.id !== optionId) return opt;
+    const total = userParty.players + userParty.parents;
+    const previousVotedId = userVotedOptionId;
+
+    const updatedOptions = options.map(opt => {
+      if (previousVotedId && opt.id === previousVotedId) {
         return {
           ...opt,
           votes: Math.max(0, opt.votes - 1),
@@ -700,33 +824,25 @@ function RunSheetContent() {
           playerCount: Math.max(0, opt.playerCount - userParty.players),
           parentCount: Math.max(0, opt.parentCount - userParty.parents)
         };
-      }));
-      setUserVotedId(null);
-    } else {
-      setOptions(prev => prev.map(opt => {
-        if (opt.id === userVotedId) {
-          return {
-            ...opt,
-            votes: Math.max(0, opt.votes - 1),
-            totalSeats: Math.max(0, opt.totalSeats - total),
-            playerCount: Math.max(0, opt.playerCount - userParty.players),
-            parentCount: Math.max(0, opt.parentCount - userParty.parents)
-          };
-        }
-        if (opt.id === optionId) {
-          return {
-            ...opt,
-            votes: opt.votes + 1,
-            totalSeats: opt.totalSeats + total,
-            playerCount: opt.playerCount + userParty.players,
-            parentCount: opt.parentCount + userParty.parents
-          };
-        }
-        return opt;
-      }));
-      setUserVotedId(optionId);
-    }
+      }
+      if (opt.id === targetId) {
+        return {
+          ...opt,
+          votes: opt.votes + 1,
+          totalSeats: opt.totalSeats + total,
+          playerCount: opt.playerCount + userParty.players,
+          parentCount: opt.parentCount + userParty.parents
+        };
+      }
+      return opt;
+    });
+
+    setOptions(updatedOptions);
+    setUserVotedOptionId(targetId);
+    broadcastPollOptionsSync(updatedOptions, targetId);
   };
+
+  const handleSelectOption = handleVote;
 
   const handleAddCustomRestaurant = (e: React.FormEvent) => {
     e.preventDefault();
@@ -743,29 +859,29 @@ function RunSheetContent() {
       playerCount: userParty.players,
       parentCount: userParty.parents,
       votes: 1,
-      phone: suggestPhone.trim() || "(613) 555-0100",
-      address: "Ottawa, ON",
+      phone: suggestPhone.trim() || "(905) 555-0100",
+      address: "Oakville, ON",
       isCustom: true,
       suggestedBy: suggestAuthor.trim() || "Parent"
     };
 
-    setOptions(prev => {
-      const cleaned = prev.map(opt => {
-        if (opt.id === userVotedId) {
-          return {
-            ...opt,
-            votes: Math.max(0, opt.votes - 1),
-            totalSeats: Math.max(0, opt.totalSeats - userTotal),
-            playerCount: Math.max(0, opt.playerCount - userParty.players),
-            parentCount: Math.max(0, opt.parentCount - userParty.parents)
-          };
-        }
-        return opt;
-      });
-      return [...cleaned, newOption];
+    const cleaned = options.map(opt => {
+      if (opt.id === userVotedOptionId) {
+        return {
+          ...opt,
+          votes: Math.max(0, opt.votes - 1),
+          totalSeats: Math.max(0, opt.totalSeats - userTotal),
+          playerCount: Math.max(0, opt.playerCount - userParty.players),
+          parentCount: Math.max(0, opt.parentCount - userParty.parents)
+        };
+      }
+      return opt;
     });
+    const updatedOptions = [...cleaned, newOption];
 
-    setUserVotedId(newId);
+    setOptions(updatedOptions);
+    setUserVotedOptionId(newId);
+    broadcastPollOptionsSync(updatedOptions, newId);
     setIsRestaurantModalOpen(false);
     setSuggestName("");
     setSuggestPhone("");
@@ -780,37 +896,38 @@ function RunSheetContent() {
     if (!existing) {
       const pizzaOption: MealOption = {
         id: pizzaId,
-        name: "🍕 Gabriel Pizza (Delivered to Lobby)",
+        name: "🍕 Pizzaville Oakville (Delivered to Lobby)",
         type: "Hotel Lobby Delivery",
         totalSeats: userTotal,
         playerCount: userParty.players,
         parentCount: userParty.parents,
         votes: 1,
-        phone: "(613) 592-7777",
+        phone: "(905) 844-7777",
         address: tournament.hotel.address,
         isCustom: true,
         isDelivery: true,
         suggestedBy: "Quick Pivot"
       };
 
-      setOptions(prev => {
-        const cleaned = prev.map(opt => {
-          if (opt.id === userVotedId) {
-            return {
-              ...opt,
-              votes: Math.max(0, opt.votes - 1),
-              totalSeats: Math.max(0, opt.totalSeats - userTotal),
-              playerCount: Math.max(0, opt.playerCount - userParty.players),
-              parentCount: Math.max(0, opt.parentCount - userParty.parents)
-            };
-          }
-          return opt;
-        });
-        return [...cleaned, pizzaOption];
+      const cleaned = options.map(opt => {
+        if (opt.id === userVotedOptionId) {
+          return {
+            ...opt,
+            votes: Math.max(0, opt.votes - 1),
+            totalSeats: Math.max(0, opt.totalSeats - userTotal),
+            playerCount: Math.max(0, opt.playerCount - userParty.players),
+            parentCount: Math.max(0, opt.parentCount - userParty.parents)
+          };
+        }
+        return opt;
       });
-      setUserVotedId(pizzaId);
+      const updatedOptions = [...cleaned, pizzaOption];
+
+      setOptions(updatedOptions);
+      setUserVotedOptionId(pizzaId);
+      broadcastPollOptionsSync(updatedOptions, pizzaId);
     } else {
-      handleSelectOption(pizzaId);
+      handleVote(pizzaId);
     }
   };
 
@@ -823,16 +940,18 @@ function RunSheetContent() {
 
     setUserParty({ players: nextPlayers, parents: nextParents });
 
-    if (userVotedId && !isVoteLocked) {
-      setOptions(prev => prev.map(opt => {
-        if (opt.id !== userVotedId) return opt;
+    if (userVotedOptionId && !isVoteLocked) {
+      const updatedOptions = options.map(opt => {
+        if (opt.id !== userVotedOptionId) return opt;
         return {
           ...opt,
           totalSeats: Math.max(0, opt.totalSeats + diffTotal),
           playerCount: Math.max(0, opt.playerCount + diffPlayers),
           parentCount: Math.max(0, opt.parentCount + diffParents)
         };
-      }));
+      });
+      setOptions(updatedOptions);
+      broadcastPollOptionsSync(updatedOptions);
     }
   };
 
@@ -861,10 +980,13 @@ function RunSheetContent() {
     setTipAuthor("");
   };
 
-  const highestSeats = Math.max(...options.map(o => o.totalSeats));
-  const winningOption = options.find(o => o.totalSeats === highestSeats && highestSeats > 0);
+  const totalPollVotes = options.reduce((sum, o) => sum + o.votes, 0);
+  const highestVotes = Math.max(...options.map(o => o.votes), 0);
+  const winningOption = highestVotes > 0
+    ? [...options].sort((a, b) => (b.votes - a.votes) || (b.totalSeats - a.totalSeats))[0]
+    : undefined;
 
-  const isVoterOfWinner = winningOption && userVotedId === winningOption.id;
+  const isVoterOfWinner = winningOption && userVotedOptionId === winningOption.id;
   const isJoiningWinner = userFinalAttendance === "attending";
   const userPartyTotal = userParty.players + userParty.parents;
 
@@ -1053,11 +1175,44 @@ function RunSheetContent() {
           </div>
         </section>
 
-        {/* Hero: Next Tip-Off */}
+        {/* Hero: Next Tip-Off (Auto-Advance & Live Clock Evaluation) */}
         {(() => {
-          const nextGame = games[0];
-          if (!nextGame) return null;
-          const nextDepart = nextGame.tipOffMinutes - nextGame.warmupBufferMin - nextGame.hotelTravelMin;
+          const nextGame = games.find((g) => !isGameElapsedByClock(g, nowMs));
+          if (!nextGame) {
+            return (
+              <section className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-[#182235] to-[#111827] border border-emerald-500/40 text-white shadow-2xl">
+                <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-emerald-500/15 blur-3xl" />
+                <div className="relative flex items-center justify-between gap-3">
+                  <span className="inline-flex items-center gap-1.5 border-l-2 border-l-emerald-400 bg-emerald-400/10 text-emerald-300 font-mono text-xs uppercase tracking-wider px-2.5 py-1 rounded-r cursor-default select-none pointer-events-none">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Session Wrap
+                  </span>
+                  <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                    {games.length} / {games.length} Final
+                  </span>
+                </div>
+                <h2 className="relative mt-3 text-2xl font-black tracking-tight text-white">
+                  Tournament Schedule Complete
+                </h2>
+                <p className="relative mt-1 text-xs text-slate-300 font-medium">
+                  All {games.length} scheduled matchups for {tournament.name} have concluded. Safe travels home!
+                </p>
+                {isAdmin && (
+                  <div className="relative mt-4 pt-3 border-t border-slate-800/80 flex items-center justify-end">
+                    <button
+                      type="button"
+                      onClick={handleResetGamesStatus}
+                      className="text-[11px] font-mono font-bold text-amber-300 bg-slate-900 hover:bg-slate-800 border border-amber-500/30 px-3 py-1.5 rounded-lg transition-all cursor-pointer active:scale-[0.96]"
+                    >
+                      Reset Schedule Status
+                    </button>
+                  </div>
+                )}
+              </section>
+            );
+          }
+          const bufferMins = nextGame.warmupBufferMin || 30;
+          const nextArrival = getArrivalCallMinutes(nextGame.tipOffMinutes, bufferMins);
+          const nextDepart = nextArrival - nextGame.hotelTravelMin;
           return (
             <section className="relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-[#182235] to-[#111827] border border-amber-500/40 text-white shadow-2xl">
               <div className="pointer-events-none absolute -right-10 -top-10 h-40 w-40 rounded-full bg-amber-500/15 blur-3xl" />
@@ -1082,18 +1237,34 @@ function RunSheetContent() {
               <h2 className="relative mt-2 text-xl font-black tracking-tight truncate text-white">
                 {nextGame.matchup || `vs. ${nextGame.opponent}`}
               </h2>
+              <div className="relative mt-2 flex flex-wrap items-center gap-1.5">
+                <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-[11px] px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                  Arrive by {formatTime(nextArrival)} ({bufferMins}m before tip)
+                </span>
+              </div>
               <div className="relative mt-4 flex items-center justify-between gap-2">
                 <div className="text-[11px] font-bold uppercase tracking-wider text-slate-300">
                   Leave hotel <span className="font-mono text-sm font-black tabular-nums text-white">{formatTime(nextDepart)}</span>
                 </div>
-                <a
-                  href={getMapsUrl(`${nextGame.venueName} ${nextGame.venueAddress} ${nextGame.city}`)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-lg shadow-black/40"
-                >
-                  <Navigation className="w-3.5 h-3.5 text-slate-950" /> Navigate
-                </a>
+                <div className="flex items-center gap-2">
+                  {isAdmin && (
+                    <button
+                      type="button"
+                      onClick={() => handleMarkFinalAndAdvance(nextGame.id)}
+                      className="shrink-0 bg-slate-900/90 hover:bg-slate-800 text-amber-300 border border-amber-500/40 px-2.5 py-2 rounded-xl text-[10px] font-mono font-bold uppercase tracking-wider flex items-center gap-1 active:scale-[0.96] transition-all cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3.5 h-3.5 text-amber-400" /> Mark Final & Advance
+                    </button>
+                  )}
+                  <a
+                    href={getMapsUrl(`${nextGame.venueName} ${nextGame.venueAddress} ${nextGame.city}`)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="shrink-0 bg-amber-500 hover:bg-amber-400 text-slate-950 px-3.5 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-lg shadow-black/40"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-slate-950" /> Navigate
+                  </a>
+                </div>
               </div>
             </section>
           );
@@ -1112,8 +1283,9 @@ function RunSheetContent() {
           </div>
 
           {games.map((game, index) => {
-            const departMinutes = game.tipOffMinutes - game.warmupBufferMin - game.hotelTravelMin;
-            const arrivalMinutes = game.tipOffMinutes - game.warmupBufferMin;
+            const bufferMins = game.warmupBufferMin || 30;
+            const arrivalMinutes = getArrivalCallMinutes(game.tipOffMinutes, bufferMins);
+            const departMinutes = arrivalMinutes - game.hotelTravelMin;
             const gameAlerts = alerts.filter(a => a.gameId === game.id);
             const showDayHeader = index === 0 || game.dayLabel !== games[index - 1]?.dayLabel;
 
@@ -1162,6 +1334,11 @@ function RunSheetContent() {
                     <h3 className="text-lg sm:text-xl font-black text-white tracking-tight leading-snug">
                       {game.matchup || `vs. ${game.opponent}`}
                     </h3>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-[11px] px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                        Arrive by {formatTime(arrivalMinutes)} ({bufferMins}m before tip)
+                      </span>
+                    </div>
                   </div>
                   <div className="flex items-center gap-1.5 shrink-0">
                     <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
@@ -1197,7 +1374,7 @@ function RunSheetContent() {
                     <div className="bg-slate-900/60 border border-slate-800 rounded-xl px-2 py-3 text-center">
                       <span className="block tabular-nums font-mono text-xl font-black text-white">{formatTime(arrivalMinutes)}</span>
                       <span className="block mt-1 text-slate-400 font-mono text-[10px] uppercase tracking-wider">Gym Arrival</span>
-                      <span className="block text-[10px] text-slate-400 font-medium">warmup</span>
+                      <span className="block text-[10px] text-slate-400 font-medium">{bufferMins}m before tip</span>
                     </div>
                     <div className="bg-amber-500/15 border border-amber-500/30 rounded-xl px-2 py-3 text-center">
                       <span className="block tabular-nums font-mono text-xl font-black text-amber-300">{formatTime(game.tipOffMinutes)}</span>
@@ -1508,7 +1685,7 @@ function RunSheetContent() {
                       {winningOption.name} won the vote!
                     </span>
                     <p className="text-[11px] text-slate-300 font-medium mt-0.5 leading-snug">
-                      You previously picked {options.find(o => o.id === userVotedId)?.name || "another spot"}. Are you joining the team table?
+                      You previously picked {options.find(o => o.id === userVotedOptionId)?.name || "another spot"}. Are you joining the team table?
                     </p>
                   </div>
 
@@ -1636,31 +1813,40 @@ function RunSheetContent() {
               <div className="space-y-2.5 pt-0.5">
                 {options.map(option => {
                   const isWinner = winningOption?.id === option.id;
-                  const isUserPick = userVotedId === option.id;
+                  const isUserPick = userVotedOptionId === option.id;
+                  const votePercent = totalPollVotes > 0 ? Math.round((option.votes / totalPollVotes) * 100) : 0;
 
                   return (
                     <button
                       key={option.id}
+                      type="button"
                       disabled={isVoteLocked}
-                      onClick={() => handleSelectOption(option.id)}
-                      className={`w-full p-3.5 rounded-xl border text-left flex items-center justify-between text-xs transition-transform duration-100 ease-out cursor-pointer relative active:scale-[0.96] shadow-2xs ${
+                      onClick={() => handleVote(option.id)}
+                      className={`w-full p-3.5 rounded-xl border text-left flex items-center justify-between text-xs transition-all duration-150 ease-out cursor-pointer relative active:scale-[0.96] shadow-2xs ${
                         isVoteLocked 
                           ? (isWinner 
                               ? "bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/50" 
                               : "bg-slate-900/40 border-slate-800 opacity-60")
-                          : (isWinner 
-                              ? "bg-slate-900 border-amber-400/60 ring-2 ring-amber-400/30 shadow-md" 
-                              : "bg-slate-900/60 border-slate-800 hover:border-slate-700")
+                          : isUserPick
+                            ? "border-amber-400 bg-amber-400/10 ring-2 ring-amber-400/40 shadow-md"
+                            : isWinner
+                              ? "bg-slate-900 border-amber-400/50 ring-1 ring-amber-400/20 shadow-md"
+                              : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
                       }`}
                     >
-                      <div className="pr-2">
-                        <div className="flex items-center gap-1.5">
+                      <div className="pr-2 min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <span className="text-sm font-black block text-white">
                             {option.name}
                           </span>
                           {isWinner && (
                             <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
                               <Trophy className="w-2.5 h-2.5" /> {isVoteLocked ? "Selected Choice" : "Leading"}
+                            </span>
+                          )}
+                          {isUserPick && (
+                            <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/20 text-amber-200 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                              Your Vote
                             </span>
                           )}
                           {option.isCustom && !isWinner && (
@@ -1670,20 +1856,30 @@ function RunSheetContent() {
                           )}
                         </div>
                         <span className="text-[11px] text-slate-300 block mt-0.5 font-medium">
-                          {option.type} • <span className="font-bold text-white">{option.playerCount}p + {option.parentCount} adults</span> {isUserPick && "• (Your vote)"}
+                          {option.type} • <span className="font-bold text-white">{option.playerCount}p + {option.parentCount} adults</span>
                         </span>
+                        <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full transition-all duration-300 ${
+                              isWinner ? "bg-emerald-400" : isUserPick ? "bg-amber-400" : "bg-slate-500"
+                            }`}
+                            style={{ width: `${votePercent}%` }}
+                          />
+                        </div>
                       </div>
 
-                      <div className="shrink-0 text-right">
+                      <div className="shrink-0 text-right pl-2">
                         <span className={`font-black px-3 py-1 rounded-lg text-xs block tabular-nums shadow-2xs ${
                           isWinner 
                             ? "bg-emerald-500 text-slate-950" 
-                            : "bg-slate-800 text-slate-200 border border-slate-700"
+                            : isUserPick
+                              ? "bg-amber-400 text-slate-950"
+                              : "bg-slate-800 text-slate-200 border border-slate-700"
                         }`}>
                           {option.totalSeats} seats
                         </span>
-                        <span className="text-[10px] font-mono text-slate-400 block mt-0.5 uppercase tracking-wider">
-                          {option.votes} votes
+                        <span className="text-[10px] font-mono text-slate-300 block mt-1 uppercase tracking-wider tabular-nums">
+                          {option.votes} votes ({votePercent}%)
                         </span>
                       </div>
                     </button>
@@ -2152,6 +2348,28 @@ function RunSheetContent() {
                   placeholder="e.g. London Ramblers"
                   className="w-full bg-slate-900 border border-slate-700 text-white rounded-lg p-2 text-sm focus:border-amber-500 focus:outline-none"
                 />
+              </div>
+
+              <div>
+                <label className="block text-slate-400 font-mono text-xs uppercase tracking-wider mb-1.5">
+                  Arrival Buffer (Before Tip-Off)
+                </label>
+                <div className="grid grid-cols-3 gap-2">
+                  {[30, 45, 60].map((buf) => (
+                    <button
+                      key={buf}
+                      type="button"
+                      onClick={() => setEditWarmupBuffer(buf)}
+                      className={`py-2 px-3 rounded-lg border font-mono text-xs font-bold transition-all cursor-pointer ${
+                        editWarmupBuffer === buf
+                          ? "bg-amber-500 text-slate-950 border-amber-400 shadow-sm"
+                          : "bg-slate-900 text-slate-300 border-slate-700 hover:bg-slate-800"
+                      }`}
+                    >
+                      {buf}m
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>
