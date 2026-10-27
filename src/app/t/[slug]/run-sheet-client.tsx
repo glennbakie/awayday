@@ -1,7 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, Suspense } from "react";
-import { useSearchParams, useParams } from "next/navigation";
+import React, { useState, useEffect, useRef, Suspense } from "react";
+import { useSearchParams, useParams, useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { 
   Clock, 
@@ -91,8 +91,38 @@ interface MealOption {
 function RunSheetContent() {
   const searchParams = useSearchParams();
   const params = useParams();
+  const router = useRouter();
+  const pathname = usePathname();
   const slug = (params?.slug as string) || "test-team";
-  const isAdmin = searchParams.get("admin") === "true";
+  const queryAdminParam = searchParams.get("admin") === "true";
+  const [isAdmin, setIsAdmin] = useState<boolean>(queryAdminParam);
+  const realtimeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  // Step 1: PWA Home Screen Admin Persistence
+  useEffect(() => {
+    if (!slug) return;
+    const adminStorageKey = `awayday_is_admin_${slug}`;
+    try {
+      if (queryAdminParam) {
+        window.localStorage.setItem(adminStorageKey, "true");
+        setIsAdmin(true);
+      } else if (window.localStorage.getItem(adminStorageKey) === "true") {
+        setIsAdmin(true);
+      }
+    } catch {
+      if (queryAdminParam) setIsAdmin(true);
+    }
+  }, [slug, queryAdminParam]);
+
+  const handleExitAdmin = () => {
+    try {
+      window.localStorage.removeItem(`awayday_is_admin_${slug}`);
+    } catch {
+      // Ignore storage errors
+    }
+    setIsAdmin(false);
+    router.replace(pathname || `/t/${slug}`);
+  };
 
   const tournament = {
     name: "NPH Session #1 - Oakville",
@@ -403,7 +433,7 @@ function RunSheetContent() {
 
     // 2. Realtime channel subscription listening to postgres_changes AND broadcast events
     const channel = supabase
-      .channel(`team_trips_meal_mode_${slug}`, {
+      .channel(`trip_${slug}`, {
         config: { broadcast: { self: false } }
       })
       .on(
@@ -421,8 +451,25 @@ function RunSheetContent() {
         }
       )
       .on("broadcast", { event: "meal_mode_sync" }, ({ payload }: any) => {
-        if (payload?.mealType === "lunch" || payload?.mealType === "dinner") {
-          setManualMealMode(payload.mealType);
+        const nextMode = payload?.mealMode || payload?.mealType;
+        if (nextMode === "lunch" || nextMode === "dinner") {
+          setManualMealMode(nextMode);
+          try {
+            window.localStorage.setItem(storageMealKey, nextMode);
+          } catch {
+            // Ignore local storage errors
+          }
+        }
+      })
+      .on("broadcast", { event: "MEAL_MODE_CHANGED" }, ({ payload }: any) => {
+        const nextMode = payload?.mealMode || payload?.mealType;
+        if (nextMode === "lunch" || nextMode === "dinner") {
+          setManualMealMode(nextMode);
+          try {
+            window.localStorage.setItem(storageMealKey, nextMode);
+          } catch {
+            // Ignore local storage errors
+          }
         }
       })
       .on("broadcast", { event: "games_sync" }, ({ payload }: any) => {
@@ -437,13 +484,19 @@ function RunSheetContent() {
       })
       .subscribe();
 
+    realtimeChannelRef.current = channel;
+
     // 3. Browser BroadcastChannel + storage listener for instant cross-tab sync
     let bc: BroadcastChannel | null = null;
     if (typeof window !== "undefined" && "BroadcastChannel" in window) {
       bc = new BroadcastChannel(`awayday_sync_${slug}`);
       bc.onmessage = (ev) => {
-        if (ev.data?.type === "meal_mode_sync" && ev.data.mealType) {
-          setManualMealMode(ev.data.mealType);
+        if (
+          (ev.data?.type === "MEAL_MODE_CHANGED" || ev.data?.type === "meal_mode_sync") &&
+          (ev.data.mealMode === "lunch" || ev.data.mealMode === "dinner" || ev.data.mealType === "lunch" || ev.data.mealType === "dinner")
+        ) {
+          const nextMode = (ev.data.mealMode || ev.data.mealType) as "lunch" | "dinner";
+          setManualMealMode(nextMode);
         }
         if (ev.data?.type === "games_sync" && Array.isArray(ev.data.games)) {
           setGames(ev.data.games);
@@ -482,6 +535,7 @@ function RunSheetContent() {
 
     // 4. Clean up subscriptions on component unmount
     return () => {
+      realtimeChannelRef.current = null;
       supabase.removeChannel(channel);
       if (bc) bc.close();
       window.removeEventListener("storage", handleStorage);
@@ -576,7 +630,7 @@ function RunSheetContent() {
         bc.postMessage({ type: "games_sync", games: updatedGames });
         bc.close();
       }
-      const ch = supabase.channel(`team_trips_meal_mode_${slug}`);
+      const ch = realtimeChannelRef.current || supabase.channel(`trip_${slug}`);
       await ch.send({
         type: "broadcast",
         event: "games_sync",
@@ -602,7 +656,7 @@ function RunSheetContent() {
         bc.postMessage({ type: "poll_options_sync", options: updatedOptions });
         bc.close();
       }
-      const ch = supabase.channel(`team_trips_meal_mode_${slug}`);
+      const ch = realtimeChannelRef.current || supabase.channel(`trip_${slug}`);
       await ch.send({
         type: "broadcast",
         event: "poll_options_sync",
@@ -1037,20 +1091,20 @@ function RunSheetContent() {
       window.localStorage.setItem(`awayday_meal_mode_${slug}`, nextMode);
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
         const bc = new BroadcastChannel(`awayday_sync_${slug}`);
-        bc.postMessage({ type: "meal_mode_sync", mealType: nextMode });
+        bc.postMessage({ type: "MEAL_MODE_CHANGED", mealMode: nextMode, mealType: nextMode });
         bc.close();
       }
     } catch {
       // Ignore local storage errors
     }
 
-    // 2. Broadcast over Supabase Realtime channel + persist to team_trips table
+    // 2. Broadcast over active Supabase Realtime channel (`trip_${slug}`) + persist to team_trips table
     try {
-      const ch = supabase.channel(`team_trips_meal_mode_${slug}`);
+      const ch = realtimeChannelRef.current || supabase.channel(`trip_${slug}`);
       await ch.send({
         type: "broadcast",
         event: "meal_mode_sync",
-        payload: { mealType: nextMode }
+        payload: { mealMode: nextMode, mealType: nextMode }
       });
 
       const { error } = await supabase
@@ -1122,16 +1176,26 @@ function RunSheetContent() {
                 </span>
                 <span className="text-[11px] text-slate-300 font-mono hidden sm:inline">Live Controls</span>
               </div>
-              <button
-                type="button"
-                onClick={() => {
-                  setParsedPreviewGames(null);
-                  setIsIngestModalOpen(true);
-                }}
-                className="bg-[#111827] hover:bg-slate-800 text-amber-400 border border-amber-500/30 text-xs font-mono px-3 py-1 rounded-lg transition-all cursor-pointer active:scale-[0.96]"
-              >
-                + Ingest Schedule
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setParsedPreviewGames(null);
+                    setIsIngestModalOpen(true);
+                  }}
+                  className="bg-[#111827] hover:bg-slate-800 text-amber-400 border border-amber-500/30 text-xs font-mono px-3 py-1 rounded-lg transition-all cursor-pointer active:scale-[0.96]"
+                >
+                  + Ingest Schedule
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExitAdmin}
+                  title="Exit Admin Mode"
+                  className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-700 text-[11px] font-mono px-2.5 py-1 rounded-lg flex items-center gap-1 transition-all cursor-pointer active:scale-[0.96]"
+                >
+                  <Lock className="w-3 h-3 text-amber-400" /> Exit Admin
+                </button>
+              </div>
             </div>
           </div>
         )}
