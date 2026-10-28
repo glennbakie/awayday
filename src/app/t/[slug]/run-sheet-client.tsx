@@ -33,7 +33,11 @@ import {
   Zap,
   Salad,
   ChevronDown,
-  Pencil
+  Pencil,
+  Upload,
+  Image as ImageIcon,
+  Loader2,
+  FileText
 } from "lucide-react";
 
 interface VenueAlert {
@@ -372,8 +376,61 @@ function RunSheetContent() {
   const [editWarmupBuffer, setEditWarmupBuffer] = useState<number>(30);
 
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
+  const [ingestMode, setIngestMode] = useState<"screenshots" | "text">("screenshots");
+  const [ingestImages, setIngestImages] = useState<Array<{ id: string; file: File; previewUrl: string }>>([]);
+  const [isAnalyzingScreenshots, setIsAnalyzingScreenshots] = useState(false);
+  const [ingestError, setIngestError] = useState<string | null>(null);
   const [ingestRawText, setIngestRawText] = useState("");
   const [parsedPreviewGames, setParsedPreviewGames] = useState<Game[] | null>(null);
+  const ingestFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const appendIngestFiles = (files: FileList | File[]) => {
+    const validFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (validFiles.length === 0) return;
+    setIngestError(null);
+    const nextEntries = validFiles.map((file, idx) => ({
+      id: `img-${Date.now()}-${idx}-${Math.random().toString(36).slice(2, 6)}`,
+      file,
+      previewUrl: URL.createObjectURL(file),
+    }));
+    setIngestImages((prev) => [...prev, ...nextEntries]);
+  };
+
+  const removeIngestImage = (id: string) => {
+    setIngestImages((prev) => {
+      const target = prev.find((item) => item.id === id);
+      if (target) {
+        URL.revokeObjectURL(target.previewUrl);
+      }
+      return prev.filter((item) => item.id !== id);
+    });
+  };
+
+  // Global clipboard paste listener when the ingestion modal is open
+  useEffect(() => {
+    if (!isIngestModalOpen) return;
+
+    const handlePaste = (e: ClipboardEvent) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      const pastedFiles: File[] = [];
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) pastedFiles.push(file);
+        }
+      }
+      if (pastedFiles.length > 0) {
+        e.preventDefault();
+        setIngestMode("screenshots");
+        appendIngestFiles(pastedFiles);
+      }
+    };
+
+    window.addEventListener("paste", handlePaste);
+    return () => window.removeEventListener("paste", handlePaste);
+  }, [isIngestModalOpen]);
 
   // Real-time synchronization for Meal Mode, Games & Dinner Poll via Supabase Realtime + Broadcast fallback
   useEffect(() => {
@@ -624,7 +681,9 @@ function RunSheetContent() {
 
   const broadcastGamesSync = async (updatedGames: Game[]) => {
     try {
-      window.localStorage.setItem(`awayday_games_sprint1_${slug}`, JSON.stringify(updatedGames));
+      const serialized = JSON.stringify(updatedGames);
+      window.localStorage.setItem(`awayday_games_nph1_${slug}`, serialized);
+      window.localStorage.setItem(`awayday_games_sprint1_${slug}`, serialized);
       if (typeof window !== "undefined" && "BroadcastChannel" in window) {
         const bc = new BroadcastChannel(`awayday_sync_${slug}`);
         bc.postMessage({ type: "games_sync", games: updatedGames });
@@ -842,12 +901,114 @@ function RunSheetContent() {
     setParsedPreviewGames(parsed);
   };
 
+  const parseTimeStringToMinutes = (timeStr: string, fallbackMinutes = 600) => {
+    const timeMatch = (timeStr || "").match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+    if (!timeMatch) return fallbackMinutes;
+    let h = parseInt(timeMatch[1], 10);
+    const m = parseInt(timeMatch[2], 10);
+    const mer = (timeMatch[3] || "").toUpperCase();
+    if (mer === "PM" && h < 12) h += 12;
+    if (mer === "AM" && h === 12) h = 0;
+    return h * 60 + m;
+  };
+
+  const handleAnalyzeScreenshots = async () => {
+    if (ingestImages.length === 0) {
+      setIngestError("Please drop, paste, or select at least one tournament screenshot first.");
+      return;
+    }
+
+    setIsAnalyzingScreenshots(true);
+    setIngestError(null);
+
+    try {
+      const formData = new FormData();
+      ingestImages.forEach((item) => {
+        formData.append("images", item.file);
+      });
+      formData.append("teamName", tournament.teamName);
+      formData.append("tournamentName", tournament.name);
+
+      const res = await fetch("/api/ingest-schedule", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Failed to analyze schedule screenshots.");
+      }
+
+      const extracted = Array.isArray(data.games) ? data.games : [];
+      if (extracted.length === 0) {
+        setIngestError("No games were detected in the uploaded screenshot(s). Try a clearer image or use Raw Text.");
+        setIsAnalyzingScreenshots(false);
+        return;
+      }
+
+      const mappedGames: Game[] = extracted.map((eg: any, idx: number) => {
+        const tipMins = parseTimeStringToMinutes(eg.tipOff, 600 + idx * 180);
+        const jersey: JerseyColor =
+          eg.jerseyColor === "Dark / Black (Away)" ? "Dark / Black (Away)" : "White (Home)";
+        const isAway = jersey.toLowerCase().includes("black") || jersey.toLowerCase().includes("away");
+        const opponent = (eg.opponent || `Opponent ${idx + 1}`).trim();
+        const venueName = (eg.venueName || tournament.primaryHub).trim();
+        const isNotreDame = venueName.toLowerCase().includes("notre dame");
+
+        return {
+          id: `ai-game-${Date.now()}-${idx}`,
+          dayLabel: eg.day || "Sat, Oct 24",
+          matchup: `Ottawa Elite ${isAway ? "at" : "vs"} ${opponent}`,
+          opponent,
+          tipOffMinutes: tipMins,
+          court: eg.court || `Court ${idx + 1}`,
+          venueName,
+          venueAddress: isNotreDame ? "2333 Headon Forest Dr" : "124 Dorval Dr",
+          city: isNotreDame ? "Burlington, ON L7M 3X6" : "Oakville, ON L6K 2W1",
+          warmupBufferMin: 30,
+          hotelTravelMin: 15,
+          status: "Upcoming",
+          jerseyColor: jersey,
+          telemetryFlag: eg.telemetryTag || (idx === 0 ? "Home Opener" : undefined),
+        };
+      });
+
+      setParsedPreviewGames(mappedGames);
+    } catch (err: any) {
+      console.error("Screenshot ingestion error:", err);
+      setIngestError(err?.message || "Failed to analyze screenshots with AI.");
+    } finally {
+      setIsAnalyzingScreenshots(false);
+    }
+  };
+
+  const updatePreviewGame = (gameId: string, patch: Partial<Pick<Game, "opponent" | "court">>) => {
+    setParsedPreviewGames((prev) => {
+      if (!prev) return prev;
+      return prev.map((g) => {
+        if (g.id !== gameId) return g;
+        const nextOpponent = patch.opponent !== undefined ? patch.opponent : g.opponent;
+        const nextCourt = patch.court !== undefined ? patch.court : g.court;
+        const isAway = (g.jerseyColor || "").toLowerCase().includes("black") || (g.jerseyColor || "").toLowerCase().includes("away");
+        return {
+          ...g,
+          opponent: nextOpponent,
+          court: nextCourt,
+          matchup: `Ottawa Elite ${isAway ? "at" : "vs"} ${nextOpponent}`,
+        };
+      });
+    });
+  };
+
   const handleApplyIngestedSchedule = async () => {
     if (!parsedPreviewGames || parsedPreviewGames.length === 0) return;
     setGames(parsedPreviewGames);
     await broadcastGamesSync(parsedPreviewGames);
     setParsedPreviewGames(null);
     setIngestRawText("");
+    ingestImages.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+    setIngestImages([]);
+    setIngestError(null);
     setIsIngestModalOpen(false);
   };
 
@@ -2485,13 +2646,13 @@ function RunSheetContent() {
           onClick={() => setIsIngestModalOpen(false)}
         >
           <div
-            className="bg-[#111827] border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl text-white space-y-4"
+            className="bg-[#111827] border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl text-white space-y-4 max-h-[90dvh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <span className="bg-amber-500 text-slate-950 text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-widest uppercase">
-                  MANAGER SUITE
+                  MANAGER SUITE • GEMINI 2.5 FLASH VISION
                 </span>
                 <h3 className="text-base font-black text-white mt-1.5">
                   Ingest Tournament Schedule
@@ -2506,20 +2667,165 @@ function RunSheetContent() {
               </button>
             </div>
 
-            <div>
-              <label className="block text-slate-400 font-mono text-xs uppercase tracking-wider mb-1.5">
-                Paste Raw Schedule / Bracket Text or URL
-              </label>
-              <textarea
-                value={ingestRawText}
-                onChange={(e) => setIngestRawText(e.target.value)}
-                placeholder={"10:30 AM | vs London Ramblers | Rim Park — Court 3\n4:00 PM | vs Burlington Force | Rim Park — Court 1"}
-                className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-xl p-3 text-sm font-mono focus:border-amber-500 focus:outline-none min-h-[140px]"
-              />
+            {/* Ingestion Mode Switcher: AI Screenshot Vision vs Raw Text Fallback */}
+            <div className="grid grid-cols-2 gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800">
+              <button
+                type="button"
+                onClick={() => {
+                  setIngestMode("screenshots");
+                  setIngestError(null);
+                }}
+                className={`py-2 px-3 rounded-lg text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  ingestMode === "screenshots"
+                    ? "bg-amber-500 text-slate-950 shadow-xs"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                <ImageIcon className="w-3.5 h-3.5" /> Screenshots
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setIngestMode("text");
+                  setIngestError(null);
+                }}
+                className={`py-2 px-3 rounded-lg text-xs font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
+                  ingestMode === "text"
+                    ? "bg-amber-500 text-slate-950 shadow-xs"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                <FileText className="w-3.5 h-3.5" /> Raw Text
+              </button>
             </div>
 
+            {ingestMode === "screenshots" ? (
+              <div className="space-y-3">
+                <input
+                  ref={ingestFileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  multiple
+                  className="hidden"
+                  onChange={(e) => {
+                    if (e.target.files) {
+                      appendIngestFiles(e.target.files);
+                      e.target.value = "";
+                    }
+                  }}
+                />
+
+                {/* Dashed Dropzone Area */}
+                <div
+                  onClick={() => ingestFileInputRef.current?.click()}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                      appendIngestFiles(e.dataTransfer.files);
+                    }
+                  }}
+                  className="border-2 border-dashed border-slate-700 hover:border-amber-400/70 bg-slate-900/70 hover:bg-slate-900 rounded-xl p-5 text-center transition-all cursor-pointer group"
+                >
+                  <div className="w-10 h-10 rounded-full bg-amber-500/10 border border-amber-500/30 flex items-center justify-center mx-auto mb-2.5 group-hover:scale-105 transition-transform">
+                    <Upload className="w-5 h-5 text-amber-400" />
+                  </div>
+                  <p className="text-xs font-extrabold text-white">
+                    Drop tournament screenshots here, or click to browse
+                  </p>
+                  <p className="text-[11px] text-slate-400 font-mono mt-1">
+                    Supports PNG, JPG, WebP • Or press Cmd/Ctrl+V to paste from clipboard
+                  </p>
+                </div>
+
+                {/* Compact Thumbnail Previews with Badge Count & Remove (X) */}
+                {ingestImages.length > 0 && (
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="inline-flex items-center gap-1.5 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-r">
+                        Attached Screenshots ({ingestImages.length})
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          ingestImages.forEach((item) => URL.revokeObjectURL(item.previewUrl));
+                          setIngestImages([]);
+                        }}
+                        className="text-[10px] font-mono text-slate-400 hover:text-slate-200 underline cursor-pointer"
+                      >
+                        Clear all
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-3 gap-2">
+                      {ingestImages.map((img, i) => (
+                        <div
+                          key={img.id}
+                          className="relative group rounded-xl overflow-hidden border border-slate-700 bg-slate-900 aspect-video"
+                        >
+                          <img
+                            src={img.previewUrl}
+                            alt={`Schedule screenshot ${i + 1}`}
+                            className="w-full h-full object-cover"
+                          />
+                          <span className="absolute bottom-1 left-1 bg-slate-950/85 text-amber-300 font-mono text-[9px] font-bold px-1.5 py-0.5 rounded">
+                            #{i + 1}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => removeIngestImage(img.id)}
+                            aria-label={`Remove screenshot ${i + 1}`}
+                            className="absolute top-1 right-1 p-1 rounded-full bg-slate-950/85 hover:bg-red-500 text-white transition-colors cursor-pointer"
+                          >
+                            <X className="w-3 h-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Loading / Progress State */}
+                {isAnalyzingScreenshots && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3.5 flex items-center gap-3">
+                    <Loader2 className="w-5 h-5 text-amber-400 animate-spin shrink-0" />
+                    <div className="text-xs">
+                      <span className="font-black text-amber-300 block">
+                        Extracting game times, gyms, and jersey assignments...
+                      </span>
+                      <span className="text-[11px] text-slate-300 font-mono">
+                        Gemini 2.5 Flash Vision is parsing your schedule screenshot(s)
+                      </span>
+                    </div>
+                  </div>
+                )}
+
+                {ingestError && (
+                  <div className="bg-red-950/50 border border-red-500/40 rounded-xl p-3 text-xs text-red-200 font-medium">
+                    {ingestError}
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <label className="block text-slate-400 font-mono text-xs uppercase tracking-wider mb-1.5">
+                  Paste Raw Schedule / Bracket Text or URL
+                </label>
+                <textarea
+                  value={ingestRawText}
+                  onChange={(e) => setIngestRawText(e.target.value)}
+                  placeholder={"10:30 AM | vs London Ramblers | Rim Park — Court 3\n4:00 PM | vs Burlington Force | Rim Park — Court 1"}
+                  className="w-full bg-slate-900 border border-slate-700 text-slate-200 rounded-xl p-3 text-sm font-mono focus:border-amber-500 focus:outline-none min-h-[140px]"
+                />
+              </div>
+            )}
+
+            {/* Parse & Preview Drawer with Inline Editing */}
             {parsedPreviewGames && parsedPreviewGames.length > 0 && (
-              <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 space-y-2 max-h-44 overflow-y-auto">
+              <div className="bg-slate-900/95 border border-slate-800 rounded-xl p-3.5 space-y-3 max-h-64 overflow-y-auto">
                 <div className="flex items-center justify-between">
                   <span className="text-[10px] font-mono font-bold uppercase tracking-widest text-amber-400">
                     Parsed Preview ({parsedPreviewGames.length} Games)
@@ -2527,21 +2833,66 @@ function RunSheetContent() {
                   <button
                     type="button"
                     onClick={handleApplyIngestedSchedule}
-                    className="text-[11px] font-mono font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-2.5 py-1 rounded-lg transition-all cursor-pointer"
+                    className="text-[11px] font-mono font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95"
                   >
-                    Apply to Run-Sheet
+                    Apply to Run Sheet
                   </button>
                 </div>
-                {parsedPreviewGames.map((g) => (
-                  <div key={g.id} className="text-xs border-t border-slate-800 pt-1.5 flex items-center justify-between gap-2">
-                    <div>
-                      <span className="font-mono text-amber-300 font-bold">{formatTime(g.tipOffMinutes)}</span>
-                      <span className="text-white font-bold ml-2">vs {g.opponent}</span>
-                      <span className="block text-[11px] text-slate-400 font-mono">{g.venueName} — {g.court}</span>
+
+                {parsedPreviewGames.map((g, idx) => {
+                  const bufMins = g.warmupBufferMin || 30;
+                  const arrivalMins = getArrivalCallMinutes(g.tipOffMinutes, bufMins);
+                  return (
+                    <div
+                      key={g.id}
+                      className="text-xs border-t border-slate-800 pt-2.5 space-y-2"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-1.5">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-mono text-amber-300 font-black">
+                            {g.dayLabel ? `${g.dayLabel} • ` : ""}{formatTime(g.tipOffMinutes)}
+                          </span>
+                          <span className="inline-flex items-center border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-[10px] px-1.5 py-0.5 rounded-r">
+                            Arrive {formatTime(arrivalMins)} (30m)
+                          </span>
+                        </div>
+                        <span className="inline-flex items-center border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-[10px] uppercase px-1.5 py-0.5 rounded-r">
+                          {g.jerseyColor || "White (Home)"}
+                        </span>
+                      </div>
+
+                      <div className="text-[11px] text-slate-400 font-mono truncate">
+                        Venue: <span className="text-slate-200 font-semibold">{g.venueName}</span>
+                      </div>
+
+                      {/* Quick Inline Editing for Opponent Name and Court Number */}
+                      <div className="grid grid-cols-3 gap-2">
+                        <div className="col-span-2">
+                          <label className="block text-[10px] font-mono text-slate-400 uppercase mb-0.5">
+                            Opponent #{idx + 1}
+                          </label>
+                          <input
+                            type="text"
+                            value={g.opponent}
+                            onChange={(e) => updatePreviewGame(g.id, { opponent: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs text-white focus:border-amber-400 focus:outline-none"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] font-mono text-slate-400 uppercase mb-0.5">
+                            Court
+                          </label>
+                          <input
+                            type="text"
+                            value={g.court}
+                            onChange={(e) => updatePreviewGame(g.id, { court: e.target.value })}
+                            className="w-full bg-slate-950 border border-slate-700 rounded-lg px-2 py-1 text-xs font-mono text-white focus:border-amber-400 focus:outline-none"
+                          />
+                        </div>
+                      </div>
                     </div>
-                    <span className="text-[10px] font-mono text-slate-400 uppercase">{g.status || "Upcoming"}</span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
 
@@ -2551,18 +2902,38 @@ function RunSheetContent() {
                 onClick={() => {
                   setIsIngestModalOpen(false);
                   setParsedPreviewGames(null);
+                  setIngestError(null);
                 }}
                 className="py-2.5 px-4 rounded-xl border border-slate-700 text-slate-300 text-xs font-bold uppercase tracking-wider hover:bg-slate-800 transition-all cursor-pointer"
               >
                 Close
               </button>
-              <button
-                type="button"
-                onClick={handleParseSchedule}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded-xl transition-all cursor-pointer"
-              >
-                Parse & Preview
-              </button>
+              {ingestMode === "screenshots" ? (
+                <button
+                  type="button"
+                  disabled={isAnalyzingScreenshots}
+                  onClick={handleAnalyzeScreenshots}
+                  className="bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-slate-950 font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded-xl flex items-center gap-1.5 transition-all cursor-pointer"
+                >
+                  {isAnalyzingScreenshots ? (
+                    <>
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" /> Analyzing...
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-3.5 h-3.5" /> Analyze Screenshots with AI
+                    </>
+                  )}
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={handleParseSchedule}
+                  className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded-xl transition-all cursor-pointer"
+                >
+                  Parse & Preview
+                </button>
+              )}
             </div>
           </div>
         </div>
