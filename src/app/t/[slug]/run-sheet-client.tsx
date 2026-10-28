@@ -402,6 +402,8 @@ function RunSheetContent() {
   const [userVotedOptionId, setUserVotedOptionId] = useState<string | null>(null);
   const [userParty, setUserParty] = useState({ players: 1, parents: 1 });
   const [userFinalAttendance, setUserFinalAttendance] = useState<"attending" | "declined" | null>(null);
+  const [userRsvpSeats, setUserRsvpSeats] = useState<number>(0);
+  const [isEditingRsvp, setIsEditingRsvp] = useState<boolean>(false);
 
   // Manual test override for Lunch vs. Dinner
   const [manualMealMode, setManualMealMode] = useState<"lunch" | "dinner" | "auto">("auto");
@@ -490,6 +492,7 @@ function RunSheetContent() {
     const storageGamesKey = `awayday_games_sprint1_${slug}`;
     const storagePollOptionsKey = `awayday_poll_options_v2_${slug}`;
     const storageVotedOptionKey = `awayday_voted_opt_${slug}`;
+    const storageRsvpKey = `awayday_rsvp_${slug}`;
 
     // Load any cached local broadcast state immediately
     try {
@@ -514,6 +517,14 @@ function RunSheetContent() {
       const savedVotedId = window.localStorage.getItem(storageVotedOptionKey);
       if (savedVotedId) {
         setUserVotedOptionId(savedVotedId);
+      }
+      const savedRsvp = window.localStorage.getItem(storageRsvpKey);
+      if (savedRsvp !== null) {
+        const parsedRsvp = parseInt(savedRsvp, 10);
+        if (!isNaN(parsedRsvp) && parsedRsvp > 0) {
+          setUserRsvpSeats(parsedRsvp);
+          setUserFinalAttendance("attending");
+        }
       }
     } catch {
       // Ignore storage access errors
@@ -636,6 +647,10 @@ function RunSheetContent() {
       }
       if (e.key === storageVotedOptionKey) {
         setUserVotedOptionId(e.newValue);
+      }
+      if (e.key === storageRsvpKey) {
+        const parsedRsvp = e.newValue ? parseInt(e.newValue, 10) : 0;
+        setUserRsvpSeats(!isNaN(parsedRsvp) && parsedRsvp > 0 ? parsedRsvp : 0);
       }
     };
     window.addEventListener("storage", handleStorage);
@@ -1304,20 +1319,112 @@ function RunSheetContent() {
     winningOption && totalVotesCast > 0 ? Math.round((winningOption.votes / totalVotesCast) * 100) : 0;
 
   const isVoterOfWinner = winningOption && userVotedOptionId === winningOption.id;
-  const isJoiningWinner = userFinalAttendance === "attending";
+  const isJoiningWinner = userFinalAttendance === "attending" || userRsvpSeats > 0;
   const userPartyTotal = userParty.players + userParty.parents;
 
-  const confirmedReservationSeats = winningOption 
-    ? (winningOption.totalSeats || winningOption.votes * 2) + (!isVoterOfWinner && isJoiningWinner ? userPartyTotal : 0)
-    : 0;
-  
-  const confirmedPlayers = winningOption 
-    ? winningOption.playerCount + (!isVoterOfWinner && isJoiningWinner ? userParty.players : 0)
+  // Post-lock RSVP handlers ("Count Us In" & seat stepper) — explicitly enabled even when isPollLocked === true
+  const handleCountUsIn = (customSeats?: number) => {
+    if (!winningOption) return;
+    const targetSeats = customSeats !== undefined ? customSeats : Math.max(2, userPartyTotal);
+    const deltaSeats = targetSeats - userRsvpSeats;
+
+    setUserFinalAttendance("attending");
+    setUserRsvpSeats(targetSeats);
+    setIsEditingRsvp(false);
+
+    try {
+      window.localStorage.setItem(`awayday_rsvp_${slug}`, String(targetSeats));
+    } catch {
+      // Ignore storage errors
+    }
+
+    if (deltaSeats !== 0) {
+      const updatedOptions = options.map((opt) => {
+        if (opt.id !== winningOption.id) return opt;
+        const baseSeats = opt.totalSeats || opt.votes * 2;
+        const nextTotalSeats = Math.max(0, baseSeats + deltaSeats);
+        const addPlayers = deltaSeats > 0 ? Math.min(deltaSeats, userParty.players || 1) : 0;
+        const addParents = deltaSeats > 0 ? Math.max(0, deltaSeats - addPlayers) : deltaSeats;
+        return {
+          ...opt,
+          totalSeats: nextTotalSeats,
+          playerCount: Math.max(0, opt.playerCount + addPlayers),
+          parentCount: Math.max(0, opt.parentCount + addParents),
+        };
+      });
+      setOptions(updatedOptions);
+      broadcastPollOptionsSync(updatedOptions);
+    }
+  };
+
+  const handleAdjustRsvpSeats = (delta: number) => {
+    if (!winningOption) return;
+    const baseRsvp = userRsvpSeats > 0 ? userRsvpSeats : (isVoterOfWinner ? userPartyTotal : 0);
+    const nextRsvp = Math.max(0, baseRsvp + delta);
+    const diff = nextRsvp - baseRsvp;
+    if (diff === 0) return;
+
+    setUserRsvpSeats(nextRsvp);
+    setUserFinalAttendance(nextRsvp > 0 ? "attending" : "declined");
+
+    try {
+      if (nextRsvp > 0) {
+        window.localStorage.setItem(`awayday_rsvp_${slug}`, String(nextRsvp));
+      } else {
+        window.localStorage.removeItem(`awayday_rsvp_${slug}`);
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    const updatedOptions = options.map((opt) => {
+      if (opt.id !== winningOption.id) return opt;
+      const currentSeats = opt.totalSeats || opt.votes * 2;
+      return {
+        ...opt,
+        totalSeats: Math.max(0, currentSeats + diff),
+        parentCount: Math.max(0, opt.parentCount + diff),
+      };
+    });
+    setOptions(updatedOptions);
+    broadcastPollOptionsSync(updatedOptions);
+  };
+
+  const handleSplitOff = () => {
+    if (!winningOption) return;
+    const seatsToRemove = userRsvpSeats;
+    setUserFinalAttendance("declined");
+    setUserRsvpSeats(0);
+    setIsEditingRsvp(false);
+
+    try {
+      window.localStorage.removeItem(`awayday_rsvp_${slug}`);
+    } catch {
+      // Ignore storage errors
+    }
+
+    if (seatsToRemove > 0) {
+      const updatedOptions = options.map((opt) => {
+        if (opt.id !== winningOption.id) return opt;
+        const currentSeats = opt.totalSeats || opt.votes * 2;
+        return {
+          ...opt,
+          totalSeats: Math.max(0, currentSeats - seatsToRemove),
+          parentCount: Math.max(0, opt.parentCount - seatsToRemove),
+        };
+      });
+      setOptions(updatedOptions);
+      broadcastPollOptionsSync(updatedOptions);
+    }
+  };
+
+  const confirmedReservationSeats = winningOption
+    ? (winningOption.totalSeats || winningOption.votes * 2)
     : 0;
 
-  const confirmedParents = winningOption 
-    ? winningOption.parentCount + (!isVoterOfWinner && isJoiningWinner ? userParty.parents : 0)
-    : 0;
+  const confirmedPlayers = winningOption ? winningOption.playerCount : 0;
+
+  const confirmedParents = winningOption ? winningOption.parentCount : 0;
 
   const estimatedPizzas = Math.ceil(confirmedReservationSeats / 2.5);
 
@@ -2247,7 +2354,7 @@ function RunSheetContent() {
               )}
 
               {isPollLocked && winningOption && !isVoterOfWinner && (
-                <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3.5 space-y-2.5 animate-in fade-in duration-200">
+                <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3.5 space-y-2.5 animate-in fade-in duration-200 pointer-events-auto">
                   <div>
                     <span className="text-xs font-black text-white block">
                       {winningOption.name} won the vote!
@@ -2257,41 +2364,92 @@ function RunSheetContent() {
                     </p>
                   </div>
 
-                  <div className="flex items-center gap-2 pt-0.5">
-                    <button
-                      onClick={() => setUserFinalAttendance("attending")}
-                      className={`flex-1 py-2 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer ${
-                        userFinalAttendance === "attending"
-                          ? "bg-emerald-600 text-white shadow-sm ring-2 ring-emerald-300"
-                          : "bg-slate-900 border border-amber-400/30 text-amber-300 hover:bg-slate-800"
-                      }`}
-                    >
-                      <CheckCircle2 className="w-3.5 h-3.5" /> Count Us In ({userPartyTotal} seats)
-                    </button>
+                  {userRsvpSeats > 0 && !isEditingRsvp ? (
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-amber-500/20">
+                      <span className="inline-flex items-center gap-1.5 border-l-2 border-l-emerald-400 bg-emerald-400/15 text-emerald-300 font-mono text-xs font-bold px-2.5 py-1 rounded-r">
+                        ✓ Your Party: {userRsvpSeats} Seats Added
+                      </span>
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={() => handleAdjustRsvpSeats(-1)}
+                          aria-label="Remove 1 RSVP seat"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                        >
+                          -
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleAdjustRsvpSeats(1)}
+                          aria-label="Add 1 RSVP seat"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                        >
+                          +
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setIsEditingRsvp(true)}
+                          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-300 font-mono text-[11px] font-bold active:scale-[0.96] transition-all cursor-pointer"
+                        >
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2 pt-0.5">
+                      <button
+                        type="button"
+                        onClick={() => handleCountUsIn(Math.max(2, userPartyTotal))}
+                        className="flex-1 py-2 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-sm"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5" /> Count Us In (+{Math.max(2, userPartyTotal)} seats)
+                      </button>
 
-                    <button
-                      onClick={() => setUserFinalAttendance("declined")}
-                      className={`py-2 px-3 rounded-xl text-xs font-bold active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer ${
-                        userFinalAttendance === "declined"
-                          ? "bg-slate-800 text-white"
-                          : "bg-transparent text-amber-300/80 hover:bg-amber-950/40"
-                      }`}
-                    >
-                      Splitting Off
-                    </button>
-                  </div>
+                      <button
+                        type="button"
+                        onClick={handleSplitOff}
+                        className={`py-2 px-3 rounded-xl text-xs font-bold active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer ${
+                          userFinalAttendance === "declined"
+                            ? "bg-slate-800 text-white border border-slate-700"
+                            : "bg-transparent text-amber-300/80 hover:bg-amber-950/40"
+                        }`}
+                      >
+                        Splitting Off
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
 
               {isPollLocked && winningOption && isVoterOfWinner && (
-                <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-3 flex items-center justify-between text-xs text-emerald-200 shadow-2xs">
+                <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-200 shadow-2xs pointer-events-auto">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                    <span className="font-extrabold">You are included in the headcount ({userPartyTotal} seats)</span>
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                    <span className="font-extrabold">
+                      ✓ Your Party: {userRsvpSeats > 0 ? userRsvpSeats : userPartyTotal} Seats Added
+                    </span>
                   </div>
-                  <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/10 text-emerald-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
-                    Confirmed
-                  </span>
+                  <div className="flex items-center gap-1.5">
+                    <button
+                      type="button"
+                      onClick={() => handleAdjustRsvpSeats(-1)}
+                      aria-label="Decrease seats"
+                      className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleAdjustRsvpSeats(1)}
+                      aria-label="Increase seats"
+                      className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                    >
+                      +
+                    </button>
+                    <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/10 text-emerald-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                      Confirmed
+                    </span>
+                  </div>
                 </div>
               )}
 
@@ -2395,7 +2553,7 @@ function RunSheetContent() {
                     return (
                       <div
                         key={option.id}
-                        className="w-full p-4 rounded-xl border-2 border-emerald-500 bg-emerald-950/35 ring-2 ring-emerald-500/40 text-left text-xs shadow-lg space-y-3"
+                        className="w-full p-4 rounded-xl border-2 border-emerald-500 bg-emerald-950/35 ring-2 ring-emerald-500/40 text-left text-xs shadow-lg space-y-3 pointer-events-auto opacity-100"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="pr-2 min-w-0 flex-1">
@@ -2419,10 +2577,10 @@ function RunSheetContent() {
 
                           <div className="shrink-0 text-right pl-2">
                             <span className="font-black px-3 py-1 rounded-lg text-xs block tabular-nums shadow-2xs bg-emerald-500 text-slate-950">
-                              {option.votes} votes ({optionSeats} seats)
+                              {optionSeats} seats confirmed
                             </span>
                             <span className="text-[10px] font-mono text-emerald-300 block mt-1 uppercase tracking-wider tabular-nums font-bold">
-                              {votePercent}% of vote
+                              {option.votes} votes ({votePercent}%)
                             </span>
                           </div>
                         </div>
@@ -2432,6 +2590,53 @@ function RunSheetContent() {
                             className="h-full rounded-full bg-emerald-400 transition-all duration-300"
                             style={{ width: `${votePercent}%` }}
                           />
+                        </div>
+
+                        {/* Interactive Post-Lock Headcount RSVP Bar on Winning Card */}
+                        <div className="bg-slate-900/85 border border-emerald-500/30 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2">
+                          {userRsvpSeats > 0 ? (
+                            <>
+                              <span className="inline-flex items-center gap-1.5 border-l-2 border-l-emerald-400 bg-emerald-400/15 text-emerald-300 font-mono text-[11px] font-bold px-2 py-0.5 rounded-r">
+                                ✓ Your Party: {userRsvpSeats} Seats Added
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdjustRsvpSeats(-1)}
+                                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                                >
+                                  -
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => handleAdjustRsvpSeats(1)}
+                                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                                >
+                                  +
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsEditingRsvp((prev) => !prev)}
+                                  className="px-2 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-700 text-amber-300 font-mono text-[10px] font-bold uppercase cursor-pointer"
+                                >
+                                  Edit
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <>
+                              <span className="text-[11px] font-bold text-slate-200">
+                                Joining the winning team table?
+                              </span>
+                              <button
+                                type="button"
+                                onClick={() => handleCountUsIn(Math.max(2, userPartyTotal))}
+                                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-lg flex items-center gap-1.5 active:scale-[0.96] transition-all cursor-pointer shadow-xs"
+                              >
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Count Us In (+{Math.max(2, userPartyTotal)} Seats)
+                              </button>
+                            </>
+                          )}
                         </div>
 
                         <div className="pt-1 flex items-center justify-end gap-2 border-t border-emerald-500/20">
