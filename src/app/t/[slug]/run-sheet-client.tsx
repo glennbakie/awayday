@@ -398,6 +398,7 @@ function RunSheetContent() {
   const [suggestAuthor, setSuggestAuthor] = useState("");
 
   const [isVoteLocked, setIsVoteLocked] = useState(false);
+  const [pollTestMode, setPollTestMode] = useState<"live" | "open" | "lock_soon" | "locked">("live");
   const [userVotedOptionId, setUserVotedOptionId] = useState<string | null>(null);
   const [userParty, setUserParty] = useState({ players: 1, parents: 1 });
   const [userFinalAttendance, setUserFinalAttendance] = useState<"attending" | "declined" | null>(null);
@@ -1071,8 +1072,57 @@ function RunSheetContent() {
     document.body.scrollTop = 0;
   }, [activeTab]);
 
+  // Time calculations (Sunday Game 3 -> Game 4 is the 2h 45m Lunch Window; Saturday post-Game 2 is Dinner)
+  const lunchGameStart = games[2] || games[0];
+  const lunchGameNext = games[3] || games[1] || games[0];
+  const game1EndMinutes = lunchGameStart.tipOffMinutes + 60; // ~11:45 AM Sunday
+  const game2WarmupMinutes = lunchGameNext.tipOffMinutes; // 2:30 PM Sunday (2h 45m window)
+  const game2EndMinutes = (games[1] || games[0]).tipOffMinutes + 75; // ~7:30 PM Saturday after 6:15 PM game
+
+  // Evening block reference: 9:30 PM (1290 mins) wind-down / hotel return
+  const eveningEndMinutes = Math.max(1290, game2EndMinutes + 120);
+
+  // LUNCH vs DINNER DETERMINATION
+  const gapMidpointMinutes = Math.floor((game1EndMinutes + game2WarmupMinutes) / 2);
+  const autoIsLunch = gapMidpointMinutes >= 720 && gapMidpointMinutes <= 960;
+  const isLunch = manualMealMode === "auto" ? autoIsLunch : manualMealMode === "lunch";
+
+  // Context-aware downtime calculations based on mode:
+  const activeWindowStart = isLunch ? game1EndMinutes : game2EndMinutes;
+  const activeWindowEnd = isLunch ? game2WarmupMinutes : eveningEndMinutes;
+  const totalWindowMinutes = Math.max(0, activeWindowEnd - activeWindowStart);
+  const windowHours = Math.floor(totalWindowMinutes / 60);
+  const windowRemainingMins = totalWindowMinutes % 60;
+
+  // Vote closing time: for lunch it's midday; for dinner it locks before Game 2 starts
+  const voteClosingMinutes = isLunch ? (game1EndMinutes - 30) : ((games[1] || games[0]).tipOffMinutes - 30);
+
+  // Evaluate Poll Lock & Lock-Soon state from Live Clock or Manager Poll Time-Travel Toggle
+  const liveClockDate = new Date(nowMs);
+  const liveClockMinutes = liveClockDate.getHours() * 60 + liveClockDate.getMinutes();
+  const isTournamentWeekendDay =
+    liveClockDate.getMonth() === 9 && (liveClockDate.getDate() === 24 || liveClockDate.getDate() === 25);
+  const liveClockLocked = isVoteLocked || (isTournamentWeekendDay && liveClockMinutes >= voteClosingMinutes);
+  const liveClockLockSoon =
+    !liveClockLocked &&
+    (!isTournamentWeekendDay || (liveClockMinutes >= voteClosingMinutes - 90 && liveClockMinutes < voteClosingMinutes));
+
+  const isPollLocked =
+    pollTestMode === "locked"
+      ? true
+      : pollTestMode === "open" || pollTestMode === "lock_soon"
+        ? false
+        : liveClockLocked;
+
+  const isPollLockSoon =
+    pollTestMode === "lock_soon"
+      ? true
+      : pollTestMode === "open" || pollTestMode === "locked"
+        ? false
+        : liveClockLockSoon;
+
   const handleVote = (targetId: string) => {
-    if (isVoteLocked) return;
+    if (isPollLocked) return;
     // Prevent spamming votes on the already-selected option
     if (userVotedOptionId === targetId) return;
 
@@ -1204,7 +1254,7 @@ function RunSheetContent() {
 
     setUserParty({ players: nextPlayers, parents: nextParents });
 
-    if (userVotedOptionId && !isVoteLocked) {
+    if (userVotedOptionId && !isPollLocked) {
       const updatedOptions = options.map(opt => {
         if (opt.id !== userVotedOptionId) return opt;
         return {
@@ -1245,17 +1295,20 @@ function RunSheetContent() {
   };
 
   const totalPollVotes = options.reduce((sum, o) => sum + o.votes, 0);
+  const totalVotesCast = totalPollVotes;
   const highestVotes = Math.max(...options.map(o => o.votes), 0);
   const winningOption = highestVotes > 0
     ? [...options].sort((a, b) => (b.votes - a.votes) || (b.totalSeats - a.totalSeats))[0]
     : undefined;
+  const winningOptionPercent =
+    winningOption && totalVotesCast > 0 ? Math.round((winningOption.votes / totalVotesCast) * 100) : 0;
 
   const isVoterOfWinner = winningOption && userVotedOptionId === winningOption.id;
   const isJoiningWinner = userFinalAttendance === "attending";
   const userPartyTotal = userParty.players + userParty.parents;
 
   const confirmedReservationSeats = winningOption 
-    ? winningOption.totalSeats + (!isVoterOfWinner && isJoiningWinner ? userPartyTotal : 0)
+    ? (winningOption.totalSeats || winningOption.votes * 2) + (!isVoterOfWinner && isJoiningWinner ? userPartyTotal : 0)
     : 0;
   
   const confirmedPlayers = winningOption 
@@ -1267,31 +1320,6 @@ function RunSheetContent() {
     : 0;
 
   const estimatedPizzas = Math.ceil(confirmedReservationSeats / 2.5);
-
-  // Time calculations (Sunday Game 3 -> Game 4 is the 2h 45m Lunch Window; Saturday post-Game 2 is Dinner)
-  const lunchGameStart = games[2] || games[0];
-  const lunchGameNext = games[3] || games[1] || games[0];
-  const game1EndMinutes = lunchGameStart.tipOffMinutes + 60; // ~11:45 AM Sunday
-  const game2WarmupMinutes = lunchGameNext.tipOffMinutes; // 2:30 PM Sunday (2h 45m window)
-  const game2EndMinutes = (games[1] || games[0]).tipOffMinutes + 75; // ~7:30 PM Saturday after 6:15 PM game
-
-  // Evening block reference: 9:30 PM (1290 mins) wind-down / hotel return
-  const eveningEndMinutes = Math.max(1290, game2EndMinutes + 120);
-
-  // LUNCH vs DINNER DETERMINATION
-  const gapMidpointMinutes = Math.floor((game1EndMinutes + game2WarmupMinutes) / 2);
-  const autoIsLunch = gapMidpointMinutes >= 720 && gapMidpointMinutes <= 960;
-  const isLunch = manualMealMode === "auto" ? autoIsLunch : manualMealMode === "lunch";
-
-  // Context-aware downtime calculations based on mode:
-  const activeWindowStart = isLunch ? game1EndMinutes : game2EndMinutes;
-  const activeWindowEnd = isLunch ? game2WarmupMinutes : eveningEndMinutes;
-  const totalWindowMinutes = Math.max(0, activeWindowEnd - activeWindowStart);
-  const windowHours = Math.floor(totalWindowMinutes / 60);
-  const windowRemainingMins = totalWindowMinutes % 60;
-
-  // Vote closing time: for lunch it's midday; for dinner it locks before Game 2 starts
-  const voteClosingMinutes = isLunch ? (game1EndMinutes - 30) : ((games[1] || games[0]).tipOffMinutes - 30);
 
   const handleSetMealMode = async (nextMode: "lunch" | "dinner") => {
     setManualMealMode(nextMode);
@@ -2118,33 +2146,69 @@ function RunSheetContent() {
           ) : (
             /* DINNER: FORMAL CONSENSUS & RESERVATION POLL */
             <div className="bg-[#111827] border border-slate-800/90 rounded-2xl p-5 shadow-2xl transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-4">
-              <div className="flex items-center justify-between">
+              {/* Manager "Poll Time-Travel" Dev Toggle */}
+              {isAdmin && (
+                <div className="bg-slate-950/90 border border-amber-500/30 rounded-xl p-2 space-y-1.5">
+                  <div className="flex items-center justify-between px-1">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">
+                      Manager Poll Time-Travel
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">
+                      State: {isPollLocked ? "Locked" : isPollLockSoon ? "Lock Soon" : "Open"}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+                    {([
+                      { id: "live", label: "Live Clock" },
+                      { id: "open", label: "Force Open" },
+                      { id: "lock_soon", label: "Force Lock Soon" },
+                      { id: "locked", label: "Force Locked" },
+                    ] as const).map((mode) => (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        onClick={() => setPollTestMode(mode.id)}
+                        className={`py-1.5 px-1.5 rounded-md font-mono text-[10px] font-bold transition-all cursor-pointer truncate ${
+                          pollTestMode === mode.id
+                            ? "bg-amber-400 text-slate-950 shadow-2xs"
+                            : "text-slate-300 hover:text-white hover:bg-slate-800/70"
+                        }`}
+                      >
+                        {mode.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                  {isVoteLocked ? <Lock className="w-3.5 h-3.5 text-amber-400" /> : <Timer className="w-3.5 h-3.5 text-amber-400" />}
-                  {isVoteLocked ? "Confirmed Team Dinner Reservation" : "Team Dinner Reservation Poll"}
+                  {isPollLocked ? <Lock className="w-3.5 h-3.5 text-emerald-400" /> : <Timer className="w-3.5 h-3.5 text-amber-400" />}
+                  {isPollLocked ? "Confirmed Team Dinner Reservation" : "Team Dinner Reservation Poll"}
                 </span>
-                <span className={`inline-flex items-center gap-1 border-l-2 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none ${
-                  isVoteLocked ? "border-l-amber-400 bg-amber-400/10 text-amber-300" : "border-l-slate-400 bg-slate-800 text-slate-300"
-                }`}>
-                  {isVoteLocked ? "Poll Closed" : "Tap to vote"}
+                <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none shrink-0 tabular-nums">
+                  {totalVotesCast} total family votes cast
                 </span>
               </div>
 
               {winningOption && (
                 <div className="bg-slate-950 text-white rounded-xl p-4 shadow-sm border border-slate-800 space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400 font-mono text-xs uppercase tracking-wider flex items-center gap-1.5">
-                      {winningOption.isDelivery ? <Pizza className="w-3.5 h-3.5 text-amber-400" /> : <Users className="w-3.5 h-3.5 text-amber-400" />}
-                      {winningOption.isDelivery ? "Lobby Delivery Target" : "Final Reservation Target"}
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-r">
+                      🏆 CURRENT LEADER: {winningOption.name}
                     </span>
-                    <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/10 text-emerald-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
-                      {confirmedReservationSeats} Total Seats
-                    </span>
+                    {isPollLocked && (
+                      <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/15 text-emerald-300 font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-r">
+                        🎉 TEAM RESERVATION LOCKED
+                      </span>
+                    )}
                   </div>
-                  
-                  <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800/80">
-                    <span className="text-sm font-black text-white truncate max-w-[190px]">{winningOption.name}</span>
-                    <span className="text-[11px] font-medium text-slate-300">
+
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1.5 border-t border-slate-800/80">
+                    <span className="text-xs font-mono font-bold text-emerald-300 tabular-nums">
+                      Reservation Target: {winningOption.totalSeats || winningOption.votes * 2} Seats ({winningOptionPercent}%)
+                    </span>
+                    <span className="text-[11px] font-medium text-slate-300 tabular-nums">
                       {confirmedPlayers} Players • {confirmedParents} Parents
                     </span>
                   </div>
@@ -2156,23 +2220,33 @@ function RunSheetContent() {
                     </div>
                   )}
 
-                  {isVoteLocked && (
-                    <div className="pt-2 flex items-center justify-between border-t border-slate-800/80">
+                  {isPollLocked && (
+                    <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80">
                       <span className="text-[11px] text-slate-300 flex items-center gap-1.5 font-medium">
                         <PhoneCall className="w-3.5 h-3.5 text-emerald-400" /> {winningOption.phone}
                       </span>
-                      <a 
-                        href={`tel:${winningOption.phone.replace(/[^0-9]/g, "")}`}
-                        className="text-[11px] font-black uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 px-3 py-1.5 rounded-xl flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-xs"
-                      >
-                        {winningOption.isDelivery ? "Call Pizza Order" : "Call to Reserve"}
-                      </a>
+                      <div className="flex items-center gap-1.5">
+                        <a
+                          href={`tel:${winningOption.phone.replace(/[^0-9]/g, "")}`}
+                          className="text-[11px] font-black uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 px-3 py-1.5 rounded-xl flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-xs"
+                        >
+                          <PhoneCall className="w-3 h-3 text-slate-950" /> Call Restaurant
+                        </a>
+                        <a
+                          href={getMapsUrl(`${winningOption.name} ${winningOption.address}`)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-[11px] font-extrabold uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-xs"
+                        >
+                          <Navigation className="w-3 h-3 text-amber-400" /> Open in Maps
+                        </a>
+                      </div>
                     </div>
                   )}
                 </div>
               )}
 
-              {isVoteLocked && winningOption && !isVoterOfWinner && (
+              {isPollLocked && winningOption && !isVoterOfWinner && (
                 <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3.5 space-y-2.5 animate-in fade-in duration-200">
                   <div>
                     <span className="text-xs font-black text-white block">
@@ -2209,7 +2283,7 @@ function RunSheetContent() {
                 </div>
               )}
 
-              {isVoteLocked && winningOption && isVoterOfWinner && (
+              {isPollLocked && winningOption && isVoterOfWinner && (
                 <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-3 flex items-center justify-between text-xs text-emerald-200 shadow-2xs">
                   <div className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -2221,7 +2295,7 @@ function RunSheetContent() {
                 </div>
               )}
 
-              {!isVoteLocked && (
+              {!isPollLocked && (
                 <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
@@ -2265,7 +2339,7 @@ function RunSheetContent() {
                 </div>
               )}
 
-              {!isVoteLocked && (
+              {!isPollLocked && (
                 <div className="grid grid-cols-2 gap-2 pt-0.5">
                   <button
                     type="button"
@@ -2285,7 +2359,7 @@ function RunSheetContent() {
                 </div>
               )}
 
-              {!isVoteLocked && (
+              {!isPollLocked && (
                 <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 flex items-center justify-between shadow-2xs">
                   <div className="flex items-center gap-2">
                     <CalendarClock className="w-4 h-4 text-amber-400 shrink-0" />
@@ -2298,9 +2372,15 @@ function RunSheetContent() {
                       </span>
                     </div>
                   </div>
-                  <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none shrink-0">
-                    Locks Soon
-                  </span>
+                  {isPollLockSoon ? (
+                    <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none shrink-0">
+                      Locks Soon
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/10 text-emerald-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none shrink-0">
+                      Poll Open
+                    </span>
+                  )}
                 </div>
               )}
 
@@ -2309,23 +2389,85 @@ function RunSheetContent() {
                   const isWinner = winningOption?.id === option.id;
                   const isUserPick = userVotedOptionId === option.id;
                   const votePercent = totalPollVotes > 0 ? Math.round((option.votes / totalPollVotes) * 100) : 0;
+                  const optionSeats = option.totalSeats || option.votes * 2;
+
+                  if (isPollLocked && isWinner) {
+                    return (
+                      <div
+                        key={option.id}
+                        className="w-full p-4 rounded-xl border-2 border-emerald-500 bg-emerald-950/35 ring-2 ring-emerald-500/40 text-left text-xs shadow-lg space-y-3"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="pr-2 min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-1.5 mb-1">
+                              <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/15 text-emerald-300 font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-r">
+                                🎉 TEAM RESERVATION LOCKED
+                              </span>
+                              {isUserPick && (
+                                <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/20 text-amber-200 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r">
+                                  Your Vote
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-base font-black block text-white">
+                              {option.name}
+                            </span>
+                            <span className="text-[11px] text-slate-300 block mt-0.5 font-medium">
+                              {option.type} • <span className="font-bold text-white">{option.playerCount}p + {option.parentCount} adults</span>
+                            </span>
+                          </div>
+
+                          <div className="shrink-0 text-right pl-2">
+                            <span className="font-black px-3 py-1 rounded-lg text-xs block tabular-nums shadow-2xs bg-emerald-500 text-slate-950">
+                              {option.votes} votes ({optionSeats} seats)
+                            </span>
+                            <span className="text-[10px] font-mono text-emerald-300 block mt-1 uppercase tracking-wider tabular-nums font-bold">
+                              {votePercent}% of vote
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-emerald-400 transition-all duration-300"
+                            style={{ width: `${votePercent}%` }}
+                          />
+                        </div>
+
+                        <div className="pt-1 flex items-center justify-end gap-2 border-t border-emerald-500/20">
+                          <a
+                            href={`tel:${option.phone.replace(/[^0-9]/g, "")}`}
+                            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-lg flex items-center gap-1.5 active:scale-[0.96] transition-transform cursor-pointer shadow-xs"
+                          >
+                            <PhoneCall className="w-3 h-3 text-slate-950" /> Call Restaurant
+                          </a>
+                          <a
+                            href={getMapsUrl(`${option.name} ${option.address}`)}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-extrabold text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-lg flex items-center gap-1.5 active:scale-[0.96] transition-transform cursor-pointer shadow-xs"
+                          >
+                            <Navigation className="w-3 h-3 text-amber-400" /> Open in Maps
+                          </a>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <button
                       key={option.id}
                       type="button"
-                      disabled={isVoteLocked}
+                      disabled={isPollLocked}
                       onClick={() => handleVote(option.id)}
-                      className={`w-full p-3.5 rounded-xl border text-left flex items-center justify-between text-xs transition-all duration-150 ease-out cursor-pointer relative active:scale-[0.96] shadow-2xs ${
-                        isVoteLocked 
-                          ? (isWinner 
-                              ? "bg-emerald-950/40 border-emerald-500 ring-2 ring-emerald-500/50" 
-                              : "bg-slate-900/40 border-slate-800 opacity-60")
+                      className={`w-full p-3.5 rounded-xl border text-left flex items-center justify-between text-xs transition-all duration-150 ease-out relative shadow-2xs ${
+                        isPollLocked
+                          ? "bg-slate-900/40 border-slate-800 opacity-40 grayscale pointer-events-none cursor-default"
                           : isUserPick
-                            ? "border-amber-400 bg-amber-400/10 ring-2 ring-amber-400/40 shadow-md"
+                            ? "border-amber-400 bg-amber-400/10 ring-2 ring-amber-400/40 shadow-md cursor-pointer active:scale-[0.96]"
                             : isWinner
-                              ? "bg-slate-900 border-amber-400/50 ring-1 ring-amber-400/20 shadow-md"
-                              : "bg-slate-900/60 border-slate-800 hover:border-slate-700"
+                              ? "bg-slate-900 border-amber-400/50 ring-1 ring-amber-400/20 shadow-md cursor-pointer active:scale-[0.96]"
+                              : "bg-slate-900/60 border-slate-800 hover:border-slate-700 cursor-pointer active:scale-[0.96]"
                       }`}
                     >
                       <div className="pr-2 min-w-0 flex-1">
@@ -2333,9 +2475,9 @@ function RunSheetContent() {
                           <span className="text-sm font-black block text-white">
                             {option.name}
                           </span>
-                          {isWinner && (
+                          {isWinner && !isPollLocked && (
                             <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
-                              <Trophy className="w-2.5 h-2.5" /> {isVoteLocked ? "Selected Choice" : "Leading"}
+                              <Trophy className="w-2.5 h-2.5" /> Leading
                             </span>
                           )}
                           {isUserPick && (
@@ -2363,17 +2505,23 @@ function RunSheetContent() {
                       </div>
 
                       <div className="shrink-0 text-right pl-2">
-                        <span className={`font-black px-3 py-1 rounded-lg text-xs block tabular-nums shadow-2xs ${
-                          isWinner 
-                            ? "bg-emerald-500 text-slate-950" 
-                            : isUserPick
-                              ? "bg-amber-400 text-slate-950"
-                              : "bg-slate-800 text-slate-200 border border-slate-700"
-                        }`}>
-                          {option.totalSeats} seats
-                        </span>
+                        {isPollLocked ? (
+                          <span className="inline-flex items-center gap-1 bg-slate-800 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-lg font-mono text-xs font-bold">
+                            🔒 Closed
+                          </span>
+                        ) : (
+                          <span className={`font-black px-3 py-1 rounded-lg text-xs block tabular-nums shadow-2xs ${
+                            isWinner 
+                              ? "bg-emerald-500 text-slate-950" 
+                              : isUserPick
+                                ? "bg-amber-400 text-slate-950"
+                                : "bg-slate-800 text-slate-200 border border-slate-700"
+                          }`}>
+                            {option.votes} votes ({optionSeats} seats)
+                          </span>
+                        )}
                         <span className="text-[10px] font-mono text-slate-300 block mt-1 uppercase tracking-wider tabular-nums">
-                          {option.votes} votes ({votePercent}%)
+                          {isPollLocked ? `${option.votes} votes (${optionSeats} seats)` : `${votePercent}% of vote`}
                         </span>
                       </div>
                     </button>
