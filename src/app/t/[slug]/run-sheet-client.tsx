@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useParams, useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { CORRIDOR_ORIGIN_PRESETS, computeTravelCorridor } from "@/lib/corridor-engine";
+import { CorridorDirection, getDynamicOriginPresets, computeTravelCorridor } from "@/lib/corridor-engine";
 import { 
   Clock, 
   Navigation, 
@@ -129,11 +129,14 @@ function RunSheetContent() {
     router.replace(pathname || `/t/${slug}`);
   };
 
-  // Step 2: Any-City Travel Corridor Engine Origin State & Persistence
-  const [departureOrigin, setDepartureOrigin] = useState<string>("Ottawa, ON");
+  // Step 2: Any-City Travel Corridor Engine Origin & Direction State + Persistence
+  const teamHomeBase = "Ottawa, ON";
+  const [departureOrigin, setDepartureOrigin] = useState<string>(teamHomeBase);
+  const [corridorDirection, setCorridorDirection] = useState<CorridorDirection>("to_tournament");
   const [isOriginPopoverOpen, setIsOriginPopoverOpen] = useState<boolean>(false);
   const [isCustomOriginMode, setIsCustomOriginMode] = useState<boolean>(false);
   const [customOriginDraft, setCustomOriginDraft] = useState<string>("");
+  const originPresets = getDynamicOriginPresets(teamHomeBase, "Oakville, ON");
 
   useEffect(() => {
     if (!slug) return;
@@ -142,13 +145,26 @@ function RunSheetContent() {
       if (savedOrigin && savedOrigin.trim()) {
         setDepartureOrigin(savedOrigin.trim());
       }
+      const savedDir = window.localStorage.getItem(`awayday_corridor_dir_${slug}`);
+      if (savedDir === "to_tournament" || savedDir === "trip_home") {
+        setCorridorDirection(savedDir);
+      }
     } catch {
       // Ignore storage errors
     }
   }, [slug]);
 
+  const handleSetCorridorDirection = (nextDir: CorridorDirection) => {
+    setCorridorDirection(nextDir);
+    try {
+      window.localStorage.setItem(`awayday_corridor_dir_${slug}`, nextDir);
+    } catch {
+      // Ignore storage errors
+    }
+  };
+
   const handleSelectOriginPreset = (preset: string) => {
-    if (preset === "Custom...") {
+    if (preset === "Custom City / Zip..." || preset === "Custom...") {
       setIsCustomOriginMode(true);
       setCustomOriginDraft(departureOrigin);
       return;
@@ -1077,8 +1093,19 @@ function RunSheetContent() {
     setIsIngestModalOpen(false);
   };
 
-  const [activeTab, setActiveTab] = useState<"schedule" | "fuel" | "hotel">("schedule");
+  const [activeTab, setActiveTab] = useState<"schedule" | "fuel" | "travel" | "hotel">("schedule");
   const [openTipsGameId, setOpenTipsGameId] = useState<string | null>(null);
+
+  // Backwards-compatibility: map URL hash or query param 'hotel' / 'travel' to 'travel'
+  useEffect(() => {
+    const tabParam = (searchParams.get("tab") || "").toLowerCase();
+    const hashVal = typeof window !== "undefined" ? window.location.hash.replace(/^#/, "").toLowerCase() : "";
+    if (tabParam === "hotel" || tabParam === "travel" || hashVal === "hotel" || hashVal === "travel" || hashVal === "section-hotel") {
+      setActiveTab("travel");
+    } else if (tabParam === "fuel" || hashVal === "fuel") {
+      setActiveTab("fuel");
+    }
+  }, [searchParams]);
 
   // Reset scroll to the top of the screen whenever the tab changes (no anchor scrolling)
   useEffect(() => {
@@ -1470,8 +1497,9 @@ function RunSheetContent() {
     await handleSetMealMode(nextMode);
   };
 
-  // Compute Travel Corridor Plan based on departureOrigin and first scheduled game
+  // Compute Travel Corridor Plan based on departureOrigin, direction, first game, and final game
   const firstGame = games[0];
+  const finalGame = games[games.length - 1] || games[0];
   const firstEventArrivalMins = firstGame
     ? getArrivalCallMinutes(firstGame.tipOffMinutes, firstGame.warmupBufferMin || 30)
     : 915;
@@ -1481,7 +1509,14 @@ function RunSheetContent() {
     "Oakville, ON",
     tournament.hotel.name,
     firstEventArrivalMins,
-    firstEventDayLabel
+    firstEventDayLabel,
+    {
+      direction: corridorDirection,
+      teamHomeBase,
+      finalGameTipOffMinutes: finalGame?.tipOffMinutes ?? 870,
+      finalGameDayLabel: finalGame?.dayLabel || "Sun, Oct 25",
+      finalGameVenue: finalGame?.venueName || tournament.hotel.name,
+    }
   );
 
   return (
@@ -1690,6 +1725,10 @@ function RunSheetContent() {
                   </a>
                 </div>
               </div>
+              <div className="pt-2 border-t border-slate-800/70 text-[10px] font-mono text-slate-400 flex items-center gap-1.5">
+                <Clock className="w-3 h-3 text-amber-400/80 shrink-0" />
+                <span>Est. distance time • Check Maps for live traffic &amp; weather</span>
+              </div>
             </section>
           );
         })()}
@@ -1806,6 +1845,9 @@ function RunSheetContent() {
                       <span className="block text-[10px] text-amber-300/75 font-medium">game time</span>
                     </div>
                   </div>
+                  <p className="text-[10px] font-mono text-slate-400 text-center -mt-1.5">
+                    Est. distance time • Check Maps for live traffic &amp; weather
+                  </p>
 
                   <div className="flex items-center justify-between gap-2 p-3 rounded-xl border border-slate-800 bg-slate-900/60">
                     <div className="truncate pr-2">
@@ -1942,211 +1984,6 @@ function RunSheetContent() {
 
         {activeTab === "fuel" && (
           <div key="fuel" className="space-y-4 animate-in fade-in-50 duration-200 ease-out">
-        {/* =========================================================
-            ANY-CITY TRAVEL CORRIDOR & HIGHWAY PIT STOPS ENGINE
-        ========================================================= */}
-        <section id="section-corridor" className="space-y-3 pt-1">
-          <div className="flex items-center justify-between px-1">
-            <div className="flex items-center gap-1.5">
-              <span className="p-1 rounded-md bg-[#111827] border border-slate-800 text-amber-400 shadow-2xs">
-                <Car className="w-3.5 h-3.5" />
-              </span>
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
-                Travel Corridor & Highway Pit Stops
-              </h3>
-            </div>
-            <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-[#111827] text-amber-300 font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-r shadow-2xs">
-              {corridorPlan.stops.length} {corridorPlan.stops.length === 1 ? "Stop" : "Stops"} Mapped
-            </span>
-          </div>
-
-          <div className="bg-[#111827] text-white rounded-2xl p-5 shadow-2xl border border-slate-800/90 space-y-4">
-            {/* Route Header & Origin Quick Selector Popover */}
-            <div className="relative">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
-                    {corridorPlan.highwayRouteSummary}
-                  </span>
-                  <h4 className="text-base sm:text-lg font-black text-white tracking-tight mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <span>{corridorPlan.origin}</span>
-                    <span className="text-amber-400 font-mono">➔</span>
-                    <span>{corridorPlan.destination}</span>
-                  </h4>
-                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
-                    Target Base Camp: <span className="text-slate-200 font-bold">{corridorPlan.destinationVenue}</span>
-                  </p>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsOriginPopoverOpen((prev) => !prev);
-                    setIsCustomOriginMode(false);
-                  }}
-                  aria-expanded={isOriginPopoverOpen}
-                  className="shrink-0 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 px-2.5 py-1.5 rounded-xl text-[11px] font-mono font-bold flex items-center gap-1 active:scale-[0.96] transition-all cursor-pointer shadow-xs"
-                >
-                  <MapPin className="w-3 h-3 text-amber-400" />
-                  <span>Origin</span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOriginPopoverOpen ? "rotate-180" : ""}`} />
-                </button>
-              </div>
-
-              {/* Quick Origin Selector Popover */}
-              {isOriginPopoverOpen && (
-                <div className="mt-3 bg-slate-900/95 border border-slate-700 rounded-xl p-3 space-y-2.5 shadow-xl animate-in fade-in-50 slide-in-from-top-1 duration-150">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
-                      Select Departure Origin Preset
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsOriginPopoverOpen(false);
-                        setIsCustomOriginMode(false);
-                      }}
-                      className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-1.5">
-                    {CORRIDOR_ORIGIN_PRESETS.map((preset) => {
-                      const isSelected =
-                        preset === "Custom..."
-                          ? isCustomOriginMode
-                          : !isCustomOriginMode && departureOrigin.toLowerCase() === preset.toLowerCase();
-                      return (
-                        <button
-                          key={preset}
-                          type="button"
-                          onClick={() => handleSelectOriginPreset(preset)}
-                          className={`py-2 px-2.5 rounded-lg text-left text-[11px] font-mono font-bold border transition-all cursor-pointer active:scale-[0.97] truncate ${
-                            isSelected
-                              ? "bg-amber-400 text-slate-950 border-amber-400 shadow-xs"
-                              : "bg-slate-950/90 text-slate-200 border-slate-800 hover:border-slate-700"
-                          }`}
-                        >
-                          {preset}
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {isCustomOriginMode && (
-                    <form onSubmit={handleApplyCustomOrigin} className="pt-1 flex items-center gap-2">
-                      <input
-                        type="text"
-                        value={customOriginDraft}
-                        onChange={(e) => setCustomOriginDraft(e.target.value)}
-                        placeholder="Enter city (e.g. Kingston, ON or Barrie, ON)"
-                        autoFocus
-                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-amber-400 focus:outline-none"
-                      />
-                      <button
-                        type="submit"
-                        className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer shrink-0"
-                      >
-                        Set Route
-                      </button>
-                    </form>
-                  )}
-                </div>
-              )}
-            </div>
-
-            {/* Telemetry Summary: Drive Duration & Recommended Departure Call */}
-            <div className="grid grid-cols-2 gap-2.5 border-t border-slate-800 pt-3.5">
-              <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-3">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block">
-                  Est. Drive Time & Distance
-                </span>
-                <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-lg font-mono font-black text-white tabular-nums">
-                    {corridorPlan.durationLabel}
-                  </span>
-                  <span className="text-[11px] font-mono text-slate-400">
-                    ({corridorPlan.distanceKm} km)
-                  </span>
-                </div>
-              </div>
-
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300/90 block">
-                  Recommended Departure Call
-                </span>
-                <span className="mt-1 text-sm sm:text-base font-mono font-black text-amber-300 block tabular-nums">
-                  {corridorPlan.recommendedDepartureLabel}
-                </span>
-              </div>
-            </div>
-
-            <div className="text-[11px] text-slate-300 font-mono bg-slate-900/60 border border-slate-800/80 rounded-lg px-3 py-2 flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>{corridorPlan.departureContextNote}</span>
-            </div>
-
-            {/* Strategic Highway Pit-Stop Waypoint Cards */}
-            <div className="space-y-2.5 pt-0.5">
-              {corridorPlan.stops.map((stop, idx) => (
-                <div
-                  key={stop.id}
-                  className="bg-slate-900/75 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 space-y-2.5 transition-colors shadow-2xs"
-                >
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="inline-flex items-center border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
-                          Stop #{idx + 1} • {stop.milestoneTag}
-                        </span>
-                        <span className="inline-flex items-center border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
-                          {stop.elapsedDriveLabel}
-                        </span>
-                      </div>
-                      <h5 className="text-sm font-black text-white mt-1.5 leading-snug">
-                        {stop.title}
-                      </h5>
-                    </div>
-                  </div>
-
-                  <p className="text-xs text-slate-300 font-medium leading-snug">
-                    <span className="text-amber-300 font-mono text-[11px] uppercase tracking-wider font-bold mr-1">
-                      Athlete Fuel & Coffee:
-                    </span>
-                    {stop.fuelAndCoffeeOptions}
-                  </p>
-
-                  <div className="pt-1 flex items-center justify-between gap-2 border-t border-slate-800/80">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider truncate">
-                      Open in Maps:
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <a
-                        href={stop.appleMapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1 active:scale-[0.96] transition-transform cursor-pointer"
-                      >
-                        <Navigation className="w-3 h-3 text-amber-400" /> Apple Maps
-                      </a>
-                      <a
-                        href={stop.googleMapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-2.5 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-[0.96] transition-transform cursor-pointer shadow-xs"
-                      >
-                        <MapPin className="w-3 h-3 text-slate-950" /> Google Maps
-                      </a>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        </section>
-
         {/* =========================================================
             MEAL INFO SECTION (Dynamically Computed Timestamps)
         ========================================================= */}
@@ -2786,10 +2623,250 @@ function RunSheetContent() {
           </div>
         )}
 
-        {activeTab === "hotel" && (() => {
+        {(activeTab === "travel" || activeTab === "hotel") && (() => {
           const hotelAlerts = alerts.filter(a => a.gameId === "hotel");
           return (
-          <div key="hotel" className="space-y-4 animate-in fade-in-50 duration-200 ease-out">
+          <div key="travel" className="space-y-4 animate-in fade-in-50 duration-200 ease-out">
+        {/* =========================================================
+            ANY-CITY TRAVEL CORRIDOR & HIGHWAY PIT STOPS ENGINE
+        ========================================================= */}
+        <section id="section-corridor" className="space-y-3 pt-1">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-1.5">
+              <span className="p-1 rounded-md bg-[#111827] border border-slate-800 text-amber-400 shadow-2xs">
+                <Car className="w-3.5 h-3.5" />
+              </span>
+              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
+                Travel Corridor &amp; Highway Pit Stops
+              </h3>
+            </div>
+            <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-[#111827] text-amber-300 font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-r shadow-2xs">
+              {corridorPlan.stops.length} {corridorPlan.stops.length === 1 ? "Stop" : "Stops"} Mapped
+            </span>
+          </div>
+
+          <div className="bg-[#111827] text-white rounded-2xl p-5 shadow-2xl border border-slate-800/90 space-y-4">
+            {/* Inline 2-Way Direction Segmented Control: [ ➔ To Tournament | ↺ Trip Home ] */}
+            <div className="grid grid-cols-2 gap-1 bg-slate-950/90 border border-slate-800 p-1 rounded-xl">
+              <button
+                type="button"
+                onClick={() => handleSetCorridorDirection("to_tournament")}
+                className={`py-2 px-3 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
+                  corridorDirection === "to_tournament"
+                    ? "bg-amber-400 text-slate-950 shadow-xs"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                <span>➔ To Tournament</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSetCorridorDirection("trip_home")}
+                className={`py-2 px-3 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
+                  corridorDirection === "trip_home"
+                    ? "bg-amber-400 text-slate-950 shadow-xs"
+                    : "text-slate-300 hover:text-white"
+                }`}
+              >
+                <span>↺ Trip Home</span>
+              </button>
+            </div>
+
+            {/* Route Header & Origin Quick Selector Popover */}
+            <div className="relative">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                    {corridorPlan.highwayRouteSummary}
+                  </span>
+                  <h4 className="text-base sm:text-lg font-black text-white tracking-tight mt-1.5 flex flex-wrap items-center gap-1.5">
+                    <span>{corridorPlan.origin}</span>
+                    <span className="text-amber-400 font-mono">➔</span>
+                    <span>{corridorPlan.destination}</span>
+                  </h4>
+                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                    {corridorDirection === "trip_home" ? "Return Target:" : "Target Base Camp:"}{" "}
+                    <span className="text-slate-200 font-bold">{corridorPlan.destinationVenue}</span>
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsOriginPopoverOpen((prev) => !prev);
+                    setIsCustomOriginMode(false);
+                  }}
+                  aria-expanded={isOriginPopoverOpen}
+                  className="shrink-0 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 px-2.5 py-1.5 rounded-xl text-[11px] font-mono font-bold flex items-center gap-1 active:scale-[0.96] transition-all cursor-pointer shadow-xs"
+                >
+                  <MapPin className="w-3 h-3 text-amber-400" />
+                  <span>{corridorDirection === "trip_home" ? "Home City" : "Origin"}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOriginPopoverOpen ? "rotate-180" : ""}`} />
+                </button>
+              </div>
+
+              {/* Quick Origin Selector Popover */}
+              {isOriginPopoverOpen && (
+                <div className="mt-3 bg-slate-900/95 border border-slate-700 rounded-xl p-3 space-y-2.5 shadow-xl animate-in fade-in-50 slide-in-from-top-1 duration-150">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
+                      Select Home / Departure Origin (North America)
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsOriginPopoverOpen(false);
+                        setIsCustomOriginMode(false);
+                      }}
+                      className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-1.5">
+                    {originPresets.map((preset) => {
+                      const isCustomOption = preset === "Custom..." || preset === "Custom City / Zip...";
+                      const isSelected = isCustomOption
+                        ? isCustomOriginMode
+                        : !isCustomOriginMode && departureOrigin.toLowerCase() === preset.toLowerCase();
+                      return (
+                        <button
+                          key={preset}
+                          type="button"
+                          onClick={() => handleSelectOriginPreset(preset)}
+                          className={`py-2 px-2.5 rounded-lg text-left text-[11px] font-mono font-bold border transition-all cursor-pointer active:scale-[0.97] truncate ${
+                            isSelected
+                              ? "bg-amber-400 text-slate-950 border-amber-400 shadow-xs"
+                              : "bg-slate-950/90 text-slate-200 border-slate-800 hover:border-slate-700"
+                          }`}
+                        >
+                          {preset}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  {isCustomOriginMode && (
+                    <form onSubmit={handleApplyCustomOrigin} className="pt-1 flex items-center gap-2">
+                      <input
+                        type="text"
+                        value={customOriginDraft}
+                        onChange={(e) => setCustomOriginDraft(e.target.value)}
+                        placeholder="Enter any North American city or postal/zip code..."
+                        autoFocus
+                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-amber-400 focus:outline-none"
+                      />
+                      <button
+                        type="submit"
+                        className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer shrink-0"
+                      >
+                        Set Route
+                      </button>
+                    </form>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Telemetry Summary: Drive Duration & Recommended Departure Call */}
+            <div className="grid grid-cols-2 gap-2.5 border-t border-slate-800 pt-3.5">
+              <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-3">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block">
+                  Est. Drive Time &amp; Distance
+                </span>
+                <div className="mt-1 flex items-baseline gap-1.5">
+                  <span className="text-lg font-mono font-black text-white tabular-nums">
+                    {corridorPlan.durationLabel}
+                  </span>
+                  <span className="text-[11px] font-mono text-slate-400">
+                    ({corridorPlan.distanceKm} km)
+                  </span>
+                </div>
+              </div>
+
+              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
+                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300/90 block">
+                  {corridorPlan.recommendedDepartureTitle}
+                </span>
+                <span className="mt-1 text-sm sm:text-base font-mono font-black text-amber-300 block tabular-nums">
+                  {corridorPlan.recommendedDepartureLabel}
+                </span>
+              </div>
+            </div>
+
+            <div className="text-[11px] text-slate-300 font-mono bg-slate-900/60 border border-slate-800/80 rounded-lg px-3 py-2 flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>{corridorPlan.departureContextNote}</span>
+            </div>
+
+            {/* Live Traffic & Weather Disclaimer */}
+            <div className="text-[10px] font-mono text-slate-400 bg-slate-950/60 border border-slate-800/80 rounded-lg px-3 py-2 flex items-start gap-2">
+              <AlertCircle className="w-3.5 h-3.5 text-amber-400/80 shrink-0 mt-0.5" />
+              <span>
+                Times are standard distance estimates. Check live Maps before departure for real-time traffic and weather delays.
+              </span>
+            </div>
+
+            {/* Strategic Highway Pit-Stop Waypoint Cards */}
+            <div className="space-y-2.5 pt-0.5">
+              {corridorPlan.stops.map((stop, idx) => (
+                <div
+                  key={stop.id}
+                  className="bg-slate-900/75 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 space-y-2.5 transition-colors shadow-2xs"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="inline-flex items-center border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                          Stop #{idx + 1} • {stop.milestoneTag}
+                        </span>
+                        <span className="inline-flex items-center border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                          {stop.elapsedDriveLabel}
+                        </span>
+                      </div>
+                      <h5 className="text-sm font-black text-white mt-1.5 leading-snug">
+                        {stop.title}
+                      </h5>
+                    </div>
+                  </div>
+
+                  <p className="text-xs text-slate-300 font-medium leading-snug">
+                    <span className="text-amber-300 font-mono text-[11px] uppercase tracking-wider font-bold mr-1">
+                      Athlete Fuel &amp; Coffee:
+                    </span>
+                    {stop.fuelAndCoffeeOptions}
+                  </p>
+
+                  <div className="pt-1 flex items-center justify-between gap-2 border-t border-slate-800/80">
+                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider truncate">
+                      Open in Maps:
+                    </span>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <a
+                        href={stop.appleMapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1 active:scale-[0.96] transition-transform cursor-pointer"
+                      >
+                        <Navigation className="w-3 h-3 text-amber-400" /> Apple Maps
+                      </a>
+                      <a
+                        href={stop.googleMapsUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-2.5 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-[0.96] transition-transform cursor-pointer shadow-xs"
+                      >
+                        <MapPin className="w-3 h-3 text-slate-950" /> Google Maps
+                      </a>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
         {/* Hotel Base Camp */}
         <section id="section-hotel" className="bg-[#111827] rounded-2xl p-5 shadow-2xl border border-slate-800/90 space-y-3.5">
           <div className="flex items-start justify-between gap-3">
@@ -2892,22 +2969,25 @@ function RunSheetContent() {
           {([
             { id: "schedule", label: "Schedule", Icon: CalendarDays },
             { id: "fuel", label: "Fuel", Icon: Utensils },
-            { id: "hotel", label: "Hotel", Icon: Hotel },
-          ] as const).map(({ id, label, Icon }) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              aria-current={activeTab === id ? "page" : undefined}
-              className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] uppercase tracking-wider active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer ${
-                activeTab === id
-                  ? "bg-amber-500 text-slate-950 font-bold"
-                  : "text-slate-400 hover:text-white"
-              }`}
-            >
-              <Icon className="w-4 h-4 mb-0.5" />
-              <span>{label}</span>
-            </button>
-          ))}
+            { id: "travel", label: "Travel", Icon: Car },
+          ] as const).map(({ id, label, Icon }) => {
+            const isTabActive = id === "travel" ? (activeTab === "travel" || activeTab === "hotel") : activeTab === id;
+            return (
+              <button
+                key={id}
+                onClick={() => setActiveTab(id)}
+                aria-current={isTabActive ? "page" : undefined}
+                className={`flex flex-col items-center justify-center py-2 px-1 rounded-xl text-[10px] uppercase tracking-wider active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer ${
+                  isTabActive
+                    ? "bg-amber-500 text-slate-950 font-bold"
+                    : "text-slate-400 hover:text-white"
+                }`}
+              >
+                <Icon className="w-4 h-4 mb-0.5" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </nav>
       </div>
 
