@@ -217,7 +217,8 @@ body {
 @media (forced-colors: active) {
   .shadow-tactile,
   .shadow-tactile-sm,
-  .shadow-tactile-banner {
+  .shadow-tactile-banner,
+  .hero-card-bloom {
     border-color: CanvasText;
   }
 }

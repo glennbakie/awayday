@@ -1571,9 +1571,13 @@ function RunSheetContent() {
       {/* Top Application Header */}
       <header className="sticky top-0 z-30 bg-[#F8F7F3]/90 backdrop-blur-md px-4 py-3">
         <div className="max-w-md mx-auto flex items-center justify-between">
-          <div className="flex items-baseline">
-            <span className="text-2xl font-black tracking-tight text-[#1D2935]">AwayDay</span>
-            <span className="text-2xl font-black text-[#D59B42]">.</span>
+          <div className="flex items-baseline select-none tracking-tight">
+            <span className="text-2xl font-black italic text-[#0B192C] tracking-tighter">
+              Away
+            </span>
+            <span className="text-2xl font-black italic text-[#D59B42] tracking-tighter">
+              Day.
+            </span>
           </div>
           <div className="flex items-center gap-2">
             <div
@@ -1677,11 +1681,11 @@ function RunSheetContent() {
 
             {/* Right: Tournament metadata & Manager Tools trigger */}
             <div className="flex-1 min-w-0">
-              <div className="text-[11px] font-bold tracking-wider text-[#D59B42] uppercase">
+              <div className="text-[11px] font-extrabold tracking-wider text-[#D59B42] uppercase">
                 YOUR NEXT AWAY DAY
               </div>
               <div className="flex items-start justify-between gap-2 mt-0.5">
-                <h1 className="text-base font-bold text-[#1D2935] leading-tight">
+                <h1 className="text-base font-extrabold text-[#0F2942] leading-tight">
                   {tournament.name}
                 </h1>
                 {isAdmin && (
@@ -1705,14 +1709,20 @@ function RunSheetContent() {
                 href={getMapsUrl(tournament.primaryHubAddress)}
                 target="_blank"
                 rel="noreferrer"
-                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#1D2935] transition-colors mt-1"
+                className="flex items-center gap-1.5 text-xs font-medium text-[#2A435E] hover:text-[#0F2942] transition-colors mt-1"
               >
-                <MapPin className="w-3.5 h-3.5 text-[#1D2935] shrink-0" aria-hidden="true" />
+                <svg
+                  aria-hidden="true"
+                  className="w-3.5 h-3.5 text-[#0F2942] fill-current shrink-0"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                </svg>
                 <span className="truncate">{tournament.city}</span>
               </a>
 
-              <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
-                <CalendarDays className="w-3.5 h-3.5 text-[#1D2935] shrink-0" aria-hidden="true" />
+              <div className="flex items-center gap-1.5 text-xs font-medium text-[#2A435E] mt-0.5">
+                <CalendarDays className="w-3.5 h-3.5 text-[#0F2942] shrink-0" aria-hidden="true" />
                 <span>{tournament.dates}</span>
               </div>
             </div>
@@ -1869,115 +1879,171 @@ function RunSheetContent() {
 
           return (
             <>
-              {/* Active Hero Game Card */}
-              <section className="rounded-[26px] bg-white/95 border border-white ring-1 ring-stone-200/50 shadow-tactile p-4 mb-3">
-                {/* Top Row (Pill Badges) */}
-                <div className="flex items-center justify-between gap-2 mb-3.5">
-                  <span className="bg-gradient-to-r from-[#FCE8CC] to-[#FAD4A2] text-[#915B12] text-[11px] font-black tracking-wider px-3 py-1 rounded-full shadow-xs uppercase">
-                    {nextGame.status === "Live" ? "LIVE GAME" : "NEXT GAME"}
-                  </span>
-                  <span className="bg-[#F4F3EE] text-[#55697D] text-[11px] font-bold px-3 py-1 rounded-full border border-stone-200/40">
-                    Game {nextGameIndex + 1}
-                  </span>
-                </div>
-
-                {/* Matchup & Time Hero (Row layout with 3D basketball token) */}
-                <div className="flex items-start gap-3.5">
-                  <div
-                    aria-hidden="true"
-                    className="w-14 h-14 rounded-full bg-gradient-to-br from-[#FED7A5] via-[#F4B265] to-[#DF8728] shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),0_4px_10px_rgba(223,135,40,0.35)] flex items-center justify-center shrink-0"
-                  >
-                    <svg viewBox="0 0 40 40" className="w-9 h-9 drop-shadow-[0_1px_1px_rgba(255,255,255,0.35)]" fill="none">
-                      <circle cx="20" cy="20" r="15.5" stroke="#1D2935" strokeWidth="2" />
-                      <path d="M4.5 20H35.5" stroke="#1D2935" strokeWidth="1.8" />
-                      <path d="M20 4.5V35.5" stroke="#1D2935" strokeWidth="1.8" />
-                      <path d="M9 9C14.4 14.4 14.4 25.6 9 31" stroke="#1D2935" strokeWidth="1.8" />
-                      <path d="M31 9C25.6 14.4 25.6 25.6 31 31" stroke="#1D2935" strokeWidth="1.8" />
-                    </svg>
+              {/* Active Hero Game Card with Warm Ambient Peach/Gold Bloom */}
+              <div className="relative mb-4">
+                <div
+                  aria-hidden="true"
+                  className="pointer-events-none absolute -inset-2.5 rounded-[34px] bg-gradient-to-b from-[#F5C57A]/25 via-[#F7CE91]/18 to-transparent blur-xl"
+                />
+                <section className="hero-card-bloom relative rounded-[28px] bg-white border border-white ring-1 ring-stone-200/40 p-4 shadow-[0_10px_35px_-5px_rgba(213,155,66,0.22),0_4px_16px_rgba(0,0,0,0.03)]">
+                  {/* Top Row (Pill Badges) */}
+                  <div className="flex items-center justify-between gap-2 mb-3.5">
+                    <span className="bg-[#FDEFD9] text-[#0F2942] text-[11px] font-black tracking-wider px-3 py-1 rounded-full uppercase">
+                      {nextGame.status === "Live" ? "LIVE GAME" : "NEXT GAME"}
+                    </span>
+                    <span className="bg-[#F4F3EE] text-[#0F2942] text-[11px] font-bold px-3 py-1 rounded-full border border-stone-200/50">
+                      Game {nextGameIndex + 1}
+                    </span>
                   </div>
 
-                  <div className="min-w-0 flex-1">
-                    <div className="text-3xl font-black text-[#1D2935] tracking-tight leading-none tabular-nums">
-                      {formatTime(nextGame.tipOffMinutes)}
-                    </div>
-                    <h2 className="text-base font-bold text-[#1D2935] mt-0.5 leading-snug">
-                      vs {nextGame.opponent}
-                    </h2>
-                    <a
-                      href={getMapsUrl(`${nextGame.venueName} ${nextGame.venueAddress} ${nextGame.city}`)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-[#1D2935] transition-colors mt-1"
+                  {/* Matchup & Time Hero (Row layout with Rich Illustrated Basketball Token) */}
+                  <div className="flex items-start gap-4">
+                    <div
+                      aria-hidden="true"
+                      className="relative w-14 h-14 rounded-full bg-gradient-to-br from-[#FDBA74] via-[#FB923C] to-[#EA580C] shadow-[0_4px_12px_rgba(234,88,12,0.35),inset_0_2px_4px_rgba(255,255,255,0.7)] ring-4 ring-[#FDEFD9] flex items-center justify-center shrink-0 overflow-hidden"
                     >
-                      <MapPin className="w-3.5 h-3.5 text-[#1D2935] shrink-0" aria-hidden="true" />
-                      <span className="truncate">{nextGame.venueName}</span>
-                    </a>
-                    <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
                       <svg
+                        className="w-10 h-10 text-[#7C2D12] stroke-current"
                         viewBox="0 0 24 24"
-                        className="w-3.5 h-3.5 text-[#1D2935] shrink-0"
                         fill="none"
-                        stroke="currentColor"
-                        strokeWidth="2"
-                        aria-hidden="true"
+                        strokeWidth="1.8"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
                       >
-                        <circle cx="12" cy="12" r="9" />
-                        <path d="M3 12h18M12 3v18M5.6 5.6c3.5 3.5 3.5 9.3 0 12.8M18.4 5.6c-3.5 3.5-3.5 9.3 0 12.8" />
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M4.93 4.93c3.9 3.9 3.9 10.24 0 14.14" />
+                        <path d="M19.07 4.93c-3.9 3.9-3.9 10.24 0 14.14" />
+                        <path d="M12 2v20" />
+                        <path d="M2 12h20" />
                       </svg>
-                      <span>{nextGame.court}</span>
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="text-3xl sm:text-4xl font-black text-[#0F2942] tracking-tight leading-none tabular-nums">
+                        {formatTime(nextGame.tipOffMinutes)}
+                      </div>
+                      <h2 className="text-base sm:text-lg font-extrabold text-[#0F2942] mt-1 leading-snug">
+                        vs {nextGame.opponent}
+                      </h2>
+                      <a
+                        href={getMapsUrl(`${nextGame.venueName} ${nextGame.venueAddress} ${nextGame.city}`)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="flex items-center gap-1.5 text-xs font-medium text-[#2A435E] hover:text-[#0F2942] transition-colors mt-1.5"
+                      >
+                        <svg
+                          aria-hidden="true"
+                          className="w-3.5 h-3.5 text-[#0F2942] fill-current shrink-0"
+                          viewBox="0 0 24 24"
+                        >
+                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                        </svg>
+                        <span className="truncate">{nextGame.venueName}</span>
+                      </a>
+                      <div className="flex items-center gap-1.5 text-xs font-medium text-[#2A435E] mt-0.5">
+                        <svg
+                          viewBox="0 0 24 24"
+                          className="w-3.5 h-3.5 text-[#0F2942] shrink-0"
+                          fill="none"
+                          stroke="currentColor"
+                          strokeWidth="2.2"
+                          aria-hidden="true"
+                        >
+                          <circle cx="12" cy="12" r="9" />
+                          <path d="M3 12h18M12 3v18M5.6 5.6c3.5 3.5 3.5 9.3 0 12.8M18.4 5.6c-3.5 3.5-3.5 9.3 0 12.8" />
+                        </svg>
+                        <span>{nextGame.court}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
 
-                <div className="h-px bg-[#E9E5DE]/70 my-4" />
+                  <div className="h-px bg-[#E9E5DE]/80 my-4" />
 
-                {/* 3-Column Timing Strip (With Icons, not boxes) */}
-                <div className="divide-x divide-[#E9E5DE]/70 flex items-start text-center py-1">
-                  <div className="flex-1 px-1 flex flex-col items-center">
-                    <Car className="w-5 h-5 text-[#1D2935] mb-1" aria-hidden="true" />
-                    <span className="text-xs text-slate-500">Depart</span>
-                    <span className="text-sm font-bold text-[#1D2935] tabular-nums">
-                      {formatTime(nextDepart)}
-                    </span>
+                  {/* 3-Column Timing Strip (Solid Filled Graphic Icons & Deep Navy Values) */}
+                  <div className="divide-x divide-[#E9E5DE]/80 flex items-start text-center py-1">
+                    <div className="flex-1 px-1 flex flex-col items-center">
+                      <svg
+                        aria-hidden="true"
+                        className="w-6 h-6 text-[#0F2942] fill-current mb-1"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.77l.11.34V17z" />
+                        <circle cx="7.5" cy="14.5" r="1.5" />
+                        <circle cx="16.5" cy="14.5" r="1.5" />
+                      </svg>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                        Depart
+                      </span>
+                      <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                        {formatTime(nextDepart)}
+                      </span>
+                    </div>
+
+                    <div className="flex-1 px-1 flex flex-col items-center">
+                      <svg
+                        aria-hidden="true"
+                        className="w-6 h-6 text-[#0F2942] fill-current mb-1"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                      </svg>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                        Arrive
+                      </span>
+                      <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                        {formatTime(nextArrival)}
+                      </span>
+                      <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                        ({bufferMins} min buffer)
+                      </span>
+                    </div>
+
+                    <div className="flex-1 px-1 flex flex-col items-center">
+                      <svg
+                        aria-hidden="true"
+                        className="w-6 h-6 text-[#D59B42] fill-current mb-1"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0011 15.9V19H7v2h10v-2h-4v-3.1a5.01 5.01 0 003.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z" />
+                      </svg>
+                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                        Tip-Off
+                      </span>
+                      <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                        {formatTime(nextGame.tipOffMinutes)}
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="flex-1 px-1 flex flex-col items-center">
-                    <MapPin className="w-5 h-5 text-[#1D2935] mb-1" aria-hidden="true" />
-                    <span className="text-xs text-slate-500">Arrive</span>
-                    <span className="text-sm font-bold text-[#1D2935] tabular-nums">
-                      {formatTime(nextArrival)}
-                    </span>
-                    <span className="text-[10px] text-slate-400">
-                      ({bufferMins} min buffer)
-                    </span>
-                  </div>
+                  <div className="h-px bg-[#E9E5DE]/80 my-3" />
 
-                  <div className="flex-1 px-1 flex flex-col items-center">
-                    <Trophy className="w-5 h-5 text-[#D59B42] mb-1" aria-hidden="true" />
-                    <span className="text-xs text-slate-500">Tip-Off</span>
-                    <span className="text-sm font-bold text-[#1D2935] tabular-nums">
-                      {formatTime(nextGame.tipOffMinutes)}
-                    </span>
+                  {/* Bottom Metadata Strip (Solid Navy Shirt & Solid Emerald Check Badge) */}
+                  <div className="flex items-center justify-between text-xs font-semibold text-[#2A435E] pt-1">
+                    <div className="flex items-center gap-2">
+                      <svg
+                        aria-hidden="true"
+                        className="w-4 h-4 fill-[#0F2942] shrink-0"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M16.5 3c-1.1 1.35-2.68 2.2-4.5 2.2S8.6 4.35 7.5 3L2 5.5l2.2 4.4 2.8-1.1V21h10V8.8l2.8 1.1L22 5.5 16.5 3z" />
+                      </svg>
+                      <span>Jerseys: {heroJerseyShort || "White"}</span>
+                    </div>
+                    <div className="h-4 w-px bg-slate-200 shrink-0" aria-hidden="true" />
+                    <div className="flex items-center gap-2">
+                      <span
+                        aria-hidden="true"
+                        className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-2xs"
+                      >
+                        ✓
+                      </span>
+                      <span>
+                        Team Check-in: {nextGame.status && nextGame.status !== "Upcoming" ? nextGame.status : "Complete"}
+                      </span>
+                    </div>
                   </div>
-                </div>
-
-                <div className="h-px bg-[#E9E5DE]/70 my-3" />
-
-                {/* Bottom Metadata Strip */}
-                <div className="flex items-center justify-between text-xs font-medium text-slate-700 pt-1">
-                  <div className="flex items-center gap-1.5">
-                    <Shirt className="w-4 h-4 text-[#1D2935] fill-[#1D2935] shrink-0" aria-hidden="true" />
-                    <span>Jerseys: {heroJerseyShort || "White"}</span>
-                  </div>
-                  <div className="h-4 w-px bg-slate-200 shrink-0" aria-hidden="true" />
-                  <div className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" aria-hidden="true" />
-                    <span>
-                      Team Check-in: {nextGame.status && nextGame.status !== "Upcoming" ? nextGame.status : "Complete"}
-                    </span>
-                  </div>
-                </div>
-              </section>
+                </section>
+              </div>
 
               {/* Quick Turnaround Banner */}
               {turnaroundTitle && turnaroundSubtitle && (
@@ -1991,7 +2057,7 @@ function RunSheetContent() {
                       <Clock className="w-4 h-4" aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[13px] font-extrabold text-[#1D2935]">{turnaroundTitle}</div>
+                      <div className="text-[13px] font-extrabold text-[#0F2942]">{turnaroundTitle}</div>
                       <div className="text-[11px] font-medium text-[#7A531C] leading-snug">{turnaroundSubtitle}</div>
                     </div>
                   </div>
@@ -2012,27 +2078,36 @@ function RunSheetContent() {
                   <div className="flex items-center gap-3 min-w-0 pr-2">
                     <div
                       aria-hidden="true"
-                      className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FED7A5] via-[#F4B265] to-[#DF8728] shadow-[inset_0_1.5px_3px_rgba(255,255,255,0.6),0_3px_8px_rgba(223,135,40,0.3)] flex items-center justify-center shrink-0"
+                      className="relative w-10 h-10 rounded-full bg-gradient-to-br from-[#FDBA74] via-[#FB923C] to-[#EA580C] shadow-[0_3px_10px_rgba(234,88,12,0.3),inset_0_1.5px_3px_rgba(255,255,255,0.7)] ring-3 ring-[#FDEFD9] flex items-center justify-center shrink-0 overflow-hidden"
                     >
-                      <svg viewBox="0 0 40 40" className="w-6 h-6" fill="none">
-                        <circle cx="20" cy="20" r="15.5" stroke="#1D2935" strokeWidth="2.2" />
-                        <path d="M4.5 20H35.5M20 4.5V35.5" stroke="#1D2935" strokeWidth="2" />
-                        <path d="M9 9C14.4 14.4 14.4 25.6 9 31M31 9C25.6 14.4 25.6 25.6 31 31" stroke="#1D2935" strokeWidth="2" />
+                      <svg
+                        className="w-7 h-7 text-[#7C2D12] stroke-current"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        strokeWidth="1.9"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <circle cx="12" cy="12" r="10" />
+                        <path d="M4.93 4.93c3.9 3.9 3.9 10.24 0 14.14" />
+                        <path d="M19.07 4.93c-3.9 3.9-3.9 10.24 0 14.14" />
+                        <path d="M12 2v20" />
+                        <path d="M2 12h20" />
                       </svg>
                     </div>
                     <div className="min-w-0">
-                      <span className="inline-block bg-gradient-to-r from-[#FCE8CC] to-[#FAD4A2] text-[#915B12] text-[10px] font-black tracking-wider px-2.5 py-0.5 rounded-full uppercase shadow-2xs">
+                      <span className="inline-block bg-[#FDEFD9] text-[#0F2942] text-[10px] font-black tracking-wider px-2.5 py-0.5 rounded-full uppercase">
                         FOLLOWING GAME
                       </span>
-                      <div className="text-sm font-bold text-[#1D2935] mt-1 truncate">
+                      <div className="text-sm font-extrabold text-[#0F2942] mt-1 truncate">
                         vs. {followingGame.opponent}
                       </div>
-                      <div className="text-[11px] text-slate-500">
+                      <div className="text-[11px] font-medium text-[#2A435E]/80">
                         View time, venue and travel details
                       </div>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" aria-hidden="true" />
+                  <ChevronRight className="w-5 h-5 text-[#0F2942]/70 shrink-0" aria-hidden="true" />
                 </button>
               )}
 
@@ -2043,12 +2118,12 @@ function RunSheetContent() {
                 rel="noreferrer"
                 className="rounded-[20px] bg-[#F7EFE1]/60 border border-[#E8DCC8]/60 px-4 py-2.5 text-xs text-stone-600 shadow-xs flex items-center gap-2.5 mb-3 hover:border-[#D59B42]/40 transition-colors"
               >
-                <Navigation className="w-4 h-4 text-[#D59B42] shrink-0" aria-hidden="true" />
-                <span className="font-bold text-[#1D2935] shrink-0 tabular-nums">
+                <Navigation className="w-4 h-4 text-[#D59B42] fill-[#D59B42]/20 shrink-0" aria-hidden="true" />
+                <span className="font-extrabold text-[#0F2942] shrink-0 tabular-nums">
                   {nextGame.hotelTravelMin} min drive
                 </span>
                 <span className="h-4 w-px bg-[#E8DCC8] shrink-0" aria-hidden="true" />
-                <span className="text-[11px] text-stone-600 truncate">
+                <span className="text-[11px] font-medium text-[#2A435E] truncate">
                   Check your map for latest traffic &amp; weather.
                 </span>
               </a>
