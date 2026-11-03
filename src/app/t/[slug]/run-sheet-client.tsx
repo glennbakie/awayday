@@ -1617,12 +1617,12 @@ function RunSheetContent() {
         {activeTab === "schedule" && (
           <div key="schedule" className="animate-in fade-in-50 duration-200 ease-out">
         {/* Tournament Header Card ("YOUR NEXT AWAY DAY") */}
-        <section className="bg-white rounded-2xl p-3.5 shadow-sm border border-[#E9E5DE]/60 mb-3">
+        <section className="rounded-[26px] bg-white/95 border border-white ring-1 ring-stone-200/50 shadow-tactile p-3.5 mb-3">
           <div className="flex items-center gap-3.5">
             {/* Left: Rounded travel harbor/cityscape thumbnail */}
             <div
               aria-hidden="true"
-              className="w-24 h-24 rounded-xl object-cover overflow-hidden bg-slate-100 shrink-0 relative"
+              className="w-24 h-24 rounded-2xl object-cover overflow-hidden bg-slate-100 ring-1 ring-black/5 shrink-0 relative"
             >
               <svg viewBox="0 0 96 96" className="w-full h-full object-cover" fill="none">
                 <defs>
@@ -1757,12 +1757,12 @@ function RunSheetContent() {
           const nextGame = nextGameIndex >= 0 ? games[nextGameIndex] : undefined;
           if (!nextGame) {
             return (
-              <section className="bg-white rounded-2xl p-4 shadow-sm border border-[#E9E5DE]/60 mb-3 space-y-2.5">
+              <section className="rounded-[26px] bg-white/95 border border-white ring-1 ring-stone-200/50 shadow-tactile p-4 mb-3 space-y-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" aria-hidden="true" /> Session Wrap
                   </span>
-                  <span className="bg-slate-100 text-slate-600 text-xs font-medium px-2.5 py-0.5 rounded-full border border-slate-200/60">
+                  <span className="bg-[#F4F3EE] text-[#55697D] text-[11px] font-bold px-3 py-1 rounded-full border border-stone-200/40">
                     {games.length} / {games.length} Final
                   </span>
                 </div>
@@ -1870,36 +1870,29 @@ function RunSheetContent() {
           return (
             <>
               {/* Active Hero Game Card */}
-              <section className="bg-white rounded-2xl p-4 shadow-sm border border-[#E9E5DE]/60 mb-3">
+              <section className="rounded-[26px] bg-white/95 border border-white ring-1 ring-stone-200/50 shadow-tactile p-4 mb-3">
                 {/* Top Row (Pill Badges) */}
                 <div className="flex items-center justify-between gap-2 mb-3.5">
-                  <span className="bg-[#FCE8CC] text-[#9A6218] text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                  <span className="bg-gradient-to-r from-[#FCE8CC] to-[#FAD4A2] text-[#915B12] text-[11px] font-black tracking-wider px-3 py-1 rounded-full shadow-xs uppercase">
                     {nextGame.status === "Live" ? "LIVE GAME" : "NEXT GAME"}
                   </span>
-                  <span className="bg-slate-100 text-slate-600 text-xs font-medium px-2.5 py-0.5 rounded-full border border-slate-200/60">
+                  <span className="bg-[#F4F3EE] text-[#55697D] text-[11px] font-bold px-3 py-1 rounded-full border border-stone-200/40">
                     Game {nextGameIndex + 1}
                   </span>
                 </div>
 
-                {/* Matchup & Time Hero (Row layout with basketball icon) */}
+                {/* Matchup & Time Hero (Row layout with 3D basketball token) */}
                 <div className="flex items-start gap-3.5">
                   <div
                     aria-hidden="true"
-                    className="w-14 h-14 rounded-full bg-[#FCE8CC] flex items-center justify-center shrink-0 text-2xl"
+                    className="w-14 h-14 rounded-full bg-gradient-to-br from-[#FED7A5] via-[#F4B265] to-[#DF8728] shadow-[inset_0_2px_4px_rgba(255,255,255,0.6),0_4px_10px_rgba(223,135,40,0.35)] flex items-center justify-center shrink-0"
                   >
-                    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
-                      <defs>
-                        <radialGradient id="hero-bball" cx="35%" cy="30%" r="70%">
-                          <stop offset="0%" stopColor="#F7BA56" />
-                          <stop offset="65%" stopColor="#DF8F29" />
-                          <stop offset="100%" stopColor="#B86B14" />
-                        </radialGradient>
-                      </defs>
-                      <circle cx="20" cy="20" r="16" fill="url(#hero-bball)" stroke="#1D2935" strokeWidth="1.8" />
-                      <path d="M4 20H36" stroke="#1D2935" strokeWidth="1.6" />
-                      <path d="M20 4V36" stroke="#1D2935" strokeWidth="1.6" />
-                      <path d="M8.8 8.8C14.2 14.2 14.2 25.8 8.8 31.2" stroke="#1D2935" strokeWidth="1.6" />
-                      <path d="M31.2 8.8C25.8 14.2 25.8 25.8 31.2 31.2" stroke="#1D2935" strokeWidth="1.6" />
+                    <svg viewBox="0 0 40 40" className="w-9 h-9 drop-shadow-[0_1px_1px_rgba(255,255,255,0.35)]" fill="none">
+                      <circle cx="20" cy="20" r="15.5" stroke="#1D2935" strokeWidth="2" />
+                      <path d="M4.5 20H35.5" stroke="#1D2935" strokeWidth="1.8" />
+                      <path d="M20 4.5V35.5" stroke="#1D2935" strokeWidth="1.8" />
+                      <path d="M9 9C14.4 14.4 14.4 25.6 9 31" stroke="#1D2935" strokeWidth="1.8" />
+                      <path d="M31 9C25.6 14.4 25.6 25.6 31 31" stroke="#1D2935" strokeWidth="1.8" />
                     </svg>
                   </div>
 
@@ -1991,18 +1984,18 @@ function RunSheetContent() {
                 <button
                   type="button"
                   onClick={() => setActiveTab("fuel")}
-                  className="w-full text-left bg-[#FBF1E1] border border-[#E8CDA2] rounded-2xl p-3 flex items-center justify-between shadow-xs mb-3 cursor-pointer hover:bg-[#F7E8CF] transition-colors"
+                  className="w-full text-left rounded-[22px] bg-gradient-to-r from-[#FDE8CC] via-[#FCE3BE] to-[#F7D4A0] border border-[#F2C078]/60 p-3.5 flex items-center justify-between shadow-tactile-banner mb-3 cursor-pointer hover:brightness-[0.99] active:scale-[0.99] transition-all"
                 >
                   <div className="flex items-center gap-3 min-w-0 pr-2">
-                    <div className="w-8 h-8 rounded-full bg-[#F5DEB3] flex items-center justify-center text-[#9A6218] shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-white/70 shadow-xs flex items-center justify-center text-[#9A6218] shrink-0">
                       <Clock className="w-4 h-4" aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-xs font-bold text-[#1D2935]">{turnaroundTitle}</div>
-                      <div className="text-[11px] text-slate-600 leading-snug">{turnaroundSubtitle}</div>
+                      <div className="text-[13px] font-extrabold text-[#1D2935]">{turnaroundTitle}</div>
+                      <div className="text-[11px] font-medium text-[#7A531C] leading-snug">{turnaroundSubtitle}</div>
                     </div>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-[#9A6218] shrink-0" aria-hidden="true" />
+                  <ChevronRight className="w-5 h-5 text-[#9A6218] shrink-0" aria-hidden="true" />
                 </button>
               )}
 
@@ -2014,21 +2007,21 @@ function RunSheetContent() {
                     const cardEl = document.getElementById(`game-card-${followingGame.id}`);
                     cardEl?.scrollIntoView({ behavior: "smooth", block: "center" });
                   }}
-                  className="w-full text-left bg-white rounded-2xl p-3.5 shadow-sm border border-[#E9E5DE]/60 mb-3 flex items-center justify-between cursor-pointer hover:border-[#D59B42]/50 transition-colors"
+                  className="w-full text-left rounded-[22px] bg-white border border-white ring-1 ring-stone-200/50 shadow-tactile-sm p-3.5 flex items-center justify-between mb-3 cursor-pointer hover:ring-[#D59B42]/40 active:scale-[0.99] transition-all"
                 >
                   <div className="flex items-center gap-3 min-w-0 pr-2">
                     <div
                       aria-hidden="true"
-                      className="w-10 h-10 rounded-full bg-[#FCE8CC] flex items-center justify-center shrink-0"
+                      className="w-10 h-10 rounded-full bg-gradient-to-br from-[#FED7A5] via-[#F4B265] to-[#DF8728] shadow-[inset_0_1.5px_3px_rgba(255,255,255,0.6),0_3px_8px_rgba(223,135,40,0.3)] flex items-center justify-center shrink-0"
                     >
                       <svg viewBox="0 0 40 40" className="w-6 h-6" fill="none">
-                        <circle cx="20" cy="20" r="16" fill="#E39733" stroke="#1D2935" strokeWidth="2" />
-                        <path d="M4 20H36M20 4V36" stroke="#1D2935" strokeWidth="1.8" />
-                        <path d="M8.8 8.8C14.2 14.2 14.2 25.8 8.8 31.2M31.2 8.8C25.8 14.2 25.8 25.8 31.2 31.2" stroke="#1D2935" strokeWidth="1.8" />
+                        <circle cx="20" cy="20" r="15.5" stroke="#1D2935" strokeWidth="2.2" />
+                        <path d="M4.5 20H35.5M20 4.5V35.5" stroke="#1D2935" strokeWidth="2" />
+                        <path d="M9 9C14.4 14.4 14.4 25.6 9 31M31 9C25.6 14.4 25.6 25.6 31 31" stroke="#1D2935" strokeWidth="2" />
                       </svg>
                     </div>
                     <div className="min-w-0">
-                      <span className="inline-block bg-[#FCE8CC] text-[#9A6218] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                      <span className="inline-block bg-gradient-to-r from-[#FCE8CC] to-[#FAD4A2] text-[#915B12] text-[10px] font-black tracking-wider px-2.5 py-0.5 rounded-full uppercase shadow-2xs">
                         FOLLOWING GAME
                       </span>
                       <div className="text-sm font-bold text-[#1D2935] mt-1 truncate">
@@ -2048,14 +2041,14 @@ function RunSheetContent() {
                 href={getMapsUrl(`${nextGame.venueName} ${nextGame.venueAddress} ${nextGame.city}`)}
                 target="_blank"
                 rel="noreferrer"
-                className="bg-[#FBF5EA] border border-[#E9E5DE]/80 rounded-2xl px-3.5 py-2.5 flex items-center gap-2.5 mb-3 hover:border-[#D59B42]/40 transition-colors"
+                className="rounded-[20px] bg-[#F7EFE1]/60 border border-[#E8DCC8]/60 px-4 py-2.5 text-xs text-stone-600 shadow-xs flex items-center gap-2.5 mb-3 hover:border-[#D59B42]/40 transition-colors"
               >
                 <Navigation className="w-4 h-4 text-[#D59B42] shrink-0" aria-hidden="true" />
-                <span className="text-xs font-bold text-[#1D2935] shrink-0 tabular-nums">
+                <span className="font-bold text-[#1D2935] shrink-0 tabular-nums">
                   {nextGame.hotelTravelMin} min drive
                 </span>
-                <span className="h-4 w-px bg-[#E9E5DE] shrink-0" aria-hidden="true" />
-                <span className="text-[11px] text-slate-600 truncate">
+                <span className="h-4 w-px bg-[#E8DCC8] shrink-0" aria-hidden="true" />
+                <span className="text-[11px] text-stone-600 truncate">
                   Check your map for latest traffic &amp; weather.
                 </span>
               </a>
