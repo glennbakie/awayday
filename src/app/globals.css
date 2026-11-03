@@ -9,9 +9,9 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-sans);
-  --font-mono: var(--font-geist-mono);
-  --font-heading: var(--font-sans);
+  --font-sans: var(--font-sans), system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+  --font-heading: var(--font-sans), system-ui, sans-serif;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -41,6 +41,13 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-warm-ivory: var(--awayday-warm-ivory);
+  --color-clean-white: var(--awayday-clean-white);
+  --color-warm-stone: var(--awayday-warm-stone);
+  --color-midnight-ink: var(--awayday-midnight-ink);
+  --color-golden-amber: var(--awayday-golden-amber);
+  --color-status-emerald: var(--awayday-status-emerald);
+  --color-status-cobalt: var(--awayday-status-cobalt);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -51,24 +58,31 @@
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --awayday-warm-ivory: #F8F7F3;
+  --awayday-clean-white: #FFFFFF;
+  --awayday-warm-stone: #E9E5DE;
+  --awayday-midnight-ink: #1D2935;
+  --awayday-golden-amber: #D59B42;
+  --awayday-status-emerald: #10B981;
+  --awayday-status-cobalt: #2563EB;
+  --background: #F8F7F3;
+  --foreground: #1D2935;
+  --card: #FFFFFF;
+  --card-foreground: #1D2935;
+  --popover: #FFFFFF;
+  --popover-foreground: #1D2935;
+  --primary: #1D2935;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F8F7F3;
+  --secondary-foreground: #1D2935;
+  --muted: #F8F7F3;
+  --muted-foreground: #64748B;
+  --accent: #D59B42;
+  --accent-foreground: #1D2935;
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --border: #E9E5DE;
+  --input: #E9E5DE;
+  --ring: #D59B42;
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -130,8 +144,10 @@
     @apply font-sans;
   }
 }
-/* Native-feel container physics (PWA standalone) */
+/* Native-feel container physics (PWA standalone) & global sans-serif stack */
 html, body {
+  font-family: var(--font-sans), system-ui, sans-serif;
+  font-size-adjust: from-font;
   overscroll-behavior-y: none;
   -webkit-overflow-scrolling: touch;
   -webkit-tap-highlight-color: transparent;
@@ -147,16 +163,26 @@ input, textarea {
 }
 
 body {
-  background-color: #f6f4ee;
-  color: #0f172a;
+  background-color: var(--awayday-warm-ivory);
+  color: var(--awayday-midnight-ink);
+  color-scheme: light;
 }
 
-/* Warm cream stadium canvas */
+/* Warm Ivory editorial canvas */
 .stadium-canvas {
-  background-color: #f6f4ee;
-  background-image: 
-    radial-gradient(circle at 50% 0%, rgba(245, 158, 11, 0.08) 0%, rgba(246, 244, 238, 0) 50%),
-    radial-gradient(circle at 85% 20%, rgba(217, 119, 6, 0.05) 0%, rgba(246, 244, 238, 0) 40%);
-  background-attachment: fixed;
+  background-color: var(--awayday-warm-ivory);
+  color: var(--awayday-midnight-ink);
+  color-scheme: light;
   min-height: 100dvh;
+}
+
+.stadium-canvas :is(a, button):focus-visible {
+  outline: 2px solid var(--awayday-golden-amber);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sync-dot-ping {
+    animation: none;
+  }
 }
