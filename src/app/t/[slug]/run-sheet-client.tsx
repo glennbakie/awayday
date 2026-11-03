@@ -34,6 +34,10 @@ import {
   Zap,
   Salad,
   ChevronDown,
+  ChevronRight,
+  Bell,
+  Settings,
+  Shirt,
   Pencil,
   Lightbulb,
   Upload,
@@ -1544,134 +1548,179 @@ function RunSheetContent() {
   );
 
   const syncPillMeta =
-    syncStatus === "live"
+    syncStatus === "connecting"
       ? {
-          label: "LIVE SYNC",
-          pillClass: "bg-emerald-50 text-emerald-700 border border-emerald-200/60",
-          dotClass: "bg-[#10B981]",
-          pulse: true,
+          label: "CONNECTING",
+          pillClass: "bg-emerald-50 border border-emerald-200/60 text-emerald-700",
+          dotClass: "bg-emerald-500 animate-pulse",
         }
-      : syncStatus === "connecting"
+      : syncStatus === "offline"
         ? {
-            label: "CONNECTING",
-            pillClass: "bg-emerald-50 text-emerald-700 border border-emerald-200/60",
-            dotClass: "bg-[#10B981]",
-            pulse: true,
+            label: "OFFLINE",
+            pillClass: "bg-slate-100 border border-slate-200/80 text-slate-600",
+            dotClass: "bg-slate-400",
           }
-        : syncStatus === "offline"
-          ? {
-              label: "OFFLINE",
-              pillClass: "bg-[#F8F7F3] text-slate-600 border border-[#E9E5DE]",
-              dotClass: "bg-slate-400",
-              pulse: false,
-            }
-          : {
-              label: "LOCAL SYNC",
-              pillClass: "bg-emerald-50 text-emerald-700 border border-emerald-200/60",
-              dotClass: "bg-[#10B981]",
-              pulse: true,
-            };
+        : {
+            label: "LIVE SYNC",
+            pillClass: "bg-emerald-50 border border-emerald-200/60 text-emerald-700",
+            dotClass: "bg-emerald-500 animate-pulse",
+          };
 
   return (
     <div className="stadium-canvas font-sans bg-[#F8F7F3] text-[#1D2935] w-full pb-28">
       {/* Top Application Header */}
-      <header className="sticky top-0 z-30 pt-[max(0.75rem,env(safe-area-inset-top))] bg-white/95 backdrop-blur-md border-b border-[#E9E5DE]">
-        <div className="max-w-md mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
-          <span className="text-xl font-bold tracking-tight text-[#1D2935]">
-            AwayDay<span className="text-[#D59B42]">.</span>
-          </span>
-
-          <span
-            role="status"
-            aria-live="polite"
-            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-wider uppercase select-none ${syncPillMeta.pillClass}`}
-          >
-            <span className="relative flex h-2 w-2 shrink-0">
-              {syncPillMeta.pulse && (
-                <span
-                  className={`sync-dot-ping animate-ping absolute inline-flex h-full w-full rounded-full opacity-75 ${syncPillMeta.dotClass}`}
-                />
+      <header className="sticky top-0 z-30 bg-[#F8F7F3]/90 backdrop-blur-md px-4 py-3">
+        <div className="max-w-md mx-auto flex items-center justify-between">
+          <div className="flex items-baseline">
+            <span className="text-2xl font-black tracking-tight text-[#1D2935]">AwayDay</span>
+            <span className="text-2xl font-black text-[#D59B42]">.</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <div
+              role="status"
+              aria-live="polite"
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${syncPillMeta.pillClass}`}
+            >
+              <span className={`w-2 h-2 rounded-full ${syncPillMeta.dotClass}`} />
+              <span>{syncPillMeta.label}</span>
+            </div>
+            <button
+              type="button"
+              aria-label="Notifications and hub tips"
+              onClick={() => {
+                const nextIdx = games.findIndex((g) => !isGameElapsedByClock(g, nowMs));
+                const activeGame = nextIdx >= 0 ? games[nextIdx] : undefined;
+                if (activeGame) {
+                  setHeroTipsManualState((prev) => ({ ...prev, [activeGame.id]: true }));
+                }
+                if (activeTab !== "schedule") {
+                  setActiveTab("schedule");
+                }
+                window.setTimeout(() => {
+                  const tipsEl = document.getElementById("section-hub-tips") || document.getElementById("section-games");
+                  tipsEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+                }, 60);
+              }}
+              className="w-8 h-8 rounded-full bg-white border border-[#E9E5DE] shadow-xs flex items-center justify-center relative text-[#1D2935] cursor-pointer hover:bg-slate-50 transition-colors"
+            >
+              <Bell className="w-4 h-4" aria-hidden="true" />
+              {alerts.length > 0 && (
+                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#D59B42]" />
               )}
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${syncPillMeta.dotClass}`} />
-            </span>
-            <span>{syncPillMeta.label}</span>
-          </span>
+            </button>
+          </div>
         </div>
       </header>
 
-      <main className="max-w-md mx-auto w-full px-3 sm:px-4 pb-28 pt-2 space-y-3">
+      <main className="max-w-md mx-auto w-full px-3 sm:px-4 pb-28 pt-1">
         
         {activeTab === "schedule" && (
-          <div key="schedule" className="space-y-3 animate-in fade-in-50 duration-200 ease-out">
-        {/* Tournament Header & Manager Access */}
-        <section className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4 space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="font-bold text-[#1D2935]">{tournament.teamName}</span>
-                <span className="text-[#D59B42]" aria-hidden="true">•</span>
-                <span className="font-medium text-slate-600">{tournament.division}</span>
-              </div>
-              <h1 className="text-lg font-bold text-[#1D2935] tracking-tight leading-snug mt-0.5">
-                {tournament.name}
-              </h1>
+          <div key="schedule" className="animate-in fade-in-50 duration-200 ease-out">
+        {/* Tournament Header Card ("YOUR NEXT AWAY DAY") */}
+        <section className="bg-white rounded-2xl p-3.5 shadow-sm border border-[#E9E5DE]/60 mb-3">
+          <div className="flex items-center gap-3.5">
+            {/* Left: Rounded travel harbor/cityscape thumbnail */}
+            <div
+              aria-hidden="true"
+              className="w-24 h-24 rounded-xl object-cover overflow-hidden bg-slate-100 shrink-0 relative"
+            >
+              <svg viewBox="0 0 96 96" className="w-full h-full object-cover" fill="none">
+                <defs>
+                  <linearGradient id="awayday-sky" x1="0" y1="0" x2="0" y2="56" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#4A9AE2" />
+                    <stop offset="65%" stopColor="#A8D4F7" />
+                    <stop offset="100%" stopColor="#FCE7BD" />
+                  </linearGradient>
+                  <linearGradient id="awayday-water" x1="0" y1="56" x2="0" y2="96" gradientUnits="userSpaceOnUse">
+                    <stop offset="0%" stopColor="#5D8BB5" />
+                    <stop offset="55%" stopColor="#7DA7CC" />
+                    <stop offset="100%" stopColor="#4A7399" />
+                  </linearGradient>
+                </defs>
+                <rect width="96" height="58" fill="url(#awayday-sky)" />
+                {/* Soft sunlit clouds */}
+                <ellipse cx="26" cy="18" rx="18" ry="5" fill="#FFFFFF" fillOpacity="0.65" />
+                <ellipse cx="68" cy="14" rx="16" ry="4.5" fill="#FFFFFF" fillOpacity="0.5" />
+                {/* Distant sunlit skyline & spires */}
+                <path
+                  d="M0 56V46H10V40L14 33L18 40V45H26V38H35V44H43V35L47 24L51 35V43H58V37L62 29L66 37V44H75V39H85V45H96V56H0Z"
+                  fill="#C89352"
+                />
+                <path
+                  d="M12 56V45H22V41H32V46H45V39H55V45H68V40H80V46H96V56H12Z"
+                  fill="#34495E"
+                  fillOpacity="0.55"
+                />
+                {/* Lush shoreline foliage */}
+                <path
+                  d="M0 57C8 50 18 51 26 55C35 49 48 50 58 55C68 49 82 50 96 55V59H0V57Z"
+                  fill="#5E8F3E"
+                />
+                {/* Harbor water */}
+                <rect y="57" width="96" height="39" fill="url(#awayday-water)" />
+                {/* Golden water reflections */}
+                <rect x="42" y="61" width="14" height="2" rx="1" fill="#FCE7BD" fillOpacity="0.65" />
+                <rect x="36" y="66" width="24" height="1.5" rx="0.75" fill="#FCE7BD" fillOpacity="0.45" />
+                <rect x="14" y="74" width="18" height="1.5" rx="0.75" fill="#FFFFFF" fillOpacity="0.35" />
+                <rect x="58" y="79" width="22" height="1.5" rx="0.75" fill="#FFFFFF" fillOpacity="0.35" />
+                {/* Marina sailboats */}
+                <path d="M21 34L27 59H19L21 34Z" fill="#FFFFFF" />
+                <path d="M19.5 39L14 59H19.5V39Z" fill="#F1F5F9" />
+                <path d="M13 60H28L26 64H15L13 60Z" fill="#1D2935" />
+                <path d="M51 38L56 60H49.5L51 38Z" fill="#FFFFFF" />
+                <path d="M49.5 43L45 60H49.5V43Z" fill="#E2E8F0" />
+                <path d="M44 61H57L55.5 64.5H45.5L44 61Z" fill="#B95835" />
+                <path d="M75 41L79.5 61H73.5L75 41Z" fill="#FFFFFF" />
+                <path d="M72 62H81L79.5 65H73.5L72 62Z" fill="#1D2935" />
+              </svg>
             </div>
 
-            {isAdmin && (
-              <button
-                type="button"
-                onClick={() => setIsManagerToolsOpen((prev) => !prev)}
-                aria-expanded={isManagerToolsOpen}
-                className="shrink-0 border border-[#D59B42] text-[#D59B42] hover:bg-[#D59B42]/10 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer"
-              >
-                MANAGER TOOLS
-              </button>
-            )}
-          </div>
-
-          <div className="flex items-center justify-between gap-3 pt-2.5 border-t border-[#E9E5DE]">
-            <div className="min-w-0 space-y-1 text-xs">
-              <div className="flex items-center gap-1.5 text-[#1D2935] font-semibold">
-                <CalendarDays className="w-3.5 h-3.5 text-[#D59B42] shrink-0" />
-                <span>{tournament.dates}</span>
+            {/* Right: Tournament metadata & Manager Tools trigger */}
+            <div className="flex-1 min-w-0">
+              <div className="text-[11px] font-bold tracking-wider text-[#D59B42] uppercase">
+                YOUR NEXT AWAY DAY
               </div>
+              <div className="flex items-start justify-between gap-2 mt-0.5">
+                <h1 className="text-base font-bold text-[#1D2935] leading-tight">
+                  {tournament.name}
+                </h1>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => setIsManagerToolsOpen((prev) => !prev)}
+                    aria-expanded={isManagerToolsOpen}
+                    className="shrink-0 flex items-center gap-1 px-2 py-0.5 rounded-lg border border-[#D59B42]/40 bg-[#FFF9EE] hover:bg-[#FDF3DE] text-[#D59B42] text-[10px] font-bold leading-tight text-left transition-colors cursor-pointer"
+                  >
+                    <Settings className="w-3 h-3 shrink-0" aria-hidden="true" />
+                    <span>
+                      MANAGER
+                      <br />
+                      TOOLS
+                    </span>
+                  </button>
+                )}
+              </div>
+
               <a
                 href={getMapsUrl(tournament.primaryHubAddress)}
                 target="_blank"
                 rel="noreferrer"
-                className="inline-flex items-center gap-1.5 text-slate-600 hover:text-[#1D2935] transition-colors max-w-full"
+                className="flex items-center gap-1.5 text-xs text-slate-500 hover:text-[#1D2935] transition-colors mt-1"
               >
-                <MapPin className="w-3.5 h-3.5 text-[#D59B42] shrink-0" />
-                <span className="truncate">
-                  <strong className="font-semibold text-[#1D2935]">{tournament.primaryHub}</strong>
-                  {" • "}
-                  {tournament.city}
-                </span>
+                <MapPin className="w-3.5 h-3.5 text-[#1D2935] shrink-0" aria-hidden="true" />
+                <span className="truncate">{tournament.city}</span>
               </a>
-            </div>
 
-            {/* Subtle, fixed-aspect stylized SVG destination visual (zero external image domains) */}
-            <div
-              aria-hidden="true"
-              className="h-14 w-20 aspect-[10/7] shrink-0 rounded-lg border border-[#E9E5DE] bg-[#F8F7F3] overflow-hidden relative flex items-center justify-center"
-            >
-              <svg viewBox="0 0 80 56" className="w-full h-full" fill="none">
-                <rect x="6" y="6" width="68" height="44" rx="4" stroke="#E9E5DE" strokeWidth="1.5" />
-                <line x1="40" y1="6" x2="40" y2="50" stroke="#E9E5DE" strokeWidth="1.5" />
-                <circle cx="40" cy="28" r="9" stroke="#D59B42" strokeOpacity="0.45" strokeWidth="1.5" />
-                <path d="M6 17H16C21 17 25 21 25 28C25 35 21 39 16 39H6" stroke="#E9E5DE" strokeWidth="1.25" />
-                <path d="M74 17H64C59 17 55 21 55 28C55 35 59 39 64 39H74" stroke="#E9E5DE" strokeWidth="1.25" />
-                <circle cx="40" cy="28" r="3" fill="#D59B42" />
-              </svg>
-              <span className="absolute bottom-1 right-1.5 text-[8px] font-mono font-bold uppercase tracking-wider text-[#1D2935]/70 bg-white/85 px-1 rounded">
-                HUB
-              </span>
+              <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-0.5">
+                <CalendarDays className="w-3.5 h-3.5 text-[#1D2935] shrink-0" aria-hidden="true" />
+                <span>{tournament.dates}</span>
+              </div>
             </div>
           </div>
 
           {isAdmin && isManagerToolsOpen && (
-            <div className="pt-2.5 border-t border-[#E9E5DE] flex flex-wrap items-center justify-between gap-2 bg-[#F8F7F3] -mx-4 -mb-4 px-4 py-2.5 rounded-b-xl">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-600">
+            <div className="mt-3 pt-2.5 border-t border-[#E9E5DE]/80 flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 Manager Actions
               </span>
               <div className="flex items-center gap-2">
@@ -1681,7 +1730,7 @@ function RunSheetContent() {
                     setParsedPreviewGames(null);
                     setIsIngestModalOpen(true);
                   }}
-                  className="bg-white hover:bg-[#FFF9EE] text-[#1D2935] border border-[#D59B42]/50 text-xs font-semibold px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                  className="bg-[#FFF9EE] hover:bg-[#FDF3DE] text-[#1D2935] border border-[#D59B42]/50 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                 >
                   <span className="sm:hidden">+ Run Sheet</span>
                   <span className="hidden sm:inline">+ Update Run Sheet</span>
@@ -1693,27 +1742,27 @@ function RunSheetContent() {
                     handleExitAdmin();
                   }}
                   title="Exit Admin Mode"
-                  className="bg-white hover:bg-slate-100 text-slate-700 border border-[#E9E5DE] text-xs font-medium px-2.5 py-1 rounded-md inline-flex items-center gap-1 transition-colors cursor-pointer"
+                  className="bg-white hover:bg-slate-50 text-slate-700 border border-[#E9E5DE] text-xs font-medium px-2.5 py-1 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
                 >
-                  <Lock className="w-3 h-3 text-[#D59B42]" /> Exit Admin
+                  <Lock className="w-3 h-3 text-[#D59B42]" aria-hidden="true" /> Exit Admin
                 </button>
               </div>
             </div>
           )}
         </section>
 
-        {/* Active Hero Game Card (Auto-Advance & Live Clock Evaluation) */}
+        {/* Active Hero Game Card, Quick Turnaround Banner & Following Game Preview */}
         {(() => {
           const nextGameIndex = games.findIndex((g) => !isGameElapsedByClock(g, nowMs));
           const nextGame = nextGameIndex >= 0 ? games[nextGameIndex] : undefined;
           if (!nextGame) {
             return (
-              <section className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4 space-y-2.5">
+              <section className="bg-white rounded-2xl p-4 shadow-sm border border-[#E9E5DE]/60 mb-3 space-y-2.5">
                 <div className="flex items-center justify-between gap-3">
-                  <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[11px] font-bold uppercase tracking-wider px-2.5 py-0.5">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" /> Session Wrap
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1">
+                    <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" aria-hidden="true" /> Session Wrap
                   </span>
-                  <span className="inline-flex items-center rounded-md bg-[#F8F7F3] text-[#1D2935] border border-[#E9E5DE] font-mono text-[11px] font-semibold uppercase tracking-wider px-2 py-0.5">
+                  <span className="bg-slate-100 text-slate-600 text-xs font-medium px-2.5 py-0.5 rounded-full border border-slate-200/60">
                     {games.length} / {games.length} Final
                   </span>
                 </div>
@@ -1728,7 +1777,7 @@ function RunSheetContent() {
                     <button
                       type="button"
                       onClick={handleResetGamesStatus}
-                      className="text-xs font-semibold text-[#D59B42] border border-[#D59B42] hover:bg-[#D59B42]/10 px-2.5 py-1 rounded-md transition-colors cursor-pointer"
+                      className="text-xs font-semibold text-[#D59B42] border border-[#D59B42] hover:bg-[#D59B42]/10 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                     >
                       Reset Schedule Status
                     </button>
@@ -1737,6 +1786,7 @@ function RunSheetContent() {
               </section>
             );
           }
+
           const bufferMins = nextGame.warmupBufferMin || 30;
           const nextArrival = getArrivalCallMinutes(nextGame.tipOffMinutes, bufferMins);
           const nextDepart = nextArrival - nextGame.hotelTravelMin;
@@ -1748,155 +1798,27 @@ function RunSheetContent() {
             (nextGame.jerseyColor || "").replace(/\s*\((Home|Away)\)/i, "").trim() ||
             (isAwayHero ? "Dark" : "White");
 
-          return (
-            <section className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4">
-              {/* Header: Game Number, Status Ribbons, Opponent Name, Home/Away & Jersey Badge */}
-              <div className="space-y-1.5">
-                <div className="flex flex-wrap items-center justify-between gap-1.5">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-xs font-bold tracking-tight text-[#1D2935]">
-                      Game {nextGameIndex + 1}
-                      {nextGame.dayLabel ? <span className="text-slate-500 font-semibold">{` • ${nextGame.dayLabel}`}</span> : ""}
-                    </span>
-                    {nextGame.status === "Live" ? (
-                      <span className="inline-flex items-center gap-1 rounded-md bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/25 text-[10px] font-bold tracking-tight uppercase px-2 py-0.5">
-                        <span className="h-1.5 w-1.5 rounded-full bg-[#2563EB]" />
-                        LIVE
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center rounded-md bg-[#FFF9EE] text-[#D59B42] border border-[#D59B42]/40 text-[10px] font-bold tracking-tight uppercase px-2 py-0.5">
-                        NEXT UP
-                      </span>
-                    )}
-                    {nextGame.telemetryFlag && (
-                      <span className="inline-flex items-center rounded-md bg-[#F8F7F3] text-[#1D2935] border border-[#E9E5DE] text-[10px] font-bold tracking-tight uppercase px-2 py-0.5">
-                        {nextGame.telemetryFlag}
-                      </span>
-                    )}
-                    {nextGame.status && nextGame.status !== "Upcoming" && nextGame.status !== "Live" && (
-                      <span className="inline-flex items-center rounded-md bg-[#F8F7F3] text-[#1D2935] border border-[#E9E5DE] text-[10px] font-bold tracking-tight uppercase px-2 py-0.5">
-                        {nextGame.status}
-                      </span>
-                    )}
-                  </div>
-
-                  <span className="inline-flex items-center rounded-md bg-[#F8F7F3] text-[#1D2935] border border-[#E9E5DE] text-[11px] font-bold tracking-tight px-2 py-0.5">
-                    {isAwayHero ? "Away" : "Home"} • {heroJerseyShort}
-                  </span>
-                </div>
-
-                <h2 className="text-lg font-bold tracking-tight text-[#1D2935] leading-snug">
-                  {nextGame.matchup || `vs. ${nextGame.opponent}`}
-                </h2>
-              </div>
-
-              {/* Arrival Banner */}
-              <div className="mt-3 rounded-lg bg-[#FDF9F0] border border-[#D59B42]/30 text-[#1D2935] px-3 py-2 flex items-center justify-between gap-2 text-xs font-semibold">
-                <span className="flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-[#D59B42] shrink-0" />
-                  <span>
-                    Arrive by <strong className="tabular-nums font-bold">{formatTime(nextArrival)}</strong> ({bufferMins}m before tip)
-                  </span>
-                </span>
-              </div>
-
-              {/* Three-Column Timing Display (Mobile-Hardened: 390px iPhone 14 Baseline) */}
-              <div className="grid grid-cols-3 gap-2 my-3">
-                <div className="bg-[#F8F7F3] border border-[#E9E5DE] px-2 py-2.5 rounded-lg text-center">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    DEPART
-                  </span>
-                  <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">
-                    {formatTime(nextDepart)}
-                  </span>
-                  <span className="block text-[11px] text-slate-500 font-medium mt-0.5">
-                    {nextGame.hotelTravelMin}m drive
-                  </span>
-                </div>
-
-                <div className="bg-[#F8F7F3] border border-[#E9E5DE] px-2 py-2.5 rounded-lg text-center">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
-                    GYM ARRIVAL
-                  </span>
-                  <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">
-                    {formatTime(nextArrival)}
-                  </span>
-                  <span className="block text-[11px] text-slate-500 font-medium mt-0.5">
-                    {bufferMins}m before tip
-                  </span>
-                </div>
-
-                <div className="bg-[#FFF9EE] border border-[#D59B42]/40 px-2 py-2.5 rounded-lg text-center">
-                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#D59B42]">
-                    TIP-OFF
-                  </span>
-                  <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">
-                    {formatTime(nextGame.tipOffMinutes)}
-                  </span>
-                  <span className="block text-[11px] text-slate-500 font-medium mt-0.5">
-                    Game time
-                  </span>
-                </div>
-              </div>
-
-              {/* Disclaimer Footnote */}
-              <p className="text-[11px] text-slate-500 mt-1 italic text-center sm:text-left">
-                Est. distance time • Check Maps for live traffic &amp; weather
-              </p>
-
-              {/* Venue & Native Directions Bar */}
-              <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-[#F8F7F3] border border-[#E9E5DE] px-3 py-2.5">
-                <div className="min-w-0 pr-1">
-                  <div className="flex items-center gap-1.5">
-                    <MapPin className="w-3.5 h-3.5 text-[#D59B42] shrink-0" />
-                    <span className="text-xs font-bold text-[#1D2935] truncate">{nextGame.venueName}</span>
-                    <span className="shrink-0 rounded bg-white border border-[#E9E5DE] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#1D2935]">
-                      {nextGame.court}
-                    </span>
-                  </div>
-                  <span className="block text-[11px] text-slate-500 truncate ml-5">
-                    {nextGame.venueAddress}, {nextGame.city}
-                  </span>
-                </div>
-
-                <a
-                  href={getMapsUrl(`${nextGame.venueName} ${nextGame.venueAddress} ${nextGame.city}`)}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 bg-[#1D2935] hover:bg-[#1D2935]/90 text-white px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
-                >
-                  <Navigation className="w-3.5 h-3.5 text-[#D59B42]" /> Directions
-                </a>
-              </div>
-
-              {isAdmin && (
-                <div className="mt-2.5 pt-2.5 border-t border-[#E9E5DE] flex items-center justify-end">
-                  <button
-                    type="button"
-                    onClick={() => handleMarkFinalAndAdvance(nextGame.id)}
-                    className="inline-flex items-center gap-1.5 border border-[#D59B42] text-[#D59B42] hover:bg-[#D59B42]/10 rounded-md px-2.5 py-1 text-xs font-semibold transition-colors cursor-pointer"
-                  >
-                    <CheckCircle2 className="w-3.5 h-3.5" /> Mark Final &amp; Advance
-                  </button>
-                </div>
-              )}
-            </section>
-          );
-        })()}
-
-        {/* Hub Tips Collapsible Interface & Manager Quick-Shift Controls directly beneath Active Hero Game Card */}
-        {(() => {
-          const nextGameIndex = games.findIndex((g) => !isGameElapsedByClock(g, nowMs));
-          const nextGame = nextGameIndex >= 0 ? games[nextGameIndex] : undefined;
-          if (!nextGame) return null;
-
+          const followingGame = games[nextGameIndex + 1];
           const followingSameDayGame =
-            games[nextGameIndex + 1] && games[nextGameIndex + 1].dayLabel === nextGame.dayLabel
-              ? games[nextGameIndex + 1]
+            followingGame && followingGame.dayLabel === nextGame.dayLabel
+              ? followingGame
               : undefined;
 
-          const heroGameAlerts = alerts.filter((a) => a.gameId === nextGame.id);
+          const turnaroundTitle = nextGame.downtimeAfter
+            ? /quick turnaround/i.test(nextGame.downtimeAfter.type)
+              ? "Quick Turnaround — Stay On-Site"
+              : `${nextGame.downtimeAfter.duration} — ${nextGame.downtimeAfter.type}`
+            : followingGame
+              ? "Post-Game Fuel & Recovery Window"
+              : null;
 
+          const turnaroundSubtitle = nextGame.downtimeAfter
+            ? nextGame.downtimeAfter.note
+            : followingGame
+              ? `Next tip-off ${followingGame.dayLabel ? `${followingGame.dayLabel} at ` : ""}${formatTime(followingGame.tipOffMinutes)} (${followingGame.venueName}).`
+              : null;
+
+          const heroGameAlerts = alerts.filter((a) => a.gameId === nextGame.id);
           const activeHeroTips: Array<{
             id: string;
             tag?: string;
@@ -1906,16 +1828,6 @@ function RunSheetContent() {
             upvotes?: number;
             alertId?: string;
           }> = [];
-
-          if (nextGame.downtimeAfter) {
-            const isQuickTurnaround = /quick turnaround/i.test(nextGame.downtimeAfter.type);
-            activeHeroTips.push({
-              id: `dt-${nextGame.id}`,
-              tag: isQuickTurnaround ? "QUICK TURNAROUND" : "WINDOW",
-              title: `${nextGame.downtimeAfter.duration} • ${nextGame.downtimeAfter.type}`,
-              content: nextGame.downtimeAfter.note,
-            });
-          }
 
           if (
             followingSameDayGame &&
@@ -1949,9 +1861,7 @@ function RunSheetContent() {
             });
           });
 
-          const hasAutoExpandTag = activeHeroTips.some(
-            (tip) => tip.tag === "URGENT" || tip.tag === "QUICK TURNAROUND"
-          );
+          const hasAutoExpandTag = activeHeroTips.some((tip) => tip.tag === "URGENT");
           const isHeroTipsOpen =
             heroTipsManualState[nextGame.id] !== undefined
               ? heroTipsManualState[nextGame.id]
@@ -1959,8 +1869,200 @@ function RunSheetContent() {
 
           return (
             <>
-              <section aria-label="Hub Tips" className="space-y-2">
-                <div className="bg-[#FDF9F0] border border-[#D59B42]/30 rounded-xl overflow-hidden transition-colors">
+              {/* Active Hero Game Card */}
+              <section className="bg-white rounded-2xl p-4 shadow-sm border border-[#E9E5DE]/60 mb-3">
+                {/* Top Row (Pill Badges) */}
+                <div className="flex items-center justify-between gap-2 mb-3.5">
+                  <span className="bg-[#FCE8CC] text-[#9A6218] text-[11px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider">
+                    {nextGame.status === "Live" ? "LIVE GAME" : "NEXT GAME"}
+                  </span>
+                  <span className="bg-slate-100 text-slate-600 text-xs font-medium px-2.5 py-0.5 rounded-full border border-slate-200/60">
+                    Game {nextGameIndex + 1}
+                  </span>
+                </div>
+
+                {/* Matchup & Time Hero (Row layout with basketball icon) */}
+                <div className="flex items-start gap-3.5">
+                  <div
+                    aria-hidden="true"
+                    className="w-14 h-14 rounded-full bg-[#FCE8CC] flex items-center justify-center shrink-0 text-2xl"
+                  >
+                    <svg viewBox="0 0 40 40" className="w-9 h-9" fill="none">
+                      <defs>
+                        <radialGradient id="hero-bball" cx="35%" cy="30%" r="70%">
+                          <stop offset="0%" stopColor="#F7BA56" />
+                          <stop offset="65%" stopColor="#DF8F29" />
+                          <stop offset="100%" stopColor="#B86B14" />
+                        </radialGradient>
+                      </defs>
+                      <circle cx="20" cy="20" r="16" fill="url(#hero-bball)" stroke="#1D2935" strokeWidth="1.8" />
+                      <path d="M4 20H36" stroke="#1D2935" strokeWidth="1.6" />
+                      <path d="M20 4V36" stroke="#1D2935" strokeWidth="1.6" />
+                      <path d="M8.8 8.8C14.2 14.2 14.2 25.8 8.8 31.2" stroke="#1D2935" strokeWidth="1.6" />
+                      <path d="M31.2 8.8C25.8 14.2 25.8 25.8 31.2 31.2" stroke="#1D2935" strokeWidth="1.6" />
+                    </svg>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="text-3xl font-black text-[#1D2935] tracking-tight leading-none tabular-nums">
+                      {formatTime(nextGame.tipOffMinutes)}
+                    </div>
+                    <h2 className="text-base font-bold text-[#1D2935] mt-0.5 leading-snug">
+                      vs {nextGame.opponent}
+                    </h2>
+                    <a
+                      href={getMapsUrl(`${nextGame.venueName} ${nextGame.venueAddress} ${nextGame.city}`)}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="flex items-center gap-1 text-xs text-slate-500 hover:text-[#1D2935] transition-colors mt-1"
+                    >
+                      <MapPin className="w-3.5 h-3.5 text-[#1D2935] shrink-0" aria-hidden="true" />
+                      <span className="truncate">{nextGame.venueName}</span>
+                    </a>
+                    <div className="flex items-center gap-1 text-xs text-slate-500 mt-0.5">
+                      <svg
+                        viewBox="0 0 24 24"
+                        className="w-3.5 h-3.5 text-[#1D2935] shrink-0"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        aria-hidden="true"
+                      >
+                        <circle cx="12" cy="12" r="9" />
+                        <path d="M3 12h18M12 3v18M5.6 5.6c3.5 3.5 3.5 9.3 0 12.8M18.4 5.6c-3.5 3.5-3.5 9.3 0 12.8" />
+                      </svg>
+                      <span>{nextGame.court}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-px bg-[#E9E5DE]/70 my-4" />
+
+                {/* 3-Column Timing Strip (With Icons, not boxes) */}
+                <div className="divide-x divide-[#E9E5DE]/70 flex items-start text-center py-1">
+                  <div className="flex-1 px-1 flex flex-col items-center">
+                    <Car className="w-5 h-5 text-[#1D2935] mb-1" aria-hidden="true" />
+                    <span className="text-xs text-slate-500">Depart</span>
+                    <span className="text-sm font-bold text-[#1D2935] tabular-nums">
+                      {formatTime(nextDepart)}
+                    </span>
+                  </div>
+
+                  <div className="flex-1 px-1 flex flex-col items-center">
+                    <MapPin className="w-5 h-5 text-[#1D2935] mb-1" aria-hidden="true" />
+                    <span className="text-xs text-slate-500">Arrive</span>
+                    <span className="text-sm font-bold text-[#1D2935] tabular-nums">
+                      {formatTime(nextArrival)}
+                    </span>
+                    <span className="text-[10px] text-slate-400">
+                      ({bufferMins} min buffer)
+                    </span>
+                  </div>
+
+                  <div className="flex-1 px-1 flex flex-col items-center">
+                    <Trophy className="w-5 h-5 text-[#D59B42] mb-1" aria-hidden="true" />
+                    <span className="text-xs text-slate-500">Tip-Off</span>
+                    <span className="text-sm font-bold text-[#1D2935] tabular-nums">
+                      {formatTime(nextGame.tipOffMinutes)}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="h-px bg-[#E9E5DE]/70 my-3" />
+
+                {/* Bottom Metadata Strip */}
+                <div className="flex items-center justify-between text-xs font-medium text-slate-700 pt-1">
+                  <div className="flex items-center gap-1.5">
+                    <Shirt className="w-4 h-4 text-[#1D2935] fill-[#1D2935] shrink-0" aria-hidden="true" />
+                    <span>Jerseys: {heroJerseyShort || "White"}</span>
+                  </div>
+                  <div className="h-4 w-px bg-slate-200 shrink-0" aria-hidden="true" />
+                  <div className="flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" aria-hidden="true" />
+                    <span>
+                      Team Check-in: {nextGame.status && nextGame.status !== "Upcoming" ? nextGame.status : "Complete"}
+                    </span>
+                  </div>
+                </div>
+              </section>
+
+              {/* Quick Turnaround Banner */}
+              {turnaroundTitle && turnaroundSubtitle && (
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("fuel")}
+                  className="w-full text-left bg-[#FBF1E1] border border-[#E8CDA2] rounded-2xl p-3 flex items-center justify-between shadow-xs mb-3 cursor-pointer hover:bg-[#F7E8CF] transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0 pr-2">
+                    <div className="w-8 h-8 rounded-full bg-[#F5DEB3] flex items-center justify-center text-[#9A6218] shrink-0">
+                      <Clock className="w-4 h-4" aria-hidden="true" />
+                    </div>
+                    <div className="min-w-0">
+                      <div className="text-xs font-bold text-[#1D2935]">{turnaroundTitle}</div>
+                      <div className="text-[11px] text-slate-600 leading-snug">{turnaroundSubtitle}</div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-4 h-4 text-[#9A6218] shrink-0" aria-hidden="true" />
+                </button>
+              )}
+
+              {/* Following Game Preview Card */}
+              {followingGame && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    const cardEl = document.getElementById(`game-card-${followingGame.id}`);
+                    cardEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }}
+                  className="w-full text-left bg-white rounded-2xl p-3.5 shadow-sm border border-[#E9E5DE]/60 mb-3 flex items-center justify-between cursor-pointer hover:border-[#D59B42]/50 transition-colors"
+                >
+                  <div className="flex items-center gap-3 min-w-0 pr-2">
+                    <div
+                      aria-hidden="true"
+                      className="w-10 h-10 rounded-full bg-[#FCE8CC] flex items-center justify-center shrink-0"
+                    >
+                      <svg viewBox="0 0 40 40" className="w-6 h-6" fill="none">
+                        <circle cx="20" cy="20" r="16" fill="#E39733" stroke="#1D2935" strokeWidth="2" />
+                        <path d="M4 20H36M20 4V36" stroke="#1D2935" strokeWidth="1.8" />
+                        <path d="M8.8 8.8C14.2 14.2 14.2 25.8 8.8 31.2M31.2 8.8C25.8 14.2 25.8 25.8 31.2 31.2" stroke="#1D2935" strokeWidth="1.8" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0">
+                      <span className="inline-block bg-[#FCE8CC] text-[#9A6218] text-[10px] font-bold px-2 py-0.5 rounded-full uppercase">
+                        FOLLOWING GAME
+                      </span>
+                      <div className="text-sm font-bold text-[#1D2935] mt-1 truncate">
+                        vs. {followingGame.opponent}
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        View time, venue and travel details
+                      </div>
+                    </div>
+                  </div>
+                  <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" aria-hidden="true" />
+                </button>
+              )}
+
+              {/* Drive Duration & Live Traffic / Weather Strip */}
+              <a
+                href={getMapsUrl(`${nextGame.venueName} ${nextGame.venueAddress} ${nextGame.city}`)}
+                target="_blank"
+                rel="noreferrer"
+                className="bg-[#FBF5EA] border border-[#E9E5DE]/80 rounded-2xl px-3.5 py-2.5 flex items-center gap-2.5 mb-3 hover:border-[#D59B42]/40 transition-colors"
+              >
+                <Navigation className="w-4 h-4 text-[#D59B42] shrink-0" aria-hidden="true" />
+                <span className="text-xs font-bold text-[#1D2935] shrink-0 tabular-nums">
+                  {nextGame.hotelTravelMin} min drive
+                </span>
+                <span className="h-4 w-px bg-[#E9E5DE] shrink-0" aria-hidden="true" />
+                <span className="text-[11px] text-slate-600 truncate">
+                  Check your map for latest traffic &amp; weather.
+                </span>
+              </a>
+
+              {/* Hub Tips Collapsible Interface */}
+              <section id="section-hub-tips" aria-label="Hub Tips" className="mb-3">
+                <div className="bg-[#FDF9F0] border border-[#D59B42]/30 rounded-2xl overflow-hidden transition-colors">
                   <button
                     type="button"
                     aria-expanded={isHeroTipsOpen}
@@ -1974,7 +2076,7 @@ function RunSheetContent() {
                     className="w-full p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF4E5] transition-colors text-left"
                   >
                     <span className="flex items-center gap-2">
-                      <Lightbulb className="w-4 h-4 text-[#D59B42] shrink-0" />
+                      <Lightbulb className="w-4 h-4 text-[#D59B42] shrink-0" aria-hidden="true" />
                       <span className="font-bold text-xs tracking-wider uppercase text-[#1D2935]">
                         HUB TIPS
                       </span>
@@ -1983,6 +2085,7 @@ function RunSheetContent() {
                       </span>
                     </span>
                     <ChevronDown
+                      aria-hidden="true"
                       className={`w-4 h-4 text-[#1D2935]/70 transition-transform duration-200 ${
                         isHeroTipsOpen ? "rotate-180" : ""
                       }`}
@@ -2029,7 +2132,7 @@ function RunSheetContent() {
                                   onClick={() => upvoteAlert(tip.alertId!)}
                                   className="inline-flex items-center gap-1 font-semibold text-[11px] bg-[#F8F7F3] hover:bg-[#FFF9EE] border border-[#E9E5DE] text-[#1D2935] px-2 py-0.5 rounded-md cursor-pointer transition-colors"
                                 >
-                                  <ThumbsUp className="w-3 h-3 text-[#D59B42]" /> Helpful ({tip.upvotes})
+                                  <ThumbsUp className="w-3 h-3 text-[#D59B42]" aria-hidden="true" /> Helpful ({tip.upvotes})
                                 </button>
                               </div>
                             )}
@@ -2042,7 +2145,7 @@ function RunSheetContent() {
                         onClick={() => setActiveModalGameId(nextGame.id)}
                         className="w-full inline-flex items-center justify-center gap-1 bg-white hover:bg-[#FFF9EE] border border-[#E9E5DE] rounded-lg py-1.5 px-2.5 text-xs font-semibold text-[#1D2935] transition-colors cursor-pointer shadow-2xs"
                       >
-                        <Plus className="w-3.5 h-3.5 text-[#D59B42]" /> Add Hub Tip
+                        <Plus className="w-3.5 h-3.5 text-[#D59B42]" aria-hidden="true" /> Add Hub Tip
                       </button>
                     </div>
                   )}
@@ -2052,16 +2155,20 @@ function RunSheetContent() {
               {isAdmin && (
                 <section
                   aria-label="Manager Quick-Shift Schedule Controls"
-                  className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-3 space-y-2"
+                  className="bg-white border border-[#E9E5DE]/60 rounded-2xl shadow-sm p-3 mb-3 space-y-2.5"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#D59B42]" />
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#D59B42]" aria-hidden="true" />
                       MANAGER QUICK-SHIFT
                     </span>
-                    <span className="text-[11px] font-semibold text-slate-500 truncate">
-                      Game {nextGameIndex + 1} ({formatTime(nextGame.tipOffMinutes)})
-                    </span>
+                    <button
+                      type="button"
+                      onClick={() => handleMarkFinalAndAdvance(nextGame.id)}
+                      className="inline-flex items-center gap-1 border border-[#D59B42]/50 bg-[#FFF9EE] hover:bg-[#FDF3DE] text-[#D59B42] rounded-lg px-2 py-0.5 text-[11px] font-bold transition-colors cursor-pointer"
+                    >
+                      <CheckCircle2 className="w-3 h-3" aria-hidden="true" /> Mark Final
+                    </button>
                   </div>
                   <div className="grid grid-cols-4 gap-2">
                     <button
@@ -2100,11 +2207,11 @@ function RunSheetContent() {
         })()}
 
         {/* Weekend Run-Sheet */}
-        <section id="section-games" className="space-y-3 pt-0.5">
+        <section id="section-games" className="space-y-3 pt-1">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5">
               <span className="p-1 rounded-md bg-white border border-[#E9E5DE] text-[#D59B42] shadow-2xs">
-                <CalendarDays className="w-3.5 h-3.5" />
+                <CalendarDays className="w-3.5 h-3.5" aria-hidden="true" />
               </span>
               <h3 className="text-xs font-bold tracking-tight uppercase text-[#1D2935]">Weekend Run-Sheet</h3>
             </div>
@@ -2130,7 +2237,7 @@ function RunSheetContent() {
                 {showDayHeader && game.dayLabel && (
                   <div className="flex items-center justify-between gap-2 px-1 pt-1">
                     <span className="inline-flex items-center gap-1.5 border-l-2 border-l-[#D59B42] bg-white border border-[#E9E5DE] text-[#1D2935] text-xs font-bold tracking-tight px-2.5 py-1 rounded-r shadow-2xs">
-                      <CalendarClock className="w-3.5 h-3.5 text-[#D59B42]" />
+                      <CalendarClock className="w-3.5 h-3.5 text-[#D59B42]" aria-hidden="true" />
                       {game.dayLabel === "Sat, Oct 24" ? "Saturday, Oct 24" : game.dayLabel === "Sun, Oct 25" ? "Sunday, Oct 25" : game.dayLabel}
                     </span>
                     <span className="text-[11px] font-medium text-slate-500 truncate">
@@ -2138,7 +2245,7 @@ function RunSheetContent() {
                     </span>
                   </div>
                 )}
-              <div className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4 overflow-hidden">
+              <div id={`game-card-${game.id}`} className="bg-white border border-[#E9E5DE]/60 rounded-2xl shadow-sm p-4 overflow-hidden scroll-mt-20">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-1.5">
