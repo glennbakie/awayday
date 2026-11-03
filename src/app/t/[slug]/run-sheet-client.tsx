@@ -35,6 +35,7 @@ import {
   Salad,
   ChevronDown,
   Pencil,
+  Lightbulb,
   Upload,
   Image as ImageIcon,
   Loader2,
@@ -1117,6 +1118,7 @@ function RunSheetContent() {
 
   const [activeTab, setActiveTab] = useState<"schedule" | "fuel" | "travel" | "hotel">("schedule");
   const [openTipsGameId, setOpenTipsGameId] = useState<string | null>(null);
+  const [heroTipsManualState, setHeroTipsManualState] = useState<Record<string, boolean>>({});
 
   // Backwards-compatibility: map URL hash or query param 'hotel' / 'travel' to 'travel'
   useEffect(() => {
@@ -1597,7 +1599,7 @@ function RunSheetContent() {
         </div>
       </header>
 
-      <main className="max-w-md mx-auto px-4 pt-3 space-y-3">
+      <main className="max-w-md mx-auto w-full px-3 sm:px-4 pb-28 pt-2 space-y-3">
         
         {activeTab === "schedule" && (
           <div key="schedule" className="space-y-3 animate-in fade-in-50 duration-200 ease-out">
@@ -1798,40 +1800,40 @@ function RunSheetContent() {
                 </span>
               </div>
 
-              {/* Three-Column Timing Display (Mobile-Hardened) */}
-              <div className="grid grid-cols-3 gap-1.5 sm:gap-2 my-3">
-                <div className="bg-[#F8F7F3] border border-[#E9E5DE] rounded-lg p-2 text-center">
-                  <span className="block text-[10px] tracking-wider uppercase text-slate-500 font-semibold">
+              {/* Three-Column Timing Display (Mobile-Hardened: 390px iPhone 14 Baseline) */}
+              <div className="grid grid-cols-3 gap-2 my-3">
+                <div className="bg-[#F8F7F3] border border-[#E9E5DE] px-2 py-2.5 rounded-lg text-center">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     DEPART
                   </span>
                   <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">
                     {formatTime(nextDepart)}
                   </span>
-                  <span className="block text-[11px] text-slate-500 mt-0.5">
+                  <span className="block text-[11px] text-slate-500 font-medium mt-0.5">
                     {nextGame.hotelTravelMin}m drive
                   </span>
                 </div>
 
-                <div className="bg-[#F8F7F3] border border-[#E9E5DE] rounded-lg p-2 text-center">
-                  <span className="block text-[10px] tracking-wider uppercase text-slate-500 font-semibold">
+                <div className="bg-[#F8F7F3] border border-[#E9E5DE] px-2 py-2.5 rounded-lg text-center">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">
                     GYM ARRIVAL
                   </span>
                   <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">
                     {formatTime(nextArrival)}
                   </span>
-                  <span className="block text-[11px] text-slate-500 mt-0.5">
+                  <span className="block text-[11px] text-slate-500 font-medium mt-0.5">
                     {bufferMins}m before tip
                   </span>
                 </div>
 
-                <div className="bg-[#FFF9EE] border border-[#D59B42]/40 rounded-lg p-2 text-center">
-                  <span className="block text-[10px] tracking-wider uppercase text-[#D59B42] font-bold">
+                <div className="bg-[#FFF9EE] border border-[#D59B42]/40 px-2 py-2.5 rounded-lg text-center">
+                  <span className="block text-[10px] font-bold uppercase tracking-wider text-[#D59B42]">
                     TIP-OFF
                   </span>
-                  <span className="block tabular-nums font-extrabold text-sm sm:text-base text-[#1D2935] mt-0.5">
+                  <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">
                     {formatTime(nextGame.tipOffMinutes)}
                   </span>
-                  <span className="block text-[11px] text-slate-600 mt-0.5">
+                  <span className="block text-[11px] text-slate-500 font-medium mt-0.5">
                     Game time
                   </span>
                 </div>
@@ -1879,6 +1881,221 @@ function RunSheetContent() {
                 </div>
               )}
             </section>
+          );
+        })()}
+
+        {/* Hub Tips Collapsible Interface & Manager Quick-Shift Controls directly beneath Active Hero Game Card */}
+        {(() => {
+          const nextGameIndex = games.findIndex((g) => !isGameElapsedByClock(g, nowMs));
+          const nextGame = nextGameIndex >= 0 ? games[nextGameIndex] : undefined;
+          if (!nextGame) return null;
+
+          const followingSameDayGame =
+            games[nextGameIndex + 1] && games[nextGameIndex + 1].dayLabel === nextGame.dayLabel
+              ? games[nextGameIndex + 1]
+              : undefined;
+
+          const heroGameAlerts = alerts.filter((a) => a.gameId === nextGame.id);
+
+          const activeHeroTips: Array<{
+            id: string;
+            tag?: string;
+            title: string;
+            content: string;
+            author?: string;
+            upvotes?: number;
+            alertId?: string;
+          }> = [];
+
+          if (nextGame.downtimeAfter) {
+            const isQuickTurnaround = /quick turnaround/i.test(nextGame.downtimeAfter.type);
+            activeHeroTips.push({
+              id: `dt-${nextGame.id}`,
+              tag: isQuickTurnaround ? "QUICK TURNAROUND" : "WINDOW",
+              title: `${nextGame.downtimeAfter.duration} • ${nextGame.downtimeAfter.type}`,
+              content: nextGame.downtimeAfter.note,
+            });
+          }
+
+          if (
+            followingSameDayGame &&
+            followingSameDayGame.jerseyColor &&
+            followingSameDayGame.jerseyColor !== nextGame.jerseyColor &&
+            !heroGameAlerts.some((a) => /jersey|switch/i.test(`${a.title} ${a.content}`))
+          ) {
+            activeHeroTips.push({
+              id: `jersey-${nextGame.id}`,
+              tag: "JERSEY CHANGE",
+              title: `Pack ${followingSameDayGame.jerseyColor} for Next Game`,
+              content: `Same-day matchup at ${formatTime(followingSameDayGame.tipOffMinutes)} (${followingSameDayGame.venueName} • ${followingSameDayGame.court}).`,
+            });
+          }
+
+          heroGameAlerts.forEach((a) => {
+            const inferredTag =
+              /turnaround/i.test(`${a.title} ${a.content}`)
+                ? "QUICK TURNAROUND"
+                : /urgent/i.test(`${a.title} ${a.content}`)
+                  ? "URGENT"
+                  : a.type.toUpperCase();
+            activeHeroTips.push({
+              id: a.id,
+              tag: inferredTag,
+              title: a.title,
+              content: a.content,
+              author: a.author,
+              upvotes: a.upvotes,
+              alertId: a.id,
+            });
+          });
+
+          const hasAutoExpandTag = activeHeroTips.some(
+            (tip) => tip.tag === "URGENT" || tip.tag === "QUICK TURNAROUND"
+          );
+          const isHeroTipsOpen =
+            heroTipsManualState[nextGame.id] !== undefined
+              ? heroTipsManualState[nextGame.id]
+              : hasAutoExpandTag;
+
+          return (
+            <>
+              <section aria-label="Hub Tips" className="space-y-2">
+                <div className="bg-[#FDF9F0] border border-[#D59B42]/30 rounded-xl overflow-hidden transition-colors">
+                  <button
+                    type="button"
+                    aria-expanded={isHeroTipsOpen}
+                    aria-controls="hero-hub-tips-list"
+                    onClick={() =>
+                      setHeroTipsManualState((prev) => ({
+                        ...prev,
+                        [nextGame.id]: !isHeroTipsOpen,
+                      }))
+                    }
+                    className="w-full p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF4E5] transition-colors text-left"
+                  >
+                    <span className="flex items-center gap-2">
+                      <Lightbulb className="w-4 h-4 text-[#D59B42] shrink-0" />
+                      <span className="font-bold text-xs tracking-wider uppercase text-[#1D2935]">
+                        HUB TIPS
+                      </span>
+                      <span className="inline-flex items-center justify-center rounded-full bg-[#D59B42] text-white text-[10px] font-bold tabular-nums px-2 py-0.5 leading-none">
+                        {activeHeroTips.length}
+                      </span>
+                    </span>
+                    <ChevronDown
+                      className={`w-4 h-4 text-[#1D2935]/70 transition-transform duration-200 ${
+                        isHeroTipsOpen ? "rotate-180" : ""
+                      }`}
+                    />
+                  </button>
+
+                  {isHeroTipsOpen && (
+                    <div
+                      id="hero-hub-tips-list"
+                      className="px-3 pb-3 space-y-2 animate-in fade-in-50 slide-in-from-top-1 duration-150"
+                    >
+                      {activeHeroTips.length === 0 ? (
+                        <div className="bg-white border border-[#E9E5DE] rounded-lg p-2.5 shadow-xs text-xs text-slate-500 italic">
+                          No facility or turnaround tips posted yet for this matchup.
+                        </div>
+                      ) : (
+                        activeHeroTips.map((tip) => (
+                          <div
+                            key={tip.id}
+                            className="bg-white border border-[#E9E5DE] rounded-lg p-2.5 shadow-xs space-y-1.5"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-1.5">
+                              <h4 className="text-xs font-bold tracking-tight text-[#1D2935]">
+                                {tip.title}
+                              </h4>
+                              {tip.tag && (
+                                <span
+                                  className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                                    tip.tag === "URGENT" || tip.tag === "QUICK TURNAROUND"
+                                      ? "bg-[#FFF9EE] text-[#D59B42] border border-[#D59B42]/40"
+                                      : "bg-[#F8F7F3] text-slate-600 border border-[#E9E5DE]"
+                                  }`}
+                                >
+                                  {tip.tag}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-600 leading-snug">{tip.content}</p>
+                            {tip.alertId && (
+                              <div className="flex items-center justify-between pt-1.5 border-t border-[#E9E5DE] text-[11px] text-slate-500">
+                                <span>By {tip.author}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => upvoteAlert(tip.alertId!)}
+                                  className="inline-flex items-center gap-1 font-semibold text-[11px] bg-[#F8F7F3] hover:bg-[#FFF9EE] border border-[#E9E5DE] text-[#1D2935] px-2 py-0.5 rounded-md cursor-pointer transition-colors"
+                                >
+                                  <ThumbsUp className="w-3 h-3 text-[#D59B42]" /> Helpful ({tip.upvotes})
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        ))
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => setActiveModalGameId(nextGame.id)}
+                        className="w-full inline-flex items-center justify-center gap-1 bg-white hover:bg-[#FFF9EE] border border-[#E9E5DE] rounded-lg py-1.5 px-2.5 text-xs font-semibold text-[#1D2935] transition-colors cursor-pointer shadow-2xs"
+                      >
+                        <Plus className="w-3.5 h-3.5 text-[#D59B42]" /> Add Hub Tip
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </section>
+
+              {isAdmin && (
+                <section
+                  aria-label="Manager Quick-Shift Schedule Controls"
+                  className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-3 space-y-2"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#D59B42]" />
+                      MANAGER QUICK-SHIFT
+                    </span>
+                    <span className="text-[11px] font-semibold text-slate-500 truncate">
+                      Game {nextGameIndex + 1} ({formatTime(nextGame.tipOffMinutes)})
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-4 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => shiftGameTime(nextGame.id, -30)}
+                      className="bg-white border border-[#E9E5DE] text-[#1D2935] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
+                    >
+                      -30m
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => shiftGameTime(nextGame.id, -15)}
+                      className="bg-white border border-[#E9E5DE] text-[#1D2935] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
+                    >
+                      -15m
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => shiftGameTime(nextGame.id, 15)}
+                      className="bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] hover:bg-[#FDF3DE] font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
+                    >
+                      +15m
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => shiftGameTime(nextGame.id, 30)}
+                      className="bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] hover:bg-[#FDF3DE] font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
+                    >
+                      +30m
+                    </button>
+                  </div>
+                </section>
+              )}
+            </>
           );
         })()}
 
@@ -1979,21 +2196,21 @@ function RunSheetContent() {
                 </div>
 
                 {/* Three-Column Timing Display */}
-                <div className="grid grid-cols-3 gap-1.5 sm:gap-2 my-3">
-                  <div className="bg-[#F8F7F3] border border-[#E9E5DE] rounded-lg p-2 text-center">
-                    <span className="block text-[10px] tracking-wider uppercase text-slate-500 font-semibold">Depart</span>
+                <div className="grid grid-cols-3 gap-2 my-3">
+                  <div className="bg-[#F8F7F3] border border-[#E9E5DE] px-2 py-2.5 rounded-lg text-center">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Depart</span>
                     <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">{formatTime(departMinutes)}</span>
-                    <span className="block text-[11px] text-slate-500 mt-0.5">{game.hotelTravelMin}m drive</span>
+                    <span className="block text-[11px] text-slate-500 font-medium mt-0.5">{game.hotelTravelMin}m drive</span>
                   </div>
-                  <div className="bg-[#F8F7F3] border border-[#E9E5DE] rounded-lg p-2 text-center">
-                    <span className="block text-[10px] tracking-wider uppercase text-slate-500 font-semibold">Gym Arrival</span>
+                  <div className="bg-[#F8F7F3] border border-[#E9E5DE] px-2 py-2.5 rounded-lg text-center">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Gym Arrival</span>
                     <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">{formatTime(arrivalMinutes)}</span>
-                    <span className="block text-[11px] text-slate-500 mt-0.5">{bufferMins}m before tip</span>
+                    <span className="block text-[11px] text-slate-500 font-medium mt-0.5">{bufferMins}m before tip</span>
                   </div>
-                  <div className="bg-[#FFF9EE] border border-[#D59B42]/40 rounded-lg p-2 text-center">
-                    <span className="block text-[10px] tracking-wider uppercase text-[#D59B42] font-bold">Tip-Off</span>
-                    <span className="block tabular-nums font-extrabold text-sm sm:text-base text-[#1D2935] mt-0.5">{formatTime(game.tipOffMinutes)}</span>
-                    <span className="block text-[11px] text-slate-600 mt-0.5">Game time</span>
+                  <div className="bg-[#FFF9EE] border border-[#D59B42]/40 px-2 py-2.5 rounded-lg text-center">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-[#D59B42]">Tip-Off</span>
+                    <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">{formatTime(game.tipOffMinutes)}</span>
+                    <span className="block text-[11px] text-slate-500 font-medium mt-0.5">Game time</span>
                   </div>
                 </div>
 
@@ -2077,33 +2294,37 @@ function RunSheetContent() {
                 </div>
 
                 {isAdmin && (
-                  <div className="border-t border-[#E9E5DE] bg-[#F8F7F3] -mx-4 -mb-4 mt-3 px-4 py-3 flex items-center justify-between text-[11px]">
-                    <div className="flex items-center gap-1.5 font-bold text-[#1D2935]">
+                  <div className="border-t border-[#E9E5DE] bg-[#F8F7F3] -mx-4 -mb-4 mt-3 px-4 py-3 flex items-center justify-between gap-2 text-[11px]">
+                    <div className="flex items-center gap-1.5 font-bold tracking-wider uppercase text-slate-500">
                       <SlidersHorizontal className="w-3.5 h-3.5 text-[#D59B42]" />
-                      <span className="uppercase tracking-wider">Quick-Shift:</span>
+                      <span>Quick-Shift</span>
                     </div>
                     <div className="flex gap-1.5">
                       <button 
+                        type="button"
                         onClick={() => shiftGameTime(game.id, -30)} 
-                        className="bg-white border border-[#E9E5DE] hover:border-slate-300 active:scale-[0.96] px-2 py-1 rounded-md text-[#1D2935] font-semibold transition-all cursor-pointer"
+                        className="bg-white border border-[#E9E5DE] text-[#1D2935] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         -30m
                       </button>
                       <button 
+                        type="button"
                         onClick={() => shiftGameTime(game.id, -15)} 
-                        className="bg-white border border-[#E9E5DE] hover:border-slate-300 active:scale-[0.96] px-2 py-1 rounded-md text-[#1D2935] font-semibold transition-all cursor-pointer"
+                        className="bg-white border border-[#E9E5DE] text-[#1D2935] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         -15m
                       </button>
                       <button 
+                        type="button"
                         onClick={() => shiftGameTime(game.id, 15)} 
-                        className="bg-[#FFF9EE] border border-[#D59B42]/40 hover:bg-[#D59B42]/15 active:scale-[0.96] px-2 py-1 rounded-md text-[#1D2935] font-semibold transition-all cursor-pointer"
+                        className="bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] hover:bg-[#FDF3DE] font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         +15m
                       </button>
                       <button 
+                        type="button"
                         onClick={() => shiftGameTime(game.id, 30)} 
-                        className="bg-[#FFF9EE] border border-[#D59B42]/40 hover:bg-[#D59B42]/15 active:scale-[0.96] px-2 py-1 rounded-md text-[#1D2935] font-semibold transition-all cursor-pointer"
+                        className="bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] hover:bg-[#FDF3DE] font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         +30m
                       </button>
@@ -2138,58 +2359,56 @@ function RunSheetContent() {
         )}
 
         {activeTab === "fuel" && (
-          <div key="fuel" className="space-y-4 animate-in fade-in-50 duration-200 ease-out">
+          <div key="fuel" className="space-y-3 animate-in fade-in-50 duration-200 ease-out">
         {/* =========================================================
             MEAL INFO SECTION (Dynamically Computed Timestamps)
         ========================================================= */}
-        <section id="section-meals" className="space-y-3.5 pt-2">
+        <section id="section-meals" className="space-y-3 pt-1">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5">
-              <span className="p-1 rounded-md bg-[#111827] border border-slate-800 text-amber-400 shadow-2xs">
+              <span className="p-1 rounded-md bg-white border border-[#E9E5DE] text-[#D59B42] shadow-2xs">
                 <Utensils className="w-3.5 h-3.5" />
               </span>
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
+              <h3 className="text-xs font-bold tracking-tight uppercase text-[#1D2935]">
                 {isLunch ? "Midday Fuel (Grab & Go)" : "Team Dinner & Reservation"}
               </h3>
             </div>
 
             {isAdmin && (
-              <div className="flex items-center gap-1 bg-[#111827] border border-slate-800 p-0.5 rounded-xl text-[10px]">
-                <button
-                  type="button"
-                  onClick={handleToggleMealMode}
-                  className="px-2.5 py-1 rounded-lg font-black uppercase tracking-wider text-slate-950 hover:bg-amber-300 bg-amber-400 shadow-2xs border border-amber-500/30 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer"
-                >
-                  Admin Toggle: {isLunch ? "🌙 Show Dinner" : "🥪 Show Lunch"}
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={handleToggleMealMode}
+                className="px-2.5 py-1 rounded-md font-semibold text-xs text-[#D59B42] bg-[#FFF9EE] hover:bg-[#FDF3DE] border border-[#D59B42]/40 active:scale-[0.97] transition-all cursor-pointer"
+              >
+                Admin Toggle: {isLunch ? "🌙 Show Dinner" : "🥪 Show Lunch"}
+              </button>
             )}
           </div>
 
           {/* Downtime Window Card with Corrected Timestamps */}
-          <div className="bg-[#111827] text-white rounded-2xl p-4.5 shadow-2xl border border-slate-800/90">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                {isLunch ? <Salad className="w-4 h-4 text-amber-400" /> : <Utensils className="w-4 h-4 text-amber-400" />}
+          <div className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-bold tracking-tight uppercase text-[#1D2935] flex items-center gap-1.5">
+                {isLunch ? <Salad className="w-4 h-4 text-[#D59B42]" /> : <Utensils className="w-4 h-4 text-[#D59B42]" />}
                 {isLunch ? "Lunch Downtime Window" : "Dinner Downtime Window"}
               </span>
-              <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+              <span className="inline-flex items-center rounded-md bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 tabular-nums">
                 {windowHours}h {windowRemainingMins}m Window
               </span>
             </div>
             
-            <div className="mt-3.5 flex items-baseline justify-between border-t border-slate-800 pt-3">
+            <div className="mt-3 flex items-baseline justify-between border-t border-[#E9E5DE] pt-3">
               <div>
-                <p className="text-slate-400 font-mono text-xs uppercase tracking-wider">Available Downtime:</p>
-                <p className="text-base font-black text-white tracking-tight mt-0.5 tabular-nums">
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Available Downtime</p>
+                <p className="text-base font-bold text-[#1D2935] tracking-tight mt-0.5 tabular-nums">
                   {formatTime(activeWindowStart)} – {formatTime(activeWindowEnd)}
                 </p>
               </div>
               <div className="text-right">
-                <p className="text-slate-400 font-mono text-xs uppercase tracking-wider">
+                <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">
                   {isLunch ? "Game 2 Arrival" : "Evening Wind-Down"}
                 </p>
-                <p className="text-xs font-black text-amber-400 mt-0.5">
+                <p className="text-xs font-bold text-[#D59B42] mt-0.5 tabular-nums">
                   {isLunch 
                     ? `Be at gym by ${formatTime(activeWindowEnd)}`
                     : `Back at hotel by ${formatTime(activeWindowEnd)}`}
@@ -2200,33 +2419,33 @@ function RunSheetContent() {
 
           {/* LUNCH: GRAB & GO */}
           {isLunch ? (
-            <div className="bg-[#111827] border border-slate-800/90 rounded-2xl p-5 shadow-2xl transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3.5">
-              <div className="flex items-center justify-between">
+            <div className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3">
+              <div className="flex items-center justify-between gap-2">
                 <div>
-                  <h4 className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                    <Zap className="w-4 h-4 text-amber-400" /> Fast Athlete Fuel Near Gym
+                  <h4 className="text-xs font-bold tracking-tight uppercase text-[#1D2935] flex items-center gap-1.5">
+                    <Zap className="w-4 h-4 text-[#D59B42]" /> Fast Athlete Fuel Near Gym
                   </h4>
-                  <p className="text-[11px] text-slate-300 font-medium mt-0.5">
-                    No reservations needed — quick wraps, smoothies, & light carbs
+                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                    No reservations needed — quick wraps, smoothies, &amp; light carbs
                   </p>
                 </div>
-                <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none shrink-0">
+                <span className="inline-flex items-center rounded-md bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 shrink-0">
                   Quick Turnaround
                 </span>
               </div>
 
-              <div className="space-y-2.5 pt-1">
+              <div className="space-y-2 pt-0.5">
                 {quickLunchSpots.map((spot, i) => (
-                  <div key={i} className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 text-xs flex items-center justify-between gap-2 shadow-2xs transition-colors">
-                    <div className="pr-1">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-sm font-black text-white">{spot.name}</span>
-                        <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                  <div key={i} className="p-3 rounded-lg bg-[#F8F7F3] border border-[#E9E5DE] hover:border-[#D59B42]/40 text-xs flex items-center justify-between gap-2 transition-colors">
+                    <div className="pr-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-sm font-bold tracking-tight text-[#1D2935]">{spot.name}</span>
+                        <span className="inline-flex items-center rounded bg-white border border-[#E9E5DE] text-slate-600 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5">
                           {spot.type}
                         </span>
                       </div>
-                      <span className="text-[11px] text-slate-300 block mt-0.5 font-medium">
-                        {spot.distance} • <span className="text-slate-400">{spot.note}</span>
+                      <span className="text-[11px] text-slate-600 block mt-0.5 font-medium">
+                        {spot.distance} • <span className="text-slate-500">{spot.note}</span>
                       </span>
                     </div>
 
@@ -2234,9 +2453,9 @@ function RunSheetContent() {
                       href={getMapsUrl(spot.name + " " + spot.address)} 
                       target="_blank" 
                       rel="noreferrer"
-                      className="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white px-3 py-1.5 rounded-xl text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-2xs"
+                      className="shrink-0 bg-[#1D2935] hover:bg-[#1D2935]/90 text-white px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
                     >
-                      <Navigation className="w-3.5 h-3.5 text-amber-400" /> Map
+                      <Navigation className="w-3.5 h-3.5 text-[#D59B42]" /> Map
                     </a>
                   </div>
                 ))}
@@ -2244,33 +2463,33 @@ function RunSheetContent() {
             </div>
           ) : (
             /* DINNER: FORMAL CONSENSUS & RESERVATION POLL */
-            <div className="bg-[#111827] border border-slate-800/90 rounded-2xl p-5 shadow-2xl transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-4">
+            <div className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3.5">
               {/* Manager "Poll Time-Travel" Dev Toggle */}
               {isAdmin && (
-                <div className="bg-slate-950/90 border border-amber-500/30 rounded-xl p-2 space-y-1.5">
-                  <div className="flex items-center justify-between px-1">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-amber-400 font-bold">
+                <div className="bg-[#F8F7F3] border border-[#E9E5DE] rounded-lg p-2.5 space-y-1.5">
+                  <div className="flex items-center justify-between px-0.5">
+                    <span className="text-[10px] uppercase tracking-wider text-[#D59B42] font-bold">
                       Manager Poll Time-Travel
                     </span>
-                    <span className="text-[10px] font-mono text-slate-400">
+                    <span className="text-[10px] font-semibold text-slate-500">
                       State: {isPollLocked ? "Locked" : isPollLockSoon ? "Lock Soon" : "Open"}
                     </span>
                   </div>
-                  <div className="grid grid-cols-4 gap-1 bg-slate-900 p-1 rounded-lg border border-slate-800">
+                  <div className="grid grid-cols-4 gap-1 bg-white p-1 rounded-md border border-[#E9E5DE]">
                     {([
                       { id: "live", label: "Live Clock" },
                       { id: "open", label: "Force Open" },
-                      { id: "lock_soon", label: "Force Lock Soon" },
+                      { id: "lock_soon", label: "Lock Soon" },
                       { id: "locked", label: "Force Locked" },
                     ] as const).map((mode) => (
                       <button
                         key={mode.id}
                         type="button"
                         onClick={() => setPollTestMode(mode.id)}
-                        className={`py-1.5 px-1.5 rounded-md font-mono text-[10px] font-bold transition-all cursor-pointer truncate ${
+                        className={`py-1.5 px-1 rounded text-[10px] font-bold transition-all cursor-pointer truncate ${
                           pollTestMode === mode.id
-                            ? "bg-amber-400 text-slate-950 shadow-2xs"
-                            : "text-slate-300 hover:text-white hover:bg-slate-800/70"
+                            ? "bg-[#FDF9F0] text-[#1D2935] border border-[#D59B42]/40 shadow-2xs"
+                            : "text-slate-500 hover:text-[#1D2935]"
                         }`}
                       >
                         {mode.label}
@@ -2281,63 +2500,63 @@ function RunSheetContent() {
               )}
 
               <div className="flex items-center justify-between gap-2">
-                <span className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                  {isPollLocked ? <Lock className="w-3.5 h-3.5 text-emerald-400" /> : <Timer className="w-3.5 h-3.5 text-amber-400" />}
+                <span className="text-xs font-bold tracking-tight uppercase text-[#1D2935] flex items-center gap-1.5">
+                  {isPollLocked ? <Lock className="w-3.5 h-3.5 text-[#10B981]" /> : <Timer className="w-3.5 h-3.5 text-[#D59B42]" />}
                   {isPollLocked ? "Confirmed Team Dinner Reservation" : "Team Dinner Reservation Poll"}
                 </span>
-                <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none shrink-0 tabular-nums">
-                  {totalVotesCast} total family votes cast
+                <span className="inline-flex items-center rounded-md bg-[#F8F7F3] border border-[#E9E5DE] text-slate-600 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5 shrink-0 tabular-nums">
+                  {totalVotesCast} votes cast
                 </span>
               </div>
 
               {winningOption && (
-                <div className="bg-slate-950 text-white rounded-xl p-4 shadow-sm border border-slate-800 space-y-2.5">
+                <div className="bg-[#FDF9F0] border border-[#D59B42]/35 rounded-xl p-3.5 space-y-2">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs font-bold uppercase tracking-wider px-2.5 py-1 rounded-r">
+                    <span className="inline-flex items-center gap-1.5 text-xs font-bold tracking-tight text-[#1D2935]">
                       🏆 CURRENT LEADER: {winningOption.name}
                     </span>
                     {isPollLocked && (
-                      <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/15 text-emerald-300 font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-r">
+                      <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/70 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
                         🎉 TEAM RESERVATION LOCKED
                       </span>
                     )}
                   </div>
 
-                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-1.5 border-t border-slate-800/80">
-                    <span className="text-xs font-mono font-bold text-emerald-300 tabular-nums">
+                  <div className="flex flex-wrap items-center justify-between gap-2 text-xs pt-2 border-t border-[#D59B42]/20">
+                    <span className="text-xs font-bold text-[#1D2935] tabular-nums">
                       Reservation Target: {winningOption.totalSeats || winningOption.votes * 2} Seats ({winningOptionPercent}%)
                     </span>
-                    <span className="text-[11px] font-medium text-slate-300 tabular-nums">
+                    <span className="text-[11px] font-medium text-slate-600 tabular-nums">
                       {confirmedPlayers} Players • {confirmedParents} Parents
                     </span>
                   </div>
 
                   {winningOption.isDelivery && (
-                    <div className="text-[11px] text-amber-300/90 bg-amber-400/10 border border-amber-400/20 rounded-lg p-2.5 flex items-center justify-between font-medium">
-                      <span>Target Order: <strong className="text-white font-black">~{estimatedPizzas} Large Pizzas</strong></span>
-                      <span className="text-[10px] text-slate-400 font-mono">1 pie per 2.5 people</span>
+                    <div className="text-[11px] text-[#1D2935] bg-white border border-[#E9E5DE] rounded-lg p-2.5 flex items-center justify-between font-medium">
+                      <span>Target Order: <strong className="font-bold text-[#1D2935]">~{estimatedPizzas} Large Pizzas</strong></span>
+                      <span className="text-[10px] text-slate-500 font-semibold">1 pie per 2.5 people</span>
                     </div>
                   )}
 
                   {isPollLocked && (
-                    <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-800/80">
-                      <span className="text-[11px] text-slate-300 flex items-center gap-1.5 font-medium">
-                        <PhoneCall className="w-3.5 h-3.5 text-emerald-400" /> {winningOption.phone}
+                    <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#D59B42]/20">
+                      <span className="text-[11px] text-[#1D2935] flex items-center gap-1.5 font-semibold tabular-nums">
+                        <PhoneCall className="w-3.5 h-3.5 text-[#10B981]" /> {winningOption.phone}
                       </span>
                       <div className="flex items-center gap-1.5">
                         <a
                           href={`tel:${winningOption.phone.replace(/[^0-9]/g, "")}`}
-                          className="text-[11px] font-black uppercase tracking-wider bg-amber-400 hover:bg-amber-300 text-slate-950 px-3 py-1.5 rounded-xl flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-xs"
+                          className="text-xs font-semibold bg-[#1D2935] hover:bg-[#1D2935]/90 text-white px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
                         >
-                          <PhoneCall className="w-3 h-3 text-slate-950" /> Call Restaurant
+                          <PhoneCall className="w-3 h-3 text-[#D59B42]" /> Call Restaurant
                         </a>
                         <a
                           href={getMapsUrl(`${winningOption.name} ${winningOption.address}`)}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-[11px] font-extrabold uppercase tracking-wider bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 px-3 py-1.5 rounded-xl flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-xs"
+                          className="text-xs font-semibold bg-white hover:bg-slate-50 text-[#1D2935] border border-[#E9E5DE] px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
                         >
-                          <Navigation className="w-3 h-3 text-amber-400" /> Open in Maps
+                          <Navigation className="w-3 h-3 text-[#D59B42]" /> Open in Maps
                         </a>
                       </div>
                     </div>
@@ -2346,19 +2565,19 @@ function RunSheetContent() {
               )}
 
               {isPollLocked && winningOption && !isVoterOfWinner && (
-                <div className="bg-amber-950/30 border border-amber-500/30 rounded-xl p-3.5 space-y-2.5 animate-in fade-in duration-200 pointer-events-auto">
+                <div className="bg-[#FDF9F0] border border-[#D59B42]/35 rounded-xl p-3.5 space-y-2.5 animate-in fade-in duration-200 pointer-events-auto">
                   <div>
-                    <span className="text-xs font-black text-white block">
+                    <span className="text-xs font-bold text-[#1D2935] block">
                       {winningOption.name} won the vote!
                     </span>
-                    <p className="text-[11px] text-slate-300 font-medium mt-0.5 leading-snug">
+                    <p className="text-[11px] text-slate-600 font-medium mt-0.5 leading-snug">
                       You previously picked {options.find(o => o.id === userVotedOptionId)?.name || "another spot"}. Are you joining the team table?
                     </p>
                   </div>
 
                   {userRsvpSeats > 0 && !isEditingRsvp ? (
-                    <div className="flex flex-wrap items-center justify-between gap-2 pt-1 border-t border-amber-500/20">
-                      <span className="inline-flex items-center gap-1.5 border-l-2 border-l-emerald-400 bg-emerald-400/15 text-emerald-300 font-mono text-xs font-bold px-2.5 py-1 rounded-r">
+                    <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#D59B42]/20">
+                      <span className="inline-flex items-center gap-1.5 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/70 text-xs font-bold px-2.5 py-1">
                         ✓ Your Party: {userRsvpSeats} Seats Added
                       </span>
                       <div className="flex items-center gap-1.5">
@@ -2366,7 +2585,7 @@ function RunSheetContent() {
                           type="button"
                           onClick={() => handleAdjustRsvpSeats(-1)}
                           aria-label="Remove 1 RSVP seat"
-                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                          className="w-7 h-7 flex items-center justify-center rounded-md bg-white hover:bg-slate-50 border border-[#E9E5DE] text-[#1D2935] font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
                         >
                           -
                         </button>
@@ -2374,14 +2593,14 @@ function RunSheetContent() {
                           type="button"
                           onClick={() => handleAdjustRsvpSeats(1)}
                           aria-label="Add 1 RSVP seat"
-                          className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                          className="w-7 h-7 flex items-center justify-center rounded-md bg-white hover:bg-slate-50 border border-[#E9E5DE] text-[#1D2935] font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
                         >
                           +
                         </button>
                         <button
                           type="button"
                           onClick={() => setIsEditingRsvp(true)}
-                          className="px-2.5 py-1 rounded-lg bg-slate-900 hover:bg-slate-800 border border-slate-700 text-amber-300 font-mono text-[11px] font-bold active:scale-[0.96] transition-all cursor-pointer"
+                          className="px-2.5 py-1 rounded-md bg-white hover:bg-slate-50 border border-[#E9E5DE] text-[#D59B42] text-[11px] font-bold active:scale-[0.96] transition-all cursor-pointer"
                         >
                           Edit
                         </button>
@@ -2392,7 +2611,7 @@ function RunSheetContent() {
                       <button
                         type="button"
                         onClick={() => handleCountUsIn(Math.max(2, userPartyTotal))}
-                        className="flex-1 py-2 px-3 rounded-xl text-xs font-extrabold uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer bg-emerald-500 hover:bg-emerald-400 text-slate-950 shadow-sm"
+                        className="flex-1 py-2 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer bg-[#10B981] hover:bg-emerald-600 text-white shadow-xs"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5" /> Count Us In (+{Math.max(2, userPartyTotal)} seats)
                       </button>
@@ -2400,10 +2619,10 @@ function RunSheetContent() {
                       <button
                         type="button"
                         onClick={handleSplitOff}
-                        className={`py-2 px-3 rounded-xl text-xs font-bold active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer ${
+                        className={`py-2 px-3 rounded-lg text-xs font-semibold active:scale-[0.97] transition-all cursor-pointer ${
                           userFinalAttendance === "declined"
-                            ? "bg-slate-800 text-white border border-slate-700"
-                            : "bg-transparent text-amber-300/80 hover:bg-amber-950/40"
+                            ? "bg-white text-[#1D2935] border border-[#E9E5DE]"
+                            : "bg-transparent text-slate-600 hover:bg-white/70"
                         }`}
                       >
                         Splitting Off
@@ -2414,10 +2633,10 @@ function RunSheetContent() {
               )}
 
               {isPollLocked && winningOption && isVoterOfWinner && (
-                <div className="bg-emerald-950/40 border border-emerald-500/40 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-200 shadow-2xs pointer-events-auto">
+                <div className="bg-emerald-50/80 border border-emerald-200 rounded-xl p-3 flex flex-wrap items-center justify-between gap-2 text-xs text-emerald-900 pointer-events-auto">
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span className="font-extrabold">
+                    <CheckCircle2 className="w-4 h-4 text-[#10B981] shrink-0" />
+                    <span className="font-bold text-[#1D2935]">
                       ✓ Your Party: {userRsvpSeats > 0 ? userRsvpSeats : userPartyTotal} Seats Added
                     </span>
                   </div>
@@ -2426,7 +2645,7 @@ function RunSheetContent() {
                       type="button"
                       onClick={() => handleAdjustRsvpSeats(-1)}
                       aria-label="Decrease seats"
-                      className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                      className="w-7 h-7 flex items-center justify-center rounded-md bg-white hover:bg-slate-50 border border-[#E9E5DE] text-[#1D2935] font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
                     >
                       -
                     </button>
@@ -2434,11 +2653,11 @@ function RunSheetContent() {
                       type="button"
                       onClick={() => handleAdjustRsvpSeats(1)}
                       aria-label="Increase seats"
-                      className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                      className="w-7 h-7 flex items-center justify-center rounded-md bg-white hover:bg-slate-50 border border-[#E9E5DE] text-[#1D2935] font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
                     >
                       +
                     </button>
-                    <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/10 text-emerald-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                    <span className="inline-flex items-center rounded-md bg-white border border-emerald-200 text-emerald-700 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
                       Confirmed
                     </span>
                   </div>
@@ -2446,42 +2665,46 @@ function RunSheetContent() {
               )}
 
               {!isPollLocked && (
-                <div className="bg-slate-900/60 border border-slate-800 rounded-xl p-3.5 space-y-2.5">
+                <div className="bg-[#F8F7F3] border border-[#E9E5DE] rounded-xl p-3 space-y-2.5">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-black uppercase tracking-wider text-white flex items-center gap-1.5">
-                      <UserCheck className="w-3.5 h-3.5 text-amber-400" /> Your Family Count:
+                    <span className="text-xs font-bold tracking-tight uppercase text-[#1D2935] flex items-center gap-1.5">
+                      <UserCheck className="w-3.5 h-3.5 text-[#D59B42]" /> Your Family Count
                     </span>
-                    <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                    <span className="inline-flex items-center rounded-md bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 tabular-nums">
                       {userPartyTotal} Seat{userPartyTotal > 1 ? "s" : ""}
                     </span>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 shadow-2xs">
-                      <span className="text-slate-300 font-bold text-[11px] uppercase">Players:</span>
-                      <div className="flex items-center gap-2 font-black">
+                    <div className="flex items-center justify-between bg-white border border-[#E9E5DE] rounded-lg px-2.5 py-1.5">
+                      <span className="text-slate-600 font-semibold text-[11px] uppercase">Players</span>
+                      <div className="flex items-center gap-2 font-bold">
                         <button 
+                          type="button"
                           onClick={() => updatePartyCounts(-1, 0)}
-                          className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 active:scale-[0.96] text-white transition-transform duration-100 ease-out cursor-pointer"
+                          className="w-6 h-6 flex items-center justify-center rounded-md bg-[#F8F7F3] hover:bg-[#E9E5DE]/60 border border-[#E9E5DE] active:scale-[0.96] text-[#1D2935] transition-all cursor-pointer"
                         >-</button>
-                        <span className="w-4 text-center tabular-nums text-sm font-black text-white">{userParty.players}</span>
+                        <span className="w-4 text-center tabular-nums text-sm font-bold text-[#1D2935]">{userParty.players}</span>
                         <button 
+                          type="button"
                           onClick={() => updatePartyCounts(1, 0)}
-                          className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 active:scale-[0.96] text-white transition-transform duration-100 ease-out cursor-pointer"
+                          className="w-6 h-6 flex items-center justify-center rounded-md bg-[#F8F7F3] hover:bg-[#E9E5DE]/60 border border-[#E9E5DE] active:scale-[0.96] text-[#1D2935] transition-all cursor-pointer"
                         >+</button>
                       </div>
                     </div>
 
-                    <div className="flex items-center justify-between bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 shadow-2xs">
-                      <span className="text-slate-300 font-bold text-[11px] uppercase">Parents:</span>
-                      <div className="flex items-center gap-2 font-black">
+                    <div className="flex items-center justify-between bg-white border border-[#E9E5DE] rounded-lg px-2.5 py-1.5">
+                      <span className="text-slate-600 font-semibold text-[11px] uppercase">Parents</span>
+                      <div className="flex items-center gap-2 font-bold">
                         <button 
+                          type="button"
                           onClick={() => updatePartyCounts(0, -1)}
-                          className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 active:scale-[0.96] text-white transition-transform duration-100 ease-out cursor-pointer"
+                          className="w-6 h-6 flex items-center justify-center rounded-md bg-[#F8F7F3] hover:bg-[#E9E5DE]/60 border border-[#E9E5DE] active:scale-[0.96] text-[#1D2935] transition-all cursor-pointer"
                         >-</button>
-                        <span className="w-4 text-center tabular-nums text-sm font-black text-white">{userParty.parents}</span>
+                        <span className="w-4 text-center tabular-nums text-sm font-bold text-[#1D2935]">{userParty.parents}</span>
                         <button 
+                          type="button"
                           onClick={() => updatePartyCounts(0, 1)}
-                          className="w-6 h-6 flex items-center justify-center rounded-md bg-slate-800 hover:bg-slate-700 active:scale-[0.96] text-white transition-transform duration-100 ease-out cursor-pointer"
+                          className="w-6 h-6 flex items-center justify-center rounded-md bg-[#F8F7F3] hover:bg-[#E9E5DE]/60 border border-[#E9E5DE] active:scale-[0.96] text-[#1D2935] transition-all cursor-pointer"
                         >+</button>
                       </div>
                     </div>
@@ -2494,40 +2717,40 @@ function RunSheetContent() {
                   <button
                     type="button"
                     onClick={() => setIsRestaurantModalOpen(true)}
-                    className="py-2.5 px-3 rounded-xl bg-slate-50 hover:bg-white text-slate-950 text-[11px] font-black uppercase tracking-wider flex items-center justify-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-lg shadow-black/40"
+                    className="py-2 px-3 rounded-lg bg-[#1D2935] hover:bg-[#1D2935]/90 text-white text-xs font-semibold flex items-center justify-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer shadow-xs"
                   >
-                    <Plus className="w-3.5 h-3.5 text-slate-950 stroke-[3]" /> Suggest a Spot
+                    <Plus className="w-3.5 h-3.5 text-[#D59B42]" /> Suggest a Spot
                   </button>
 
                   <button
                     type="button"
                     onClick={handleAddHotelPizzaPreset}
-                    className="py-2.5 px-3 rounded-xl border border-amber-500/40 bg-amber-400/10 hover:bg-amber-400/20 text-[11px] font-extrabold uppercase tracking-wider text-amber-300 flex items-center justify-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-2xs"
+                    className="py-2 px-3 rounded-lg border border-[#D59B42]/40 bg-[#FFF9EE] hover:bg-[#FDF3DE] text-xs font-semibold text-[#1D2935] flex items-center justify-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer shadow-2xs"
                   >
-                    <Pizza className="w-3.5 h-3.5 text-amber-400" /> Lobby Pizza Pivot
+                    <Pizza className="w-3.5 h-3.5 text-[#D59B42]" /> Lobby Pizza Pivot
                   </button>
                 </div>
               )}
 
               {!isPollLocked && (
-                <div className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 flex items-center justify-between shadow-2xs">
+                <div className="bg-[#F8F7F3] border border-[#E9E5DE] rounded-lg p-3 flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
-                    <CalendarClock className="w-4 h-4 text-amber-400 shrink-0" />
+                    <CalendarClock className="w-4 h-4 text-[#D59B42] shrink-0" />
                     <div>
-                      <span className="text-xs font-black text-white block leading-tight">
+                      <span className="text-xs font-bold text-[#1D2935] block leading-tight">
                         Vote closes at {formatTime(voteClosingMinutes)}
                       </span>
-                      <span className="text-[11px] font-medium text-slate-300 block leading-tight mt-0.5">
+                      <span className="text-[11px] font-medium text-slate-500 block leading-tight mt-0.5">
                         Manager will finalize reservation before tip-off
                       </span>
                     </div>
                   </div>
                   {isPollLockSoon ? (
-                    <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none shrink-0">
+                    <span className="inline-flex items-center rounded-md bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 shrink-0">
                       Locks Soon
                     </span>
                   ) : (
-                    <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/10 text-emerald-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none shrink-0">
+                    <span className="inline-flex items-center rounded-md bg-emerald-50 border border-emerald-200/70 text-emerald-700 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 shrink-0">
                       Poll Open
                     </span>
                   )}
@@ -2545,71 +2768,72 @@ function RunSheetContent() {
                     return (
                       <div
                         key={option.id}
-                        className="w-full p-4 rounded-xl border-2 border-emerald-500 bg-emerald-950/35 ring-2 ring-emerald-500/40 text-left text-xs shadow-lg space-y-3 pointer-events-auto opacity-100"
+                        className="w-full p-4 rounded-xl border-2 border-emerald-500 bg-white text-left text-xs shadow-sm space-y-3 pointer-events-auto opacity-100"
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="pr-2 min-w-0 flex-1">
                             <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                              <span className="inline-flex items-center gap-1 border-l-2 border-l-emerald-400 bg-emerald-400/15 text-emerald-300 font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-r">
+                              <span className="inline-flex items-center gap-1 rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200/70 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
                                 🎉 TEAM RESERVATION LOCKED
                               </span>
                               {isUserPick && (
-                                <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/20 text-amber-200 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r">
+                                <span className="inline-flex items-center rounded-md bg-[#FFF9EE] text-[#D59B42] border border-[#D59B42]/40 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
                                   Your Vote
                                 </span>
                               )}
                             </div>
-                            <span className="text-base font-black block text-white">
+                            <span className="text-base font-bold tracking-tight block text-[#1D2935]">
                               {option.name}
                             </span>
-                            <span className="text-[11px] text-slate-300 block mt-0.5 font-medium">
-                              {option.type} • <span className="font-bold text-white">{option.playerCount}p + {option.parentCount} adults</span>
+                            <span className="text-[11px] text-slate-500 block mt-0.5 font-medium">
+                              {option.type} • <span className="font-bold text-[#1D2935]">{option.playerCount}p + {option.parentCount} adults</span>
                             </span>
                           </div>
 
                           <div className="shrink-0 text-right pl-2">
-                            <span className="font-black px-3 py-1 rounded-lg text-xs block tabular-nums shadow-2xs bg-emerald-500 text-slate-950">
+                            <span className="font-bold px-2.5 py-1 rounded-md text-xs block tabular-nums bg-emerald-50 text-emerald-700 border border-emerald-200/70">
                               {optionSeats} seats confirmed
                             </span>
-                            <span className="text-[10px] font-mono text-emerald-300 block mt-1 uppercase tracking-wider tabular-nums font-bold">
+                            <span className="text-[10px] text-slate-500 block mt-1 uppercase tracking-wider tabular-nums font-bold">
                               {option.votes} votes ({votePercent}%)
                             </span>
                           </div>
                         </div>
 
-                        <div className="h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div className="h-1.5 w-full bg-[#F8F7F3] border border-[#E9E5DE] rounded-full overflow-hidden">
                           <div
-                            className="h-full rounded-full bg-emerald-400 transition-all duration-300"
+                            className="h-full rounded-full bg-[#D59B42] transition-all duration-300"
                             style={{ width: `${votePercent}%` }}
                           />
                         </div>
 
                         {/* Interactive Post-Lock Headcount RSVP Bar on Winning Card */}
-                        <div className="bg-slate-900/85 border border-emerald-500/30 rounded-xl p-2.5 flex flex-wrap items-center justify-between gap-2">
+                        <div className="bg-[#F8F7F3] border border-emerald-500/35 rounded-lg p-2.5 flex flex-wrap items-center justify-between gap-2">
                           {userRsvpSeats > 0 ? (
                             <>
-                              <span className="inline-flex items-center gap-1.5 border-l-2 border-l-emerald-400 bg-emerald-400/15 text-emerald-300 font-mono text-[11px] font-bold px-2 py-0.5 rounded-r">
-                                ✓ Your Party: {userRsvpSeats} Seats Added
+                              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#1D2935]">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" />
+                                Your Party: {userRsvpSeats} Seats Added
                               </span>
                               <div className="flex items-center gap-1.5">
                                 <button
                                   type="button"
                                   onClick={() => handleAdjustRsvpSeats(-1)}
-                                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                                  className="w-7 h-7 flex items-center justify-center rounded-md bg-white hover:bg-slate-50 border border-[#E9E5DE] text-[#1D2935] font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
                                 >
                                   -
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => handleAdjustRsvpSeats(1)}
-                                  className="w-7 h-7 flex items-center justify-center rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-white font-mono font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
+                                  className="w-7 h-7 flex items-center justify-center rounded-md bg-white hover:bg-slate-50 border border-[#E9E5DE] text-[#1D2935] font-bold text-xs active:scale-[0.95] transition-all cursor-pointer"
                                 >
                                   +
                                 </button>
                                 <button
                                   type="button"
                                   onClick={() => setIsEditingRsvp((prev) => !prev)}
-                                  className="px-2 py-1 rounded-lg bg-slate-950 hover:bg-slate-800 border border-slate-700 text-amber-300 font-mono text-[10px] font-bold uppercase cursor-pointer"
+                                  className="px-2 py-1 rounded-md bg-white hover:bg-slate-50 border border-[#E9E5DE] text-[#D59B42] text-[10px] font-bold uppercase cursor-pointer"
                                 >
                                   Edit
                                 </button>
@@ -2617,13 +2841,13 @@ function RunSheetContent() {
                             </>
                           ) : (
                             <>
-                              <span className="text-[11px] font-bold text-slate-200">
+                              <span className="text-xs font-semibold text-[#1D2935]">
                                 Joining the winning team table?
                               </span>
                               <button
                                 type="button"
                                 onClick={() => handleCountUsIn(Math.max(2, userPartyTotal))}
-                                className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-lg flex items-center gap-1.5 active:scale-[0.96] transition-all cursor-pointer shadow-xs"
+                                className="bg-[#10B981] hover:bg-emerald-600 text-white font-bold text-xs px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer shadow-2xs"
                               >
                                 <CheckCircle2 className="w-3.5 h-3.5" /> Count Us In (+{Math.max(2, userPartyTotal)} Seats)
                               </button>
@@ -2631,20 +2855,20 @@ function RunSheetContent() {
                           )}
                         </div>
 
-                        <div className="pt-1 flex items-center justify-end gap-2 border-t border-emerald-500/20">
+                        <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#E9E5DE]">
                           <a
                             href={`tel:${option.phone.replace(/[^0-9]/g, "")}`}
-                            className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-black text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-lg flex items-center gap-1.5 active:scale-[0.96] transition-transform cursor-pointer shadow-xs"
+                            className="bg-[#1D2935] hover:bg-[#1D2935]/90 text-white font-semibold text-xs px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
                           >
-                            <PhoneCall className="w-3 h-3 text-slate-950" /> Call Restaurant
+                            <PhoneCall className="w-3 h-3 text-[#D59B42]" /> Call Restaurant
                           </a>
                           <a
                             href={getMapsUrl(`${option.name} ${option.address}`)}
                             target="_blank"
                             rel="noreferrer"
-                            className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 font-extrabold text-[11px] uppercase tracking-wider px-3 py-1.5 rounded-lg flex items-center gap-1.5 active:scale-[0.96] transition-transform cursor-pointer shadow-xs"
+                            className="bg-[#F8F7F3] hover:bg-[#E9E5DE]/60 text-[#1D2935] border border-[#E9E5DE] font-semibold text-xs px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
                           >
-                            <Navigation className="w-3 h-3 text-amber-400" /> Open in Maps
+                            <Navigation className="w-3 h-3 text-[#D59B42]" /> Open in Maps
                           </a>
                         </div>
                       </div>
@@ -2657,45 +2881,43 @@ function RunSheetContent() {
                       type="button"
                       disabled={isPollLocked}
                       onClick={() => handleVote(option.id)}
-                      className={`w-full p-3.5 rounded-xl border text-left flex items-center justify-between text-xs transition-all duration-150 ease-out relative shadow-2xs ${
+                      className={`w-full p-3.5 rounded-xl border text-left flex items-center justify-between text-xs transition-all duration-150 ease-out relative ${
                         isPollLocked
-                          ? "bg-slate-900/40 border-slate-800 opacity-40 grayscale pointer-events-none cursor-default"
+                          ? "bg-[#F8F7F3] border-[#E9E5DE] opacity-55 pointer-events-none cursor-default"
                           : isUserPick
-                            ? "border-amber-400 bg-amber-400/10 ring-2 ring-amber-400/40 shadow-md cursor-pointer active:scale-[0.96]"
+                            ? "bg-[#FFF9EE] border-2 border-[#D59B42] shadow-xs cursor-pointer active:scale-[0.98]"
                             : isWinner
-                              ? "bg-slate-900 border-amber-400/50 ring-1 ring-amber-400/20 shadow-md cursor-pointer active:scale-[0.96]"
-                              : "bg-slate-900/60 border-slate-800 hover:border-slate-700 cursor-pointer active:scale-[0.96]"
+                              ? "bg-white border-[#D59B42]/60 shadow-xs cursor-pointer active:scale-[0.98]"
+                              : "bg-white border-[#E9E5DE] hover:border-[#D59B42]/45 shadow-2xs cursor-pointer active:scale-[0.98]"
                       }`}
                     >
                       <div className="pr-2 min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-1.5">
-                          <span className="text-sm font-black block text-white">
+                          <span className="text-sm font-bold tracking-tight block text-[#1D2935]">
                             {option.name}
                           </span>
                           {isWinner && !isPollLocked && (
-                            <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                            <span className="inline-flex items-center gap-1 rounded-md bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
                               <Trophy className="w-2.5 h-2.5" /> Leading
                             </span>
                           )}
                           {isUserPick && (
-                            <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/20 text-amber-200 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                            <span className="inline-flex items-center rounded-md bg-white border border-[#D59B42]/50 text-[#1D2935] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
                               Your Vote
                             </span>
                           )}
                           {option.isCustom && !isWinner && (
-                            <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
-                              <Sparkles className="w-2.5 h-2.5 text-amber-400" /> Parent Pick
+                            <span className="inline-flex items-center gap-1 rounded-md bg-[#F8F7F3] border border-[#E9E5DE] text-slate-600 text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
+                              <Sparkles className="w-2.5 h-2.5 text-[#D59B42]" /> Parent Pick
                             </span>
                           )}
                         </div>
-                        <span className="text-[11px] text-slate-300 block mt-0.5 font-medium">
-                          {option.type} • <span className="font-bold text-white">{option.playerCount}p + {option.parentCount} adults</span>
+                        <span className="text-[11px] text-slate-500 block mt-0.5 font-medium">
+                          {option.type} • <span className="font-semibold text-[#1D2935]">{option.playerCount}p + {option.parentCount} adults</span>
                         </span>
-                        <div className="mt-2 h-1.5 w-full bg-slate-800 rounded-full overflow-hidden">
+                        <div className="mt-2 h-1.5 w-full bg-[#F8F7F3] border border-[#E9E5DE]/80 rounded-full overflow-hidden">
                           <div
-                            className={`h-full rounded-full transition-all duration-300 ${
-                              isWinner ? "bg-emerald-400" : isUserPick ? "bg-amber-400" : "bg-slate-500"
-                            }`}
+                            className="h-full rounded-full bg-[#D59B42] transition-all duration-300"
                             style={{ width: `${votePercent}%` }}
                           />
                         </div>
@@ -2703,21 +2925,21 @@ function RunSheetContent() {
 
                       <div className="shrink-0 text-right pl-2">
                         {isPollLocked ? (
-                          <span className="inline-flex items-center gap-1 bg-slate-800 text-slate-400 border border-slate-700 px-2.5 py-1 rounded-lg font-mono text-xs font-bold">
+                          <span className="inline-flex items-center gap-1 bg-white text-slate-500 border border-[#E9E5DE] px-2.5 py-1 rounded-md text-[11px] font-semibold">
                             🔒 Closed
                           </span>
                         ) : (
-                          <span className={`font-black px-3 py-1 rounded-lg text-xs block tabular-nums shadow-2xs ${
+                          <span className={`font-bold px-2.5 py-1 rounded-md text-xs block tabular-nums ${
                             isWinner 
-                              ? "bg-emerald-500 text-slate-950" 
+                              ? "bg-[#FDF9F0] text-[#1D2935] border border-[#D59B42]/40" 
                               : isUserPick
-                                ? "bg-amber-400 text-slate-950"
-                                : "bg-slate-800 text-slate-200 border border-slate-700"
+                                ? "bg-[#D59B42] text-white"
+                                : "bg-[#F8F7F3] text-[#1D2935] border border-[#E9E5DE]"
                           }`}>
                             {option.votes} votes ({optionSeats} seats)
                           </span>
                         )}
-                        <span className="text-[10px] font-mono text-slate-300 block mt-1 uppercase tracking-wider tabular-nums">
+                        <span className="text-[10px] font-semibold text-slate-500 block mt-1 uppercase tracking-wider tabular-nums">
                           {isPollLocked ? `${option.votes} votes (${optionSeats} seats)` : `${votePercent}% of vote`}
                         </span>
                       </div>
@@ -2730,45 +2952,45 @@ function RunSheetContent() {
         </section>
 
         {/* Sideline Fuel / Coffee Radar */}
-        <section id="section-coffee" className="bg-[#111827] rounded-2xl p-5 shadow-2xl border border-slate-800/90 space-y-3.5">
-          <div className="flex items-center justify-between">
+        <section id="section-coffee" className="bg-white rounded-xl p-4 shadow-sm border border-[#E9E5DE] space-y-3">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
-              <span className="p-1 rounded-lg bg-amber-400/10 text-amber-400">
+              <span className="p-1.5 rounded-lg bg-[#FDF9F0] border border-[#D59B42]/30 text-[#D59B42]">
                 <Coffee className="w-4 h-4" />
               </span>
               <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-white">
+                <h3 className="text-xs font-bold tracking-tight uppercase text-[#1D2935]">
                   Sideline Fuel
                 </h3>
-                <span className="text-[11px] text-slate-300 font-medium">Coffee Radar & Parent Pit Stops</span>
+                <span className="text-[11px] text-slate-500 font-medium">Coffee Radar &amp; Parent Pit Stops</span>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+            <span className="inline-flex items-center rounded-md bg-[#F8F7F3] border border-[#E9E5DE] text-[#1D2935] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
               Nearby Gym
             </span>
           </div>
 
-          <div className="space-y-2.5">
+          <div className="space-y-2">
             {coffeeSpots.map((spot, i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-slate-900/60 border border-slate-800 hover:border-slate-700 text-xs shadow-2xs transition-colors">
-                <div className="pr-2">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-sm font-black text-white">{spot.name}</span>
-                    <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+              <div key={i} className="flex items-center justify-between gap-2 p-3 rounded-lg bg-[#F8F7F3] border border-[#E9E5DE] hover:border-[#D59B42]/40 text-xs transition-colors">
+                <div className="pr-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-sm font-bold tracking-tight text-[#1D2935]">{spot.name}</span>
+                    <span className="inline-flex items-center rounded bg-white border border-[#E9E5DE] text-slate-600 text-[10px] font-semibold uppercase tracking-wider px-1.5 py-0.5">
                       {spot.type}
                     </span>
                   </div>
-                  <span className="text-[11px] text-slate-300 block mt-0.5 font-medium">
-                    {spot.distance} • <span className="text-slate-400">{spot.note}</span>
+                  <span className="text-[11px] text-slate-600 block mt-0.5 font-medium">
+                    {spot.distance} • <span className="text-slate-500">{spot.note}</span>
                   </span>
                 </div>
                 <a 
                   href={getMapsUrl(spot.name + " " + spot.address)} 
                   target="_blank" 
                   rel="noreferrer"
-                  className="shrink-0 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-white px-3 py-1.5 rounded-xl text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1.5 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-2xs"
+                  className="shrink-0 bg-[#1D2935] hover:bg-[#1D2935]/90 text-white px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
                 >
-                  <Navigation className="w-3.5 h-3.5 text-amber-400" /> Map
+                  <Navigation className="w-3.5 h-3.5 text-[#D59B42]" /> Map
                 </a>
               </div>
             ))}
@@ -2781,35 +3003,35 @@ function RunSheetContent() {
         {(activeTab === "travel" || activeTab === "hotel") && (() => {
           const hotelAlerts = alerts.filter(a => a.gameId === "hotel");
           return (
-          <div key="travel" className="space-y-4 animate-in fade-in-50 duration-200 ease-out">
+          <div key="travel" className="space-y-3 animate-in fade-in-50 duration-200 ease-out">
         {/* =========================================================
             ANY-CITY TRAVEL CORRIDOR & HIGHWAY PIT STOPS ENGINE
         ========================================================= */}
-        <section id="section-corridor" className="space-y-3 pt-1">
+        <section id="section-corridor" className="space-y-2.5 pt-1">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5">
-              <span className="p-1 rounded-md bg-[#111827] border border-slate-800 text-amber-400 shadow-2xs">
+              <span className="p-1 rounded-md bg-white border border-[#E9E5DE] text-[#D59B42] shadow-2xs">
                 <Car className="w-3.5 h-3.5" />
               </span>
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-900">
+              <h3 className="text-xs font-bold tracking-tight uppercase text-[#1D2935]">
                 Travel Corridor &amp; Highway Pit Stops
               </h3>
             </div>
-            <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-[#111827] text-amber-300 font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-r shadow-2xs">
+            <span className="inline-flex items-center rounded-md bg-white border border-[#E9E5DE] text-[#1D2935] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 tabular-nums">
               {corridorPlan.stops.length} {corridorPlan.stops.length === 1 ? "Stop" : "Stops"} Mapped
             </span>
           </div>
 
-          <div className="bg-[#111827] text-white rounded-2xl p-5 shadow-2xl border border-slate-800/90 space-y-4">
+          <div className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4 space-y-3.5">
             {/* Inline 2-Way Direction Segmented Control: [ ➔ To Tournament | ↺ Trip Home ] */}
-            <div className="grid grid-cols-2 gap-1 bg-slate-950/90 border border-slate-800 p-1 rounded-xl">
+            <div className="grid grid-cols-2 gap-1 bg-[#F8F7F3] border border-[#E9E5DE] p-1 rounded-lg">
               <button
                 type="button"
                 onClick={() => handleSetCorridorDirection("to_tournament")}
-                className={`py-2 px-3 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
+                className={`py-1.5 px-3 rounded-md text-xs tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
                   corridorDirection === "to_tournament"
-                    ? "bg-amber-400 text-slate-950 shadow-xs"
-                    : "text-slate-300 hover:text-white"
+                    ? "bg-[#FDF9F0] text-[#1D2935] font-bold border border-[#D59B42]/35 shadow-2xs"
+                    : "text-slate-500 hover:text-[#1D2935] font-medium border border-transparent"
                 }`}
               >
                 <span>➔ To Tournament</span>
@@ -2817,10 +3039,10 @@ function RunSheetContent() {
               <button
                 type="button"
                 onClick={() => handleSetCorridorDirection("trip_home")}
-                className={`py-2 px-3 rounded-lg text-[11px] font-mono font-bold uppercase tracking-wider flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
+                className={`py-1.5 px-3 rounded-md text-xs tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
                   corridorDirection === "trip_home"
-                    ? "bg-amber-400 text-slate-950 shadow-xs"
-                    : "text-slate-300 hover:text-white"
+                    ? "bg-[#FDF9F0] text-[#1D2935] font-bold border border-[#D59B42]/35 shadow-2xs"
+                    : "text-slate-500 hover:text-[#1D2935] font-medium border border-transparent"
                 }`}
               >
                 <span>↺ Trip Home</span>
@@ -2831,17 +3053,17 @@ function RunSheetContent() {
             <div className="relative">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <span className="inline-flex items-center gap-1 border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                  <span className="inline-flex items-center rounded-md bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
                     {corridorPlan.highwayRouteSummary}
                   </span>
-                  <h4 className="text-base sm:text-lg font-black text-white tracking-tight mt-1.5 flex flex-wrap items-center gap-1.5">
+                  <h4 className="text-base sm:text-lg font-bold text-[#1D2935] tracking-tight mt-1.5 flex flex-wrap items-center gap-1.5">
                     <span>{corridorPlan.origin}</span>
-                    <span className="text-amber-400 font-mono">➔</span>
+                    <span className="text-[#D59B42]">➔</span>
                     <span>{corridorPlan.destination}</span>
                   </h4>
-                  <p className="text-[11px] text-slate-400 font-medium mt-0.5">
+                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">
                     {corridorDirection === "trip_home" ? "Return Target:" : "Target Base Camp:"}{" "}
-                    <span className="text-slate-200 font-bold">{corridorPlan.destinationVenue}</span>
+                    <span className="text-[#1D2935] font-semibold">{corridorPlan.destinationVenue}</span>
                   </p>
                 </div>
 
@@ -2852,19 +3074,19 @@ function RunSheetContent() {
                     setIsCustomOriginMode(false);
                   }}
                   aria-expanded={isOriginPopoverOpen}
-                  className="shrink-0 bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 px-2.5 py-1.5 rounded-xl text-[11px] font-mono font-bold flex items-center gap-1 active:scale-[0.96] transition-all cursor-pointer shadow-xs"
+                  className="shrink-0 bg-[#F8F7F3] hover:bg-[#E9E5DE]/50 text-[#1D2935] border border-[#E9E5DE] px-2.5 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-1 active:scale-[0.97] transition-all cursor-pointer"
                 >
-                  <MapPin className="w-3 h-3 text-amber-400" />
+                  <MapPin className="w-3.5 h-3.5 text-[#D59B42]" />
                   <span>{corridorDirection === "trip_home" ? "Home City" : "Origin"}</span>
-                  <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${isOriginPopoverOpen ? "rotate-180" : ""}`} />
+                  <ChevronDown className={`w-3.5 h-3.5 text-slate-500 transition-transform ${isOriginPopoverOpen ? "rotate-180" : ""}`} />
                 </button>
               </div>
 
               {/* Quick Origin Selector Popover */}
               {isOriginPopoverOpen && (
-                <div className="mt-3 bg-slate-900/95 border border-slate-700 rounded-xl p-3 space-y-2.5 shadow-xl animate-in fade-in-50 slide-in-from-top-1 duration-150">
+                <div className="mt-3 bg-[#F8F7F3] border border-[#E9E5DE] rounded-xl p-3 space-y-2.5 shadow-sm animate-in fade-in-50 slide-in-from-top-1 duration-150">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 font-bold">
+                    <span className="text-[10px] uppercase tracking-wider text-slate-500 font-bold">
                       Select Home / Departure Origin (North America)
                     </span>
                     <button
@@ -2873,7 +3095,7 @@ function RunSheetContent() {
                         setIsOriginPopoverOpen(false);
                         setIsCustomOriginMode(false);
                       }}
-                      className="text-slate-400 hover:text-white p-0.5 rounded cursor-pointer"
+                      className="text-slate-500 hover:text-[#1D2935] p-0.5 rounded cursor-pointer"
                     >
                       <X className="w-3.5 h-3.5" />
                     </button>
@@ -2890,10 +3112,10 @@ function RunSheetContent() {
                           key={preset}
                           type="button"
                           onClick={() => handleSelectOriginPreset(preset)}
-                          className={`py-2 px-2.5 rounded-lg text-left text-[11px] font-mono font-bold border transition-all cursor-pointer active:scale-[0.97] truncate ${
+                          className={`py-2 px-2.5 rounded-lg text-left text-xs border transition-all cursor-pointer active:scale-[0.98] truncate ${
                             isSelected
-                              ? "bg-amber-400 text-slate-950 border-amber-400 shadow-xs"
-                              : "bg-slate-950/90 text-slate-200 border-slate-800 hover:border-slate-700"
+                              ? "bg-[#FDF9F0] text-[#1D2935] font-bold border-[#D59B42]"
+                              : "bg-white text-[#1D2935] font-medium border-[#E9E5DE] hover:border-[#D59B42]/45"
                           }`}
                         >
                           {preset}
@@ -2910,11 +3132,11 @@ function RunSheetContent() {
                         onChange={(e) => setCustomOriginDraft(e.target.value)}
                         placeholder="Enter any North American city or postal/zip code..."
                         autoFocus
-                        className="flex-1 bg-slate-950 border border-slate-700 rounded-lg px-2.5 py-1.5 text-xs text-white placeholder:text-slate-500 focus:border-amber-400 focus:outline-none"
+                        className="flex-1 bg-white border border-[#E9E5DE] rounded-lg px-2.5 py-1.5 text-xs text-[#1D2935] placeholder:text-slate-400 focus:border-[#D59B42] focus:outline-none"
                       />
                       <button
                         type="submit"
-                        className="bg-amber-400 hover:bg-amber-300 text-slate-950 font-mono text-xs font-bold px-3 py-1.5 rounded-lg transition-all cursor-pointer shrink-0"
+                        className="bg-[#1D2935] hover:bg-[#1D2935]/90 text-white text-xs font-semibold px-3 py-1.5 rounded-lg transition-all cursor-pointer shrink-0"
                       >
                         Set Route
                       </button>
@@ -2925,39 +3147,39 @@ function RunSheetContent() {
             </div>
 
             {/* Telemetry Summary: Drive Duration & Recommended Departure Call */}
-            <div className="grid grid-cols-2 gap-2.5 border-t border-slate-800 pt-3.5">
-              <div className="bg-slate-900/70 border border-slate-800 rounded-xl p-3">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-slate-400 block">
+            <div className="grid grid-cols-2 gap-2 border-t border-[#E9E5DE] pt-3">
+              <div className="bg-[#F8F7F3] border border-[#E9E5DE] rounded-lg p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                   Est. Drive Time &amp; Distance
                 </span>
                 <div className="mt-1 flex items-baseline gap-1.5">
-                  <span className="text-lg font-mono font-black text-white tabular-nums">
+                  <span className="text-base font-bold text-[#1D2935] tabular-nums">
                     {corridorPlan.durationLabel}
                   </span>
-                  <span className="text-[11px] font-mono text-slate-400">
+                  <span className="text-[11px] font-medium text-slate-500 tabular-nums">
                     ({corridorPlan.distanceKm} km)
                   </span>
                 </div>
               </div>
 
-              <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3">
-                <span className="text-[10px] font-mono uppercase tracking-wider text-amber-300/90 block">
+              <div className="bg-[#FFF9EE] border border-[#D59B42]/40 rounded-lg p-2.5">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-[#D59B42] block">
                   {corridorPlan.recommendedDepartureTitle}
                 </span>
-                <span className="mt-1 text-sm sm:text-base font-mono font-black text-amber-300 block tabular-nums">
+                <span className="mt-1 text-sm sm:text-base font-bold text-[#1D2935] block tabular-nums">
                   {corridorPlan.recommendedDepartureLabel}
                 </span>
               </div>
             </div>
 
-            <div className="text-[11px] text-slate-300 font-mono bg-slate-900/60 border border-slate-800/80 rounded-lg px-3 py-2 flex items-center gap-2">
-              <Clock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+            <div className="text-xs text-[#1D2935] font-medium bg-[#FDF9F0] border border-[#D59B42]/30 rounded-lg px-3 py-2 flex items-center gap-2">
+              <Clock className="w-3.5 h-3.5 text-[#D59B42] shrink-0" />
               <span>{corridorPlan.departureContextNote}</span>
             </div>
 
             {/* Live Traffic & Weather Disclaimer */}
-            <div className="text-[10px] font-mono text-slate-400 bg-slate-950/60 border border-slate-800/80 rounded-lg px-3 py-2 flex items-start gap-2">
-              <AlertCircle className="w-3.5 h-3.5 text-amber-400/80 shrink-0 mt-0.5" />
+            <div className="text-[11px] text-slate-500 italic bg-[#F8F7F3] border border-[#E9E5DE] rounded-lg px-3 py-2 flex items-start gap-2">
+              <AlertCircle className="w-3.5 h-3.5 text-[#D59B42] shrink-0 mt-0.5" />
               <span>
                 Times are standard distance estimates. Check live Maps before departure for real-time traffic and weather delays.
               </span>
@@ -2968,33 +3190,33 @@ function RunSheetContent() {
               {corridorPlan.stops.map((stop, idx) => (
                 <div
                   key={stop.id}
-                  className="bg-slate-900/75 border border-slate-800 hover:border-slate-700 rounded-xl p-3.5 space-y-2.5 transition-colors shadow-2xs"
+                  className="bg-[#F8F7F3] border border-[#E9E5DE] hover:border-[#D59B42]/40 rounded-xl p-3 space-y-2 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="inline-flex items-center border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                        <span className="inline-flex items-center rounded-md bg-white border border-[#D59B42]/40 text-[#1D2935] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
                           Stop #{idx + 1} • {stop.milestoneTag}
                         </span>
-                        <span className="inline-flex items-center border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+                        <span className="inline-flex items-center rounded-md bg-white border border-[#E9E5DE] text-slate-600 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
                           {stop.elapsedDriveLabel}
                         </span>
                       </div>
-                      <h5 className="text-sm font-black text-white mt-1.5 leading-snug">
+                      <h5 className="text-sm font-bold tracking-tight text-[#1D2935] mt-1.5 leading-snug">
                         {stop.title}
                       </h5>
                     </div>
                   </div>
 
-                  <p className="text-xs text-slate-300 font-medium leading-snug">
-                    <span className="text-amber-300 font-mono text-[11px] uppercase tracking-wider font-bold mr-1">
+                  <p className="text-xs text-slate-600 font-medium leading-snug">
+                    <span className="text-[#D59B42] text-[11px] uppercase tracking-wider font-bold mr-1">
                       Athlete Fuel &amp; Coffee:
                     </span>
                     {stop.fuelAndCoffeeOptions}
                   </p>
 
-                  <div className="pt-1 flex items-center justify-between gap-2 border-t border-slate-800/80">
-                    <span className="text-[10px] font-mono text-slate-400 uppercase tracking-wider truncate">
+                  <div className="pt-2 flex items-center justify-between gap-2 border-t border-[#E9E5DE]">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">
                       Open in Maps:
                     </span>
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -3002,17 +3224,17 @@ function RunSheetContent() {
                         href={stop.appleMapsUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="bg-slate-800 hover:bg-slate-700 text-white border border-slate-700 px-2.5 py-1.5 rounded-lg text-[11px] font-extrabold uppercase tracking-wider flex items-center gap-1 active:scale-[0.96] transition-transform cursor-pointer"
+                        className="bg-white hover:bg-slate-50 text-[#1D2935] border border-[#E9E5DE] px-2.5 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1 active:scale-[0.97] transition-all cursor-pointer"
                       >
-                        <Navigation className="w-3 h-3 text-amber-400" /> Apple Maps
+                        <Navigation className="w-3 h-3 text-[#D59B42]" /> Apple Maps
                       </a>
                       <a
                         href={stop.googleMapsUrl}
                         target="_blank"
                         rel="noreferrer"
-                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 px-2.5 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider flex items-center gap-1 active:scale-[0.96] transition-transform cursor-pointer shadow-xs"
+                        className="bg-[#1D2935] hover:bg-[#1D2935]/90 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1 active:scale-[0.97] transition-all cursor-pointer"
                       >
-                        <MapPin className="w-3 h-3 text-slate-950" /> Google Maps
+                        <MapPin className="w-3 h-3 text-[#D59B42]" /> Google Maps
                       </a>
                     </div>
                   </div>
@@ -3023,79 +3245,80 @@ function RunSheetContent() {
         </section>
 
         {/* Hotel Base Camp */}
-        <section id="section-hotel" className="bg-[#111827] rounded-2xl p-5 shadow-2xl border border-slate-800/90 space-y-3.5">
+        <section id="section-hotel" className="bg-white rounded-xl p-4 shadow-sm border border-[#E9E5DE] space-y-3">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <span className="inline-flex items-center gap-1 border-l-2 border-l-slate-400 bg-slate-800 text-slate-300 font-mono text-xs uppercase tracking-wider px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
-                <Hotel className="w-3 h-3 text-slate-300" /> Team Hotel Base Camp
+              <span className="inline-flex items-center gap-1 rounded-md bg-[#F8F7F3] border border-[#E9E5DE] text-[#1D2935] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
+                <Hotel className="w-3 h-3 text-[#D59B42]" /> Team Hotel Base Camp
               </span>
-              <h2 className="text-lg font-black text-white flex items-center gap-1.5 mt-2 tracking-tight">
+              <h2 className="text-lg font-bold text-[#1D2935] tracking-tight mt-1.5 leading-snug">
                 {tournament.hotel.name}
               </h2>
-              <p className="text-xs text-slate-300 font-medium mt-0.5">{tournament.hotel.address}</p>
+              <p className="text-xs text-slate-500 font-medium mt-0.5">{tournament.hotel.address}</p>
             </div>
             <a 
               href={getMapsUrl(tournament.hotel.address)} 
               target="_blank" 
               rel="noreferrer"
-              className="text-xs flex items-center gap-1.5 text-white font-extrabold uppercase tracking-wider bg-slate-800 hover:bg-slate-700 border border-slate-700 px-3.5 py-2 rounded-xl active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-xs shrink-0"
+              className="text-xs inline-flex items-center gap-1.5 text-white font-semibold bg-[#1D2935] hover:bg-[#1D2935]/90 px-3 py-1.5 rounded-lg active:scale-[0.97] transition-all cursor-pointer shrink-0"
             >
-              <Navigation className="w-3.5 h-3.5 text-amber-400" /> Map
+              <Navigation className="w-3.5 h-3.5 text-[#D59B42]" /> Map
             </a>
           </div>
 
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-xl p-3 flex items-center justify-between text-xs">
-            <span className="text-amber-300 font-mono text-[10px] uppercase tracking-wider">Team Room Block Rate</span>
-            <span className="font-black text-amber-300 text-xs font-mono">{tournament.hotel.rate}</span>
+          <div className="bg-[#FDF9F0] border border-[#D59B42]/30 rounded-lg p-2.5 flex items-center justify-between gap-2 text-xs">
+            <span className="text-slate-600 text-[10px] font-bold uppercase tracking-wider">Team Room Block Rate</span>
+            <span className="font-bold text-[#1D2935] text-xs">{tournament.hotel.rate}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs border-t border-slate-800 pt-3">
-            <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-              <span className="text-slate-400 font-mono block text-[10px] uppercase tracking-wider">Breakfast</span>
-              <span className="font-black text-white text-sm mt-0.5 block">{tournament.hotel.breakfastHours}</span>
+          <div className="grid grid-cols-2 gap-2 text-xs border-t border-[#E9E5DE] pt-3">
+            <div className="bg-[#F8F7F3] p-2.5 rounded-lg border border-[#E9E5DE]">
+              <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider">Breakfast</span>
+              <span className="font-bold text-[#1D2935] text-xs sm:text-sm mt-0.5 block">{tournament.hotel.breakfastHours}</span>
             </div>
-            <div className="bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
-              <span className="text-slate-400 font-mono block text-[10px] uppercase tracking-wider">Checkout</span>
-              <span className="font-black text-white text-sm mt-0.5 block">{tournament.hotel.checkoutTime}</span>
+            <div className="bg-[#F8F7F3] p-2.5 rounded-lg border border-[#E9E5DE]">
+              <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider">Checkout</span>
+              <span className="font-bold text-[#1D2935] text-xs sm:text-sm mt-0.5 block">{tournament.hotel.checkoutTime}</span>
             </div>
           </div>
 
           {/* Hub Tips Collapsible Accordion */}
-          <div className="border-t border-slate-800 pt-3">
+          <div className="border-t border-[#E9E5DE] pt-3">
             <button
               type="button"
               onClick={() => setOpenTipsGameId(openTipsGameId === "hotel" ? null : "hotel")}
               aria-expanded={openTipsGameId === "hotel"}
-              className="w-full flex items-center justify-between gap-2 active:scale-[0.98] transition-transform duration-100 ease-out cursor-pointer"
+              className="w-full flex items-center justify-between gap-2 active:scale-[0.99] transition-transform duration-100 ease-out cursor-pointer"
             >
-              <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-300 flex items-center gap-1.5">
-                <AlertCircle className="w-3.5 h-3.5 text-amber-400" /> Hub Tips ({hotelAlerts.length})
-                <span className="inline-flex items-center border-l-2 border-l-amber-400 bg-amber-400/10 text-amber-300 font-mono text-xs px-2 py-0.5 rounded-r cursor-default select-none pointer-events-none">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#1D2935] flex items-center gap-1.5">
+                <Lightbulb className="w-3.5 h-3.5 text-[#D59B42]" /> Hub Tips
+                <span className="inline-flex items-center justify-center rounded-full bg-[#D59B42] text-white text-[10px] font-bold tabular-nums px-2 py-0.5 leading-none">
                   {hotelAlerts.length}
                 </span>
               </span>
-              <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${openTipsGameId === "hotel" ? "rotate-180" : ""}`} />
+              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${openTipsGameId === "hotel" ? "rotate-180" : ""}`} />
             </button>
 
             {openTipsGameId === "hotel" && (
-              <div className="mt-3 space-y-2.5 animate-in fade-in-50 slide-in-from-top-1 duration-200 ease-out">
+              <div className="mt-3 space-y-2 animate-in fade-in-50 slide-in-from-top-1 duration-200 ease-out">
                 {hotelAlerts.length === 0 ? (
-                  <p className="text-[11px] text-slate-400 font-medium italic">No hotel tips posted yet.</p>
+                  <p className="text-[11px] text-slate-500 font-medium italic">No hotel tips posted yet.</p>
                 ) : (
                   <div className="space-y-2">
                     {hotelAlerts.map(alert => (
-                      <div key={alert.id} className="bg-slate-900/80 border border-slate-800 rounded-xl p-3 space-y-2 shadow-2xs">
+                      <div key={alert.id} className="bg-[#F8F7F3] border border-[#E9E5DE] rounded-lg p-2.5 space-y-1.5">
                         <div>
-                          <h4 className="text-xs font-black text-white">{alert.title}</h4>
-                          <p className="text-xs text-slate-300 font-medium leading-snug mt-0.5">{alert.content}</p>
+                          <h4 className="text-xs font-bold tracking-tight text-[#1D2935]">{alert.title}</h4>
+                          <p className="text-xs text-slate-600 leading-snug mt-0.5">{alert.content}</p>
                         </div>
-                        <div className="flex items-center justify-between border-t border-slate-800 pt-1.5 text-[11px] text-slate-400 font-mono">
+                        <div className="flex items-center justify-between border-t border-[#E9E5DE] pt-1.5 text-[11px] text-slate-500">
                           <span>By {alert.author}</span>
                           <button
+                            type="button"
                             onClick={() => upvoteAlert(alert.id)}
-                            className="flex items-center gap-1.5 font-sans font-bold text-[11px] bg-slate-800 border border-slate-700 hover:bg-slate-700 text-amber-300 px-2.5 py-1 rounded-lg active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer shadow-2xs"
+                            className="inline-flex items-center gap-1 font-semibold text-[11px] bg-white border border-[#E9E5DE] hover:border-[#D59B42]/45 text-[#1D2935] px-2 py-0.5 rounded-md active:scale-[0.97] transition-all cursor-pointer"
                           >
-                            <ThumbsUp className="w-3 h-3 text-amber-400" /> Helpful ({alert.upvotes})
+                            <ThumbsUp className="w-3 h-3 text-[#D59B42]" /> Helpful ({alert.upvotes})
                           </button>
                         </div>
                       </div>
@@ -3103,10 +3326,11 @@ function RunSheetContent() {
                   </div>
                 )}
                 <button
+                  type="button"
                   onClick={() => setActiveModalGameId("hotel")}
-                  className="w-full flex items-center justify-center gap-1 text-[11px] font-extrabold uppercase tracking-wider text-amber-300 bg-amber-400/10 hover:bg-amber-400/20 px-2.5 py-2 rounded-xl border border-amber-400/30 active:scale-[0.96] transition-transform duration-100 ease-out cursor-pointer"
+                  className="w-full flex items-center justify-center gap-1 text-xs font-semibold text-[#1D2935] bg-[#FDF9F0] hover:bg-[#FAF4E5] px-2.5 py-2 rounded-lg border border-[#D59B42]/35 active:scale-[0.98] transition-all cursor-pointer"
                 >
-                  <Plus className="w-3.5 h-3.5 stroke-[3]" /> Add Tip
+                  <Plus className="w-3.5 h-3.5 text-[#D59B42]" /> Add Tip
                 </button>
               </div>
             )}
