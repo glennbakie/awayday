@@ -105,35 +105,36 @@ function RunSheetContent() {
   const router = useRouter();
   const pathname = usePathname();
   const slug = (params?.slug as string) || "test-team";
-  const queryAdminParam = searchParams.get("admin") === "true";
-  const [isAdmin, setIsAdmin] = useState<boolean>(queryAdminParam);
+  const isAdmin = searchParams.get("admin") === "true";
   const [isManagerToolsOpen, setIsManagerToolsOpen] = useState<boolean>(false);
   const [syncStatus, setSyncStatus] = useState<"connecting" | "live" | "degraded" | "offline">("connecting");
   const realtimeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Step 1: PWA Home Screen Admin Persistence
+  // Step 1: Strict query-param admin guard & legacy localStorage cleanup
   useEffect(() => {
-    if (!slug) return;
-    const adminStorageKey = `awayday_is_admin_${slug}`;
     try {
-      if (queryAdminParam) {
-        window.localStorage.setItem(adminStorageKey, "true");
-        setIsAdmin(true);
-      } else if (window.localStorage.getItem(adminStorageKey) === "true") {
-        setIsAdmin(true);
+      if (searchParams.get("admin") === "false" || !isAdmin) {
+        window.localStorage.removeItem("awayday_admin");
+        if (slug) {
+          window.localStorage.removeItem(`awayday_is_admin_${slug}`);
+        }
       }
     } catch {
-      if (queryAdminParam) setIsAdmin(true);
+      // Ignore storage errors
     }
-  }, [slug, queryAdminParam]);
+    if (!isAdmin) {
+      setIsManagerToolsOpen(false);
+    }
+  }, [slug, isAdmin, searchParams]);
 
   const handleExitAdmin = () => {
     try {
+      window.localStorage.removeItem("awayday_admin");
       window.localStorage.removeItem(`awayday_is_admin_${slug}`);
     } catch {
       // Ignore storage errors
     }
-    setIsAdmin(false);
+    setIsManagerToolsOpen(false);
     router.replace(pathname || `/t/${slug}`);
   };
 
