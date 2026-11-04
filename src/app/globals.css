@@ -44,10 +44,13 @@
   --color-warm-ivory: var(--awayday-warm-ivory);
   --color-clean-white: var(--awayday-clean-white);
   --color-warm-stone: var(--awayday-warm-stone);
+  --color-platinum-stone: var(--awayday-platinum-stone);
+  --color-card-border: var(--awayday-card-border);
   --color-midnight-ink: var(--awayday-midnight-ink);
   --color-golden-amber: var(--awayday-golden-amber);
   --color-status-emerald: var(--awayday-status-emerald);
   --color-status-cobalt: var(--awayday-status-cobalt);
+  --radius-card: 26px;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -61,6 +64,8 @@
   --awayday-warm-ivory: #F8F7F3;
   --awayday-clean-white: #FFFFFF;
   --awayday-warm-stone: #E9E5DE;
+  --awayday-platinum-stone: #F1F3F5;
+  --awayday-card-border: #DCE1E7;
   --awayday-midnight-ink: #1D2935;
   --awayday-golden-amber: #D59B42;
   --awayday-status-emerald: #10B981;
@@ -174,6 +179,17 @@ body {
   color: var(--awayday-midnight-ink);
   color-scheme: light;
   min-height: 100dvh;
+}
+
+/* Crisp Platinum Stone & Defined 1.5px Card Surface Utilities */
+.bg-platinum-stone {
+  background-color: var(--awayday-platinum-stone);
+}
+
+.card-stone-surface {
+  background-color: var(--awayday-clean-white);
+  border: 1.5px solid var(--awayday-card-border);
+  border-radius: 26px;
 }
 
 /* Custom ambient glow shadows (composes cleanly with Tailwind ring-* utilities) */

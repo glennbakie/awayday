@@ -1621,12 +1621,12 @@ function RunSheetContent() {
         {activeTab === "schedule" && (
           <div key="schedule" className="animate-in fade-in-50 duration-200 ease-out">
         {/* Tournament Header Card ("YOUR NEXT AWAY DAY") */}
-        <section className="rounded-[26px] bg-white/95 border border-white ring-1 ring-stone-200/50 shadow-tactile p-3.5 mb-3">
+        <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3">
           <div className="flex items-center gap-3.5">
             {/* Left: Rounded travel harbor/cityscape thumbnail */}
             <div
               aria-hidden="true"
-              className="w-24 h-24 rounded-2xl object-cover overflow-hidden bg-slate-100 ring-1 ring-black/5 shrink-0 relative"
+              className="w-24 h-24 rounded-2xl object-cover overflow-hidden bg-[#F1F3F5] ring-1 ring-[#DCE1E7] shrink-0 relative"
             >
               <svg viewBox="0 0 96 96" className="w-full h-full object-cover" fill="none">
                 <defs>
@@ -1708,8 +1708,8 @@ function RunSheetContent() {
               <a
                 href={getMapsUrl(tournament.primaryHubAddress)}
                 target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 text-xs font-medium text-[#2A435E] hover:text-[#0F2942] transition-colors mt-1"
+                rel="noopener noreferrer"
+                className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-[#0F2942] transition-colors mt-1"
               >
                 <svg
                   aria-hidden="true"
@@ -1721,7 +1721,7 @@ function RunSheetContent() {
                 <span className="truncate">{tournament.city}</span>
               </a>
 
-              <div className="flex items-center gap-1.5 text-xs font-medium text-[#2A435E] mt-0.5">
+              <div className="flex items-center gap-1.5 text-xs font-medium text-[#5C6B7B] mt-0.5">
                 <CalendarDays className="w-3.5 h-3.5 text-[#0F2942] shrink-0" aria-hidden="true" />
                 <span>{tournament.dates}</span>
               </div>
@@ -1729,7 +1729,7 @@ function RunSheetContent() {
           </div>
 
           {isAdmin && isManagerToolsOpen && (
-            <div className="mt-3 pt-2.5 border-t border-[#E9E5DE]/80 flex flex-wrap items-center justify-between gap-2">
+            <div className="mt-3 pt-2.5 border-t border-[#DCE1E7] flex flex-wrap items-center justify-between gap-2">
               <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
                 Manager Actions
               </span>
@@ -1740,7 +1740,7 @@ function RunSheetContent() {
                     setParsedPreviewGames(null);
                     setIsIngestModalOpen(true);
                   }}
-                  className="bg-[#FFF9EE] hover:bg-[#FDF3DE] text-[#1D2935] border border-[#D59B42]/50 text-xs font-semibold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                  className="bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] border border-[#DCE1E7] text-xs font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                 >
                   <span className="sm:hidden">+ Run Sheet</span>
                   <span className="hidden sm:inline">+ Update Run Sheet</span>
@@ -1752,7 +1752,7 @@ function RunSheetContent() {
                     handleExitAdmin();
                   }}
                   title="Exit Admin Mode"
-                  className="bg-white hover:bg-slate-50 text-slate-700 border border-[#E9E5DE] text-xs font-medium px-2.5 py-1 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
+                  className="bg-white hover:bg-slate-50 text-slate-700 border border-[#DCE1E7] text-xs font-medium px-2.5 py-1 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
                 >
                   <Lock className="w-3 h-3 text-[#D59B42]" aria-hidden="true" /> Exit Admin
                 </button>
@@ -1761,33 +1761,33 @@ function RunSheetContent() {
           )}
         </section>
 
-        {/* Active Hero Game Card, Quick Turnaround Banner & Following Game Preview */}
+        {/* Active Hero Game Card, Unified Hub Tips & Following Game Preview */}
         {(() => {
           const nextGameIndex = games.findIndex((g) => !isGameElapsedByClock(g, nowMs));
           const nextGame = nextGameIndex >= 0 ? games[nextGameIndex] : undefined;
           if (!nextGame) {
             return (
-              <section className="rounded-[26px] bg-white/95 border border-white ring-1 ring-stone-200/50 shadow-tactile p-4 mb-3 space-y-2.5">
+              <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3 space-y-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" aria-hidden="true" /> Session Wrap
                   </span>
-                  <span className="bg-[#F4F3EE] text-[#55697D] text-[11px] font-bold px-3 py-1 rounded-full border border-stone-200/40">
+                  <span className="bg-[#F1F3F5] text-[#5C6B7B] text-[11px] font-bold px-3 py-1 rounded-full">
                     {games.length} / {games.length} Final
                   </span>
                 </div>
-                <h2 className="text-lg font-bold tracking-tight text-[#1D2935]">
+                <h2 className="text-lg font-bold tracking-tight text-[#0F2942]">
                   Tournament Schedule Complete
                 </h2>
                 <p className="text-xs text-slate-600 font-medium leading-relaxed">
                   All {games.length} scheduled matchups for {tournament.name} have concluded. Safe travels home!
                 </p>
                 {isAdmin && (
-                  <div className="pt-2.5 border-t border-[#E9E5DE] flex items-center justify-end">
+                  <div className="pt-2.5 border-t border-[#DCE1E7] flex items-center justify-end">
                     <button
                       type="button"
                       onClick={handleResetGamesStatus}
-                      className="text-xs font-semibold text-[#D59B42] border border-[#D59B42] hover:bg-[#D59B42]/10 px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                      className="text-xs font-semibold text-[#0F2942] bg-[#F1F3F5] border border-[#DCE1E7] hover:bg-[#E2E8F0] px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                     >
                       Reset Schedule Status
                     </button>
@@ -1807,6 +1807,13 @@ function RunSheetContent() {
           const heroJerseyShort =
             (nextGame.jerseyColor || "").replace(/\s*\((Home|Away)\)/i, "").trim() ||
             (isAwayHero ? "Dark" : "White");
+          const heroCourtLabel = /^court\b/i.test(nextGame.court.trim())
+            ? nextGame.court.trim()
+            : `Court ${nextGame.court.trim()}`;
+          const heroVenueMapsQuery =
+            [nextGame.venueName, nextGame.venueAddress, nextGame.city].filter(Boolean).join(", ") ||
+            nextGame.venueAddress ||
+            nextGame.venueName;
 
           const followingGame = games[nextGameIndex + 1];
           const followingSameDayGame =
@@ -1814,30 +1821,35 @@ function RunSheetContent() {
               ? followingGame
               : undefined;
 
-          const turnaroundTitle = nextGame.downtimeAfter
-            ? /quick turnaround/i.test(nextGame.downtimeAfter.type)
-              ? "Quick Turnaround — Stay On-Site"
-              : `${nextGame.downtimeAfter.duration} — ${nextGame.downtimeAfter.type}`
-            : followingGame
-              ? "Post-Game Fuel & Recovery Window"
-              : null;
-
-          const turnaroundSubtitle = nextGame.downtimeAfter
-            ? nextGame.downtimeAfter.note
-            : followingGame
-              ? `Next tip-off ${followingGame.dayLabel ? `${followingGame.dayLabel} at ` : ""}${formatTime(followingGame.tipOffMinutes)} (${followingGame.venueName}).`
-              : null;
-
           const heroGameAlerts = alerts.filter((a) => a.gameId === nextGame.id);
           const activeHeroTips: Array<{
             id: string;
             tag?: string;
+            durationBadge?: string;
             title: string;
             content: string;
             author?: string;
             upvotes?: number;
             alertId?: string;
+            isQuickTurnaround?: boolean;
           }> = [];
+
+          // Inject Quick Turnaround (or inter-game downtime window) as the top featured tip inside Hub Tips
+          if (nextGame.downtimeAfter) {
+            const isQuickTurnaroundWindow = /quick turnaround|stay on-site/i.test(
+              `${nextGame.downtimeAfter.type} ${nextGame.downtimeAfter.note}`
+            );
+            activeHeroTips.push({
+              id: `turnaround-${nextGame.id}`,
+              tag: isQuickTurnaroundWindow ? "QUICK TURNAROUND" : "FUEL WINDOW",
+              durationBadge: nextGame.downtimeAfter.duration,
+              title: isQuickTurnaroundWindow
+                ? "Quick Turnaround — Stay On-Site"
+                : `${nextGame.downtimeAfter.duration} — ${nextGame.downtimeAfter.type}`,
+              content: nextGame.downtimeAfter.note,
+              isQuickTurnaround: isQuickTurnaroundWindow,
+            });
+          }
 
           if (
             followingSameDayGame &&
@@ -1854,12 +1866,12 @@ function RunSheetContent() {
           }
 
           heroGameAlerts.forEach((a) => {
-            const inferredTag =
-              /turnaround/i.test(`${a.title} ${a.content}`)
-                ? "QUICK TURNAROUND"
-                : /urgent/i.test(`${a.title} ${a.content}`)
-                  ? "URGENT"
-                  : a.type.toUpperCase();
+            const isTurnaroundAlert = /turnaround/i.test(`${a.title} ${a.content}`);
+            const inferredTag = isTurnaroundAlert
+              ? "QUICK TURNAROUND"
+              : /urgent/i.test(`${a.title} ${a.content}`)
+                ? "URGENT"
+                : a.type.toUpperCase();
             activeHeroTips.push({
               id: a.id,
               tag: inferredTag,
@@ -1868,10 +1880,13 @@ function RunSheetContent() {
               author: a.author,
               upvotes: a.upvotes,
               alertId: a.id,
+              isQuickTurnaround: isTurnaroundAlert,
             });
           });
 
-          const hasAutoExpandTag = activeHeroTips.some((tip) => tip.tag === "URGENT");
+          const hasAutoExpandTag = activeHeroTips.some(
+            (tip) => tip.isQuickTurnaround || tip.tag === "QUICK TURNAROUND" || tip.tag === "URGENT"
+          );
           const isHeroTipsOpen =
             heroTipsManualState[nextGame.id] !== undefined
               ? heroTipsManualState[nextGame.id]
@@ -1879,229 +1894,343 @@ function RunSheetContent() {
 
           return (
             <>
-              {/* Active Hero Game Card with Warm Ambient Peach/Gold Bloom */}
-              <div className="relative mb-4">
-                <div
-                  aria-hidden="true"
-                  className="pointer-events-none absolute -inset-2.5 rounded-[34px] bg-gradient-to-b from-[#F5C57A]/25 via-[#F7CE91]/18 to-transparent blur-xl"
-                />
-                <section className="hero-card-bloom relative rounded-[28px] bg-white border border-white ring-1 ring-stone-200/40 p-4 shadow-[0_10px_35px_-5px_rgba(213,155,66,0.22),0_4px_16px_rgba(0,0,0,0.03)]">
-                  {/* Top Row (Pill Badges) */}
-                  <div className="flex items-center justify-between gap-2 mb-3.5">
-                    <span className="bg-[#FDEFD9] text-[#0F2942] text-[11px] font-black tracking-wider px-3 py-1 rounded-full uppercase">
-                      {nextGame.status === "Live" ? "LIVE GAME" : "NEXT GAME"}
+              {/* Active Hero Game Card (Warm Amber Glow Focused Solely Here) */}
+              <section className="hero-card-bloom relative rounded-[28px] bg-white border-[1.5px] border-[#DCE1E7] p-4 shadow-[0_12px_36px_-6px_rgba(213,155,66,0.20),0_4px_16px_rgba(0,0,0,0.03)] mb-3">
+                {/* Top Row (Pill Badges) */}
+                <div className="flex items-center justify-between gap-2 mb-3.5">
+                  <span className="bg-[#FDEFD9] text-[#0F2942] text-[11px] font-black tracking-wider px-3 py-1 rounded-full uppercase">
+                    {nextGame.status === "Live" ? "LIVE GAME" : "NEXT GAME"}
+                  </span>
+                  <span className="bg-[#F1F3F5] text-[#5C6B7B] text-[11px] font-bold px-3 py-1 rounded-full">
+                    Game {nextGameIndex + 1}
+                  </span>
+                </div>
+
+                {/* Matchup & Time Hero (Gym-First Hierarchy with Elevated Court Badge) */}
+                <div className="flex items-start gap-4">
+                  <div
+                    aria-hidden="true"
+                    className="relative w-14 h-14 rounded-full bg-gradient-to-br from-[#FFB865] via-[#F68B28] to-[#D95D08] shadow-[0_4px_14px_rgba(217,93,8,0.4),inset_0_2px_4px_rgba(255,255,255,0.7)] flex items-center justify-center shrink-0 ring-4 ring-[#FDEFD9]"
+                  >
+                    <svg
+                      className="w-10 h-10 text-[#2B1006] stroke-current"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      strokeWidth="2.4"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="9.5" />
+                      <path d="M12 2.5v19" />
+                      <path d="M5.2 5.2c3.5 3.5 3.5 10.1 0 13.6" />
+                      <path d="M18.8 5.2c-3.5 3.5-3.5 10.1 0 13.6" />
+                      <path d="M2.5 12h19" />
+                    </svg>
+                  </div>
+
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2 mt-0.5">
+                      <span className="text-3xl sm:text-4xl font-black text-[#0F2942] tracking-tight leading-none tabular-nums">
+                        {formatTime(nextGame.tipOffMinutes)}
+                      </span>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0F2942] text-white text-xs font-black tracking-wide uppercase shadow-xs">
+                        <span aria-hidden="true">🏀</span> {heroCourtLabel}
+                      </span>
+                    </div>
+                    <h2 className="text-base sm:text-lg font-extrabold text-[#0F2942] mt-1 leading-snug">
+                      vs {nextGame.opponent}
+                    </h2>
+                    <div className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 mt-1">
+                      <svg
+                        aria-hidden="true"
+                        className="w-3.5 h-3.5 text-[#0F2942] fill-current shrink-0"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                      </svg>
+                      <span className="truncate">{nextGame.venueName}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="h-px bg-[#E9ECEF] my-3.5" />
+
+                {/* 3-Column Timing Strip (Chunky Solid Silhouettes & Sculpted Trophy) */}
+                <div className="divide-x divide-[#E9ECEF] flex items-start text-center py-1">
+                  <div className="flex-1 px-1 flex flex-col items-center">
+                    <svg
+                      aria-hidden="true"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v9c0 .55.45 1 1 1h1.5c.55 0 1-.45 1-1v-1h11v1c0 .55.45 1 1 1H20c.55 0 1-.45 1-1v-9l-2.08-5.99zM6.5 6h11l1.04 3H5.46l1.04-3zM7.5 16c-.83 0-1.5-.67-1.5-1.5S6.67 13 7.5 13s1.5.67 1.5 1.5S8.33 16 7.5 16zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-slate-600">
+                      Depart
                     </span>
-                    <span className="bg-[#F4F3EE] text-[#0F2942] text-[11px] font-bold px-3 py-1 rounded-full border border-stone-200/50">
-                      Game {nextGameIndex + 1}
+                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                      {formatTime(nextDepart)}
                     </span>
                   </div>
 
-                  {/* Matchup & Time Hero (Row layout with Rich Illustrated Basketball Token) */}
-                  <div className="flex items-start gap-4">
-                    <div
+                  <div className="flex-1 px-1 flex flex-col items-center">
+                    <svg
                       aria-hidden="true"
-                      className="relative w-14 h-14 rounded-full bg-gradient-to-br from-[#FFB865] via-[#F68B28] to-[#D95D08] shadow-[0_4px_14px_rgba(217,93,8,0.4),inset_0_2px_4px_rgba(255,255,255,0.7)] flex items-center justify-center shrink-0 ring-4 ring-[#FDEFD9]"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 7.12 11.45 7.42 11.71.34.3.82.3 1.16 0C12.88 21.45 20 15.25 20 10c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-slate-600">
+                      Arrive
+                    </span>
+                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                      {formatTime(nextArrival)}
+                    </span>
+                    <span className="text-[11px] font-medium text-slate-500 mt-0.5">
+                      ({bufferMins} min buffer)
+                    </span>
+                  </div>
+
+                  <div className="flex-1 px-1 flex flex-col items-center">
+                    <svg
+                      aria-hidden="true"
+                      className="w-7 h-7 sm:w-8 sm:h-8 mx-auto mb-1 drop-shadow-xs"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                    >
+                      <defs>
+                        <linearGradient id="awayday-trophy-cup" x1="6" y1="3" x2="18" y2="16" gradientUnits="userSpaceOnUse">
+                          <stop offset="0%" stopColor="#FAD275" />
+                          <stop offset="48%" stopColor="#DF9E38" />
+                          <stop offset="100%" stopColor="#B67418" />
+                        </linearGradient>
+                      </defs>
+                      <path
+                        d="M6.5 5H4.5C3.67 5 3 5.67 3 6.5V8c0 2.35 1.72 4.3 3.98 4.68M17.5 5h2c.83 0 1.5.67 1.5 1.5V8c0 2.35-1.72 4.3-3.98 4.68"
+                        stroke="#C88725"
+                        strokeWidth="2.1"
+                        strokeLinecap="round"
+                      />
+                      <path
+                        d="M6.5 3.5h11v4.7c0 3.25-2.35 5.95-5.5 6.45-3.15-.5-5.5-3.2-5.5-6.45V3.5z"
+                        fill="url(#awayday-trophy-cup)"
+                      />
+                      <rect x="6" y="2.5" width="12" height="2" rx="1" fill="#B67418" />
+                      <rect x="6.5" y="2.8" width="11" height="0.9" rx="0.45" fill="#FDE6A6" fillOpacity="0.8" />
+                      <path
+                        d="M8.5 5.5v3.2c0 1.6.7 3.05 1.85 3.95"
+                        stroke="#FFF3CC"
+                        strokeWidth="1.3"
+                        strokeLinecap="round"
+                        strokeOpacity="0.75"
+                      />
+                      <rect x="10.4" y="14.2" width="3.2" height="3.3" rx="0.8" fill="#C88725" />
+                      <path d="M8 17.5h8l.8 2.5H7.2L8 17.5z" fill="#9A6218" />
+                      <rect x="6.5" y="19.8" width="11" height="1.7" rx="0.85" fill="#7C4B0E" />
+                    </svg>
+                    <span className="text-xs font-semibold text-slate-600">
+                      Tip-Off
+                    </span>
+                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                      {formatTime(nextGame.tipOffMinutes)}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Integrated Nested Travel Footnote */}
+                <div className="mt-2 pt-2 border-t border-[#E9ECEF] flex items-center justify-between gap-2 text-[11px] text-[#5C6B7B] font-medium">
+                  <span className="flex items-center gap-1 font-bold text-[#0F2942] shrink-0 tabular-nums">
+                    <span aria-hidden="true">🚗</span> {nextGame.hotelTravelMin || 15}m drive
+                  </span>
+                  <span className="italic truncate">Check Maps for live traffic &amp; weather</span>
+                </div>
+
+                {/* Bottom Metadata Strip (Bolder w-5 h-5 Shirt & Emerald Check Circle) */}
+                <div className="mt-2.5 pt-2.5 border-t border-[#E9ECEF] flex items-center justify-between text-xs font-semibold text-[#2A435E]">
+                  <div className="flex items-center gap-2">
+                    <svg
+                      aria-hidden="true"
+                      className="w-5 h-5 text-[#0B192C] fill-current shrink-0"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M16.5 3c-1.1 1.35-2.68 2.2-4.5 2.2S8.6 4.35 7.5 3L2 5.5l2.2 4.4 2.8-1.1V21h10V8.8l2.8 1.1L22 5.5 16.5 3z" />
+                    </svg>
+                    <span>Jerseys: {heroJerseyShort || "White"}</span>
+                  </div>
+                  <div className="h-4 w-px bg-[#E9ECEF] shrink-0" aria-hidden="true" />
+                  <div className="flex items-center gap-2">
+                    <span
+                      aria-hidden="true"
+                      className="w-5 h-5 bg-[#10B981] text-white font-black text-xs flex items-center justify-center rounded-full shadow-xs shrink-0"
                     >
                       <svg
-                        className="w-10 h-10 text-[#2B1006] stroke-current"
-                        viewBox="0 0 24 24"
+                        className="w-3 h-3 stroke-current"
+                        viewBox="0 0 12 12"
                         fill="none"
-                        strokeWidth="2.4"
+                        strokeWidth="2.6"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <circle cx="12" cy="12" r="9.5" />
-                        <path d="M12 2.5v19" />
-                        <path d="M5.2 5.2c3.5 3.5 3.5 10.1 0 13.6" />
-                        <path d="M18.8 5.2c-3.5 3.5-3.5 10.1 0 13.6" />
-                        <path d="M2.5 12h19" />
+                        <path d="M2.5 6.3L5 8.8L9.5 3.5" />
                       </svg>
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <div className="text-3xl sm:text-4xl font-black text-[#0B192C] tracking-tight leading-none tabular-nums">
-                        {formatTime(nextGame.tipOffMinutes)}
-                      </div>
-                      <h2 className="text-base sm:text-lg font-extrabold text-[#0F2942] mt-1 leading-snug">
-                        vs {nextGame.opponent}
-                      </h2>
-                      <a
-                        href={getMapsUrl(`${nextGame.venueName} ${nextGame.venueAddress} ${nextGame.city}`)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex items-center gap-1.5 text-xs font-medium text-[#2A435E] hover:text-[#0F2942] transition-colors mt-1.5"
-                      >
-                        <svg
-                          aria-hidden="true"
-                          className="w-3.5 h-3.5 text-[#0B192C] fill-current shrink-0"
-                          viewBox="0 0 24 24"
-                        >
-                          <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 7.12 11.45 7.42 11.71.34.3.82.3 1.16 0C12.88 21.45 20 15.25 20 10c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
-                        </svg>
-                        <span className="truncate">{nextGame.venueName}</span>
-                      </a>
-                      <div className="flex items-center gap-1.5 text-xs font-medium text-[#2A435E] mt-0.5">
-                        <svg
-                          viewBox="0 0 24 24"
-                          className="w-3.5 h-3.5 text-[#0B192C] shrink-0"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2.3"
-                          aria-hidden="true"
-                        >
-                          <circle cx="12" cy="12" r="9" />
-                          <path d="M3 12h18M12 3v18M5.6 5.6c3.5 3.5 3.5 9.3 0 12.8M18.4 5.6c-3.5 3.5-3.5 9.3 0 12.8" />
-                        </svg>
-                        <span>{nextGame.court}</span>
-                      </div>
-                    </div>
+                    </span>
+                    <span>
+                      Team Check-in: {nextGame.status && nextGame.status !== "Upcoming" ? nextGame.status : "Complete"}
+                    </span>
                   </div>
+                </div>
 
-                  <div className="h-px bg-[#E9E5DE]/80 my-4" />
+                {/* Dedicated Full-Width Google Maps Action Button (44px Accessible Tap Height) */}
+                <a
+                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(heroVenueMapsQuery)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-3 min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
+                >
+                  <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                  </svg>
+                  <span>Open Directions in Google Maps</span>
+                </a>
+              </section>
 
-                  {/* 3-Column Timing Strip (Chunky Solid Silhouettes & Sculpted Trophy) */}
-                  <div className="divide-x divide-[#E9E5DE]/80 flex items-start text-center py-1">
-                    <div className="flex-1 px-1 flex flex-col items-center">
-                      <svg
-                        aria-hidden="true"
-                        className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v9c0 .55.45 1 1 1h1.5c.55 0 1-.45 1-1v-1h11v1c0 .55.45 1 1 1H20c.55 0 1-.45 1-1v-9l-2.08-5.99zM6.5 6h11l1.04 3H5.46l1.04-3zM7.5 16c-.83 0-1.5-.67-1.5-1.5S6.67 13 7.5 13s1.5.67 1.5 1.5S8.33 16 7.5 16zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
-                      </svg>
-                      <span className="text-xs font-semibold text-slate-600">
-                        Depart
-                      </span>
-                      <span className="text-base sm:text-lg font-black text-[#0B192C] tabular-nums mt-0.5 leading-tight">
-                        {formatTime(nextDepart)}
-                      </span>
-                    </div>
-
-                    <div className="flex-1 px-1 flex flex-col items-center">
-                      <svg
-                        aria-hidden="true"
-                        className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 7.12 11.45 7.42 11.71.34.3.82.3 1.16 0C12.88 21.45 20 15.25 20 10c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
-                      </svg>
-                      <span className="text-xs font-semibold text-slate-600">
-                        Arrive
-                      </span>
-                      <span className="text-base sm:text-lg font-black text-[#0B192C] tabular-nums mt-0.5 leading-tight">
-                        {formatTime(nextArrival)}
-                      </span>
-                      <span className="text-[11px] font-medium text-slate-500 mt-0.5">
-                        ({bufferMins} min buffer)
-                      </span>
-                    </div>
-
-                    <div className="flex-1 px-1 flex flex-col items-center">
-                      <svg
-                        aria-hidden="true"
-                        className="w-7 h-7 sm:w-8 sm:h-8 mx-auto mb-1 drop-shadow-xs"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                      >
-                        <defs>
-                          <linearGradient id="awayday-trophy-cup" x1="6" y1="3" x2="18" y2="16" gradientUnits="userSpaceOnUse">
-                            <stop offset="0%" stopColor="#FAD275" />
-                            <stop offset="48%" stopColor="#DF9E38" />
-                            <stop offset="100%" stopColor="#B67418" />
-                          </linearGradient>
-                        </defs>
-                        <path
-                          d="M6.5 5H4.5C3.67 5 3 5.67 3 6.5V8c0 2.35 1.72 4.3 3.98 4.68M17.5 5h2c.83 0 1.5.67 1.5 1.5V8c0 2.35-1.72 4.3-3.98 4.68"
-                          stroke="#C88725"
-                          strokeWidth="2.1"
-                          strokeLinecap="round"
-                        />
-                        <path
-                          d="M6.5 3.5h11v4.7c0 3.25-2.35 5.95-5.5 6.45-3.15-.5-5.5-3.2-5.5-6.45V3.5z"
-                          fill="url(#awayday-trophy-cup)"
-                        />
-                        <rect x="6" y="2.5" width="12" height="2" rx="1" fill="#B67418" />
-                        <rect x="6.5" y="2.8" width="11" height="0.9" rx="0.45" fill="#FDE6A6" fillOpacity="0.8" />
-                        <path
-                          d="M8.5 5.5v3.2c0 1.6.7 3.05 1.85 3.95"
-                          stroke="#FFF3CC"
-                          strokeWidth="1.3"
-                          strokeLinecap="round"
-                          strokeOpacity="0.75"
-                        />
-                        <rect x="10.4" y="14.2" width="3.2" height="3.3" rx="0.8" fill="#C88725" />
-                        <path d="M8 17.5h8l.8 2.5H7.2L8 17.5z" fill="#9A6218" />
-                        <rect x="6.5" y="19.8" width="11" height="1.7" rx="0.85" fill="#7C4B0E" />
-                      </svg>
-                      <span className="text-xs font-semibold text-slate-600">
-                        Tip-Off
-                      </span>
-                      <span className="text-base sm:text-lg font-black text-[#0B192C] tabular-nums mt-0.5 leading-tight">
-                        {formatTime(nextGame.tipOffMinutes)}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="h-px bg-[#E9E5DE]/80 my-3" />
-
-                  {/* Bottom Metadata Strip (Bolder w-5 h-5 Shirt & Emerald Check Circle) */}
-                  <div className="flex items-center justify-between text-xs font-semibold text-[#2A435E] pt-1">
-                    <div className="flex items-center gap-2">
-                      <svg
-                        aria-hidden="true"
-                        className="w-5 h-5 text-[#0B192C] fill-current shrink-0"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M16.5 3c-1.1 1.35-2.68 2.2-4.5 2.2S8.6 4.35 7.5 3L2 5.5l2.2 4.4 2.8-1.1V21h10V8.8l2.8 1.1L22 5.5 16.5 3z" />
-                      </svg>
-                      <span>Jerseys: {heroJerseyShort || "White"}</span>
-                    </div>
-                    <div className="h-4 w-px bg-slate-200 shrink-0" aria-hidden="true" />
-                    <div className="flex items-center gap-2">
-                      <span
-                        aria-hidden="true"
-                        className="w-5 h-5 bg-[#10B981] text-white font-black text-xs flex items-center justify-center rounded-full shadow-xs shrink-0"
-                      >
-                        <svg
-                          className="w-3 h-3 stroke-current"
-                          viewBox="0 0 12 12"
-                          fill="none"
-                          strokeWidth="2.6"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                        >
-                          <path d="M2.5 6.3L5 8.8L9.5 3.5" />
-                        </svg>
-                      </span>
-                      <span>
-                        Team Check-in: {nextGame.status && nextGame.status !== "Upcoming" ? nextGame.status : "Complete"}
-                      </span>
-                    </div>
-                  </div>
-                </section>
-              </div>
-
-              {/* Quick Turnaround Banner */}
-              {turnaroundTitle && turnaroundSubtitle && (
+              {/* Unified Hub Tips Collapsible Drawer (Consolidating Quick Turnaround & Facility Alerts) */}
+              <section id="section-hub-tips" aria-label="Hub Tips">
                 <button
                   type="button"
-                  onClick={() => setActiveTab("fuel")}
-                  className="w-full text-left rounded-[22px] bg-gradient-to-r from-[#FDE8CC] via-[#FCE3BE] to-[#F7D4A0] border border-[#F2C078]/60 p-3.5 flex items-center justify-between shadow-tactile-banner mb-3 cursor-pointer hover:brightness-[0.99] active:scale-[0.99] transition-all"
+                  aria-expanded={isHeroTipsOpen}
+                  aria-controls="hero-hub-tips-list"
+                  onClick={() =>
+                    setHeroTipsManualState((prev) => ({
+                      ...prev,
+                      [nextGame.id]: !isHeroTipsOpen,
+                    }))
+                  }
+                  className="w-full bg-white border-[1.5px] border-[#DCE1E7] rounded-2xl p-3 flex items-center justify-between cursor-pointer hover:bg-slate-50 transition-colors shadow-xs mb-3 text-left"
                 >
-                  <div className="flex items-center gap-3 min-w-0 pr-2">
-                    <div className="w-9 h-9 rounded-full bg-white/75 shadow-xs flex items-center justify-center text-[#B4690E] shrink-0">
-                      <Clock className="w-5 h-5 stroke-[2.4]" aria-hidden="true" />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="text-[13px] font-extrabold text-[#0B192C]">{turnaroundTitle}</div>
-                      <div className="text-[11px] font-medium text-[#7A531C] leading-snug">{turnaroundSubtitle}</div>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-[#9A6218] stroke-[2.4] shrink-0" aria-hidden="true" />
+                  <span className="flex items-center gap-2">
+                    <Lightbulb className="w-4 h-4 text-[#0F2942] shrink-0" aria-hidden="true" />
+                    <span className="font-extrabold text-xs tracking-wider uppercase text-[#0F2942]">
+                      HUB TIPS
+                    </span>
+                    <span className="bg-[#E2E8F0] text-[#0F2942] font-black text-xs px-2 py-0.5 rounded-full tabular-nums leading-none">
+                      {activeHeroTips.length}
+                    </span>
+                  </span>
+                  <ChevronDown
+                    aria-hidden="true"
+                    className={`w-4 h-4 text-[#5C6B7B] transition-transform duration-200 ${
+                      isHeroTipsOpen ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
-              )}
 
-              {/* Following Game Preview Card */}
+                {isHeroTipsOpen && (
+                  <div
+                    id="hero-hub-tips-list"
+                    className="-mt-1.5 mb-3 bg-white border-[1.5px] border-[#DCE1E7] rounded-2xl p-3 space-y-2 shadow-xs animate-in fade-in-50 slide-in-from-top-1 duration-150"
+                  >
+                    {activeHeroTips.length === 0 ? (
+                      <div className="bg-[#F1F3F5] border border-[#DCE1E7] rounded-xl p-3 text-xs text-slate-500 italic">
+                        No facility or turnaround tips posted yet for this matchup.
+                      </div>
+                    ) : (
+                      activeHeroTips.map((tip) => {
+                        const isAlertCard =
+                          tip.isQuickTurnaround ||
+                          tip.tag === "QUICK TURNAROUND" ||
+                          tip.tag === "URGENT";
+
+                        if (isAlertCard) {
+                          return (
+                            <div
+                              key={tip.id}
+                              className="bg-[#FFF5E6] border border-[#F2C078] text-[#9A6218] rounded-xl p-3 font-medium text-xs space-y-1.5"
+                            >
+                              <div className="flex flex-wrap items-center justify-between gap-1.5">
+                                <span className="font-extrabold text-[#0F2942] text-xs flex items-center gap-1.5">
+                                  <Clock className="w-3.5 h-3.5 text-[#9A6218] shrink-0" aria-hidden="true" />
+                                  {tip.title}
+                                </span>
+                                <span className="inline-flex items-center gap-1 rounded-md bg-white/85 border border-[#F2C078] text-[#9A6218] px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
+                                  {tip.durationBadge ? `${tip.durationBadge} • ${tip.tag}` : tip.tag}
+                                </span>
+                              </div>
+                              <p className="text-xs text-[#9A6218] leading-snug">{tip.content}</p>
+                              {tip.id.startsWith("turnaround-") && (
+                                <div className="pt-1 flex justify-end">
+                                  <button
+                                    type="button"
+                                    onClick={() => setActiveTab("fuel")}
+                                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F2942] hover:underline cursor-pointer"
+                                  >
+                                    <span>View Sideline Fuel Options</span>
+                                    <ChevronRight className="w-3.5 h-3.5" aria-hidden="true" />
+                                  </button>
+                                </div>
+                              )}
+                              {tip.alertId && (
+                                <div className="flex items-center justify-between pt-1.5 border-t border-[#F2C078]/60 text-[11px] text-[#9A6218]">
+                                  <span>By {tip.author}</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => upvoteAlert(tip.alertId!)}
+                                    className="inline-flex items-center gap-1 font-semibold text-[11px] bg-white hover:bg-[#FFF9EE] border border-[#F2C078] text-[#0F2942] px-2 py-0.5 rounded-md cursor-pointer transition-colors"
+                                  >
+                                    <ThumbsUp className="w-3 h-3 text-[#9A6218]" aria-hidden="true" /> Helpful ({tip.upvotes})
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          );
+                        }
+
+                        return (
+                          <div
+                            key={tip.id}
+                            className="bg-[#F1F3F5]/65 border border-[#DCE1E7] rounded-xl p-3 space-y-1.5"
+                          >
+                            <div className="flex flex-wrap items-center justify-between gap-1.5">
+                              <h4 className="text-xs font-bold tracking-tight text-[#0F2942]">
+                                {tip.title}
+                              </h4>
+                              {tip.tag && (
+                                <span className="inline-flex items-center rounded-full bg-[#E2E8F0] text-[#0F2942] px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider">
+                                  {tip.tag}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-slate-600 leading-snug">{tip.content}</p>
+                            {tip.alertId && (
+                              <div className="flex items-center justify-between pt-1.5 border-t border-[#DCE1E7] text-[11px] text-slate-500">
+                                <span>By {tip.author}</span>
+                                <button
+                                  type="button"
+                                  onClick={() => upvoteAlert(tip.alertId!)}
+                                  className="inline-flex items-center gap-1 font-semibold text-[11px] bg-white hover:bg-slate-50 border border-[#DCE1E7] text-[#0F2942] px-2 py-0.5 rounded-md cursor-pointer transition-colors"
+                                >
+                                  <ThumbsUp className="w-3 h-3 text-[#0F2942]" aria-hidden="true" /> Helpful ({tip.upvotes})
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setActiveModalGameId(nextGame.id)}
+                      className="w-full inline-flex items-center justify-center gap-1 bg-[#F1F3F5] hover:bg-[#E2E8F0]/80 border border-[#DCE1E7] rounded-xl py-2 px-3 text-xs font-bold text-[#0F2942] transition-colors cursor-pointer"
+                    >
+                      <Plus className="w-3.5 h-3.5 text-[#0F2942]" aria-hidden="true" /> Add Hub Tip
+                    </button>
+                  </div>
+                )}
+              </section>
+
+              {/* Following Game Preview Card (Clean White + Crisp Stone Border + Platinum Badge) */}
               {followingGame && (
                 <button
                   type="button"
@@ -2109,12 +2238,12 @@ function RunSheetContent() {
                     const cardEl = document.getElementById(`game-card-${followingGame.id}`);
                     cardEl?.scrollIntoView({ behavior: "smooth", block: "center" });
                   }}
-                  className="w-full text-left rounded-[22px] bg-white border border-white ring-1 ring-stone-200/50 shadow-tactile-sm p-3.5 flex items-center justify-between mb-3 cursor-pointer hover:ring-[#D59B42]/40 active:scale-[0.99] transition-all"
+                  className="w-full text-left bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3 flex items-center justify-between cursor-pointer hover:border-[#0F2942]/30 active:scale-[0.99] transition-all"
                 >
                   <div className="flex items-center gap-3 min-w-0 pr-2">
                     <div
                       aria-hidden="true"
-                      className="relative w-10 h-10 rounded-full bg-gradient-to-br from-[#FFB865] via-[#F68B28] to-[#D95D08] shadow-[0_3px_10px_rgba(217,93,8,0.32),inset_0_1.5px_3px_rgba(255,255,255,0.7)] ring-3 ring-[#FDEFD9] flex items-center justify-center shrink-0 overflow-hidden"
+                      className="relative w-10 h-10 rounded-full bg-gradient-to-br from-[#FFB865] via-[#F68B28] to-[#D95D08] shadow-[0_3px_10px_rgba(217,93,8,0.28),inset_0_1.5px_3px_rgba(255,255,255,0.7)] ring-3 ring-[#F1F3F5] flex items-center justify-center shrink-0 overflow-hidden"
                     >
                       <svg
                         className="w-7 h-7 text-[#2B1006] stroke-current"
@@ -2132,174 +2261,65 @@ function RunSheetContent() {
                       </svg>
                     </div>
                     <div className="min-w-0">
-                      <span className="inline-block bg-[#FDEFD9] text-[#0F2942] text-[10px] font-black tracking-wider px-2.5 py-0.5 rounded-full uppercase">
+                      <span className="inline-block bg-[#F1F3F5] text-[#5C6B7B] font-bold text-[10px] px-2 py-0.5 rounded-full uppercase tracking-wider">
                         FOLLOWING GAME
                       </span>
                       <div className="text-sm font-extrabold text-[#0F2942] mt-1 truncate">
                         vs. {followingGame.opponent}
                       </div>
-                      <div className="text-[11px] font-medium text-[#2A435E]/80">
+                      <div className="text-[11px] font-medium text-[#5C6B7B]">
                         View time, venue and travel details
                       </div>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-[#0F2942]/70 shrink-0" aria-hidden="true" />
+                  <ChevronRight className="w-5 h-5 text-[#5C6B7B] shrink-0" aria-hidden="true" />
                 </button>
               )}
-
-              {/* Drive Duration & Live Traffic / Weather Strip */}
-              <a
-                href={getMapsUrl(`${nextGame.venueName} ${nextGame.venueAddress} ${nextGame.city}`)}
-                target="_blank"
-                rel="noreferrer"
-                className="rounded-[20px] bg-[#F7EFE1]/60 border border-[#E8DCC8]/60 px-4 py-2.5 text-xs text-stone-600 shadow-xs flex items-center gap-2.5 mb-3 hover:border-[#D59B42]/40 transition-colors"
-              >
-                <Navigation className="w-4 h-4 text-[#D59B42] fill-[#D59B42]/20 shrink-0" aria-hidden="true" />
-                <span className="font-extrabold text-[#0F2942] shrink-0 tabular-nums">
-                  {nextGame.hotelTravelMin} min drive
-                </span>
-                <span className="h-4 w-px bg-[#E8DCC8] shrink-0" aria-hidden="true" />
-                <span className="text-[11px] font-medium text-[#2A435E] truncate">
-                  Check your map for latest traffic &amp; weather.
-                </span>
-              </a>
-
-              {/* Hub Tips Collapsible Interface */}
-              <section id="section-hub-tips" aria-label="Hub Tips" className="mb-3">
-                <div className="bg-[#FDF9F0] border border-[#D59B42]/30 rounded-2xl overflow-hidden transition-colors">
-                  <button
-                    type="button"
-                    aria-expanded={isHeroTipsOpen}
-                    aria-controls="hero-hub-tips-list"
-                    onClick={() =>
-                      setHeroTipsManualState((prev) => ({
-                        ...prev,
-                        [nextGame.id]: !isHeroTipsOpen,
-                      }))
-                    }
-                    className="w-full p-3 flex items-center justify-between cursor-pointer hover:bg-[#FAF4E5] transition-colors text-left"
-                  >
-                    <span className="flex items-center gap-2">
-                      <Lightbulb className="w-4 h-4 text-[#D59B42] shrink-0" aria-hidden="true" />
-                      <span className="font-bold text-xs tracking-wider uppercase text-[#1D2935]">
-                        HUB TIPS
-                      </span>
-                      <span className="inline-flex items-center justify-center rounded-full bg-[#D59B42] text-white text-[10px] font-bold tabular-nums px-2 py-0.5 leading-none">
-                        {activeHeroTips.length}
-                      </span>
-                    </span>
-                    <ChevronDown
-                      aria-hidden="true"
-                      className={`w-4 h-4 text-[#1D2935]/70 transition-transform duration-200 ${
-                        isHeroTipsOpen ? "rotate-180" : ""
-                      }`}
-                    />
-                  </button>
-
-                  {isHeroTipsOpen && (
-                    <div
-                      id="hero-hub-tips-list"
-                      className="px-3 pb-3 space-y-2 animate-in fade-in-50 slide-in-from-top-1 duration-150"
-                    >
-                      {activeHeroTips.length === 0 ? (
-                        <div className="bg-white border border-[#E9E5DE] rounded-lg p-2.5 shadow-xs text-xs text-slate-500 italic">
-                          No facility or turnaround tips posted yet for this matchup.
-                        </div>
-                      ) : (
-                        activeHeroTips.map((tip) => (
-                          <div
-                            key={tip.id}
-                            className="bg-white border border-[#E9E5DE] rounded-lg p-2.5 shadow-xs space-y-1.5"
-                          >
-                            <div className="flex flex-wrap items-center justify-between gap-1.5">
-                              <h4 className="text-xs font-bold tracking-tight text-[#1D2935]">
-                                {tip.title}
-                              </h4>
-                              {tip.tag && (
-                                <span
-                                  className={`inline-flex items-center rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
-                                    tip.tag === "URGENT" || tip.tag === "QUICK TURNAROUND"
-                                      ? "bg-[#FFF9EE] text-[#D59B42] border border-[#D59B42]/40"
-                                      : "bg-[#F8F7F3] text-slate-600 border border-[#E9E5DE]"
-                                  }`}
-                                >
-                                  {tip.tag}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-slate-600 leading-snug">{tip.content}</p>
-                            {tip.alertId && (
-                              <div className="flex items-center justify-between pt-1.5 border-t border-[#E9E5DE] text-[11px] text-slate-500">
-                                <span>By {tip.author}</span>
-                                <button
-                                  type="button"
-                                  onClick={() => upvoteAlert(tip.alertId!)}
-                                  className="inline-flex items-center gap-1 font-semibold text-[11px] bg-[#F8F7F3] hover:bg-[#FFF9EE] border border-[#E9E5DE] text-[#1D2935] px-2 py-0.5 rounded-md cursor-pointer transition-colors"
-                                >
-                                  <ThumbsUp className="w-3 h-3 text-[#D59B42]" aria-hidden="true" /> Helpful ({tip.upvotes})
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        ))
-                      )}
-
-                      <button
-                        type="button"
-                        onClick={() => setActiveModalGameId(nextGame.id)}
-                        className="w-full inline-flex items-center justify-center gap-1 bg-white hover:bg-[#FFF9EE] border border-[#E9E5DE] rounded-lg py-1.5 px-2.5 text-xs font-semibold text-[#1D2935] transition-colors cursor-pointer shadow-2xs"
-                      >
-                        <Plus className="w-3.5 h-3.5 text-[#D59B42]" aria-hidden="true" /> Add Hub Tip
-                      </button>
-                    </div>
-                  )}
-                </div>
-              </section>
 
               {isAdmin && (
                 <section
                   aria-label="Manager Quick-Shift Schedule Controls"
-                  className="bg-white border border-[#E9E5DE]/60 rounded-2xl shadow-sm p-3 mb-3 space-y-2.5"
+                  className="bg-white border-[1.5px] border-[#DCE1E7] rounded-2xl shadow-xs p-3 mb-3 space-y-2.5"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-slate-500 uppercase">
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#D59B42]" aria-hidden="true" />
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-[#5C6B7B] uppercase">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#0F2942]" aria-hidden="true" />
                       MANAGER QUICK-SHIFT
                     </span>
                     <button
                       type="button"
                       onClick={() => handleMarkFinalAndAdvance(nextGame.id)}
-                      className="inline-flex items-center gap-1 border border-[#D59B42]/50 bg-[#FFF9EE] hover:bg-[#FDF3DE] text-[#D59B42] rounded-lg px-2 py-0.5 text-[11px] font-bold transition-colors cursor-pointer"
+                      className="inline-flex items-center gap-1 border border-[#DCE1E7] bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] rounded-lg px-2 py-0.5 text-[11px] font-bold transition-colors cursor-pointer"
                     >
-                      <CheckCircle2 className="w-3 h-3" aria-hidden="true" /> Mark Final
+                      <CheckCircle2 className="w-3 h-3 text-[#10B981]" aria-hidden="true" /> Mark Final
                     </button>
                   </div>
                   <div className="grid grid-cols-4 gap-2">
                     <button
                       type="button"
                       onClick={() => shiftGameTime(nextGame.id, -30)}
-                      className="bg-white border border-[#E9E5DE] text-[#1D2935] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
+                      className="bg-white border border-[#DCE1E7] text-[#0F2942] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
                     >
                       -30m
                     </button>
                     <button
                       type="button"
                       onClick={() => shiftGameTime(nextGame.id, -15)}
-                      className="bg-white border border-[#E9E5DE] text-[#1D2935] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
+                      className="bg-white border border-[#DCE1E7] text-[#0F2942] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
                     >
                       -15m
                     </button>
                     <button
                       type="button"
                       onClick={() => shiftGameTime(nextGame.id, 15)}
-                      className="bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] hover:bg-[#FDF3DE] font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
+                      className="bg-[#F1F3F5] border border-[#DCE1E7] text-[#0F2942] hover:bg-[#E2E8F0] font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
                     >
                       +15m
                     </button>
                     <button
                       type="button"
                       onClick={() => shiftGameTime(nextGame.id, 30)}
-                      className="bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] hover:bg-[#FDF3DE] font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
+                      className="bg-[#F1F3F5] border border-[#DCE1E7] text-[#0F2942] hover:bg-[#E2E8F0] font-bold rounded-lg py-1.5 px-3 text-xs shadow-xs active:scale-[0.97] transition-all cursor-pointer tabular-nums"
                     >
                       +30m
                     </button>
@@ -2314,12 +2334,12 @@ function RunSheetContent() {
         <section id="section-games" className="space-y-3 pt-1">
           <div className="flex items-center justify-between px-1">
             <div className="flex items-center gap-1.5">
-              <span className="p-1 rounded-md bg-white border border-[#E9E5DE] text-[#D59B42] shadow-2xs">
+              <span className="p-1 rounded-md bg-white border border-[#DCE1E7] text-[#0F2942] shadow-2xs">
                 <CalendarDays className="w-3.5 h-3.5" aria-hidden="true" />
               </span>
-              <h3 className="text-xs font-bold tracking-tight uppercase text-[#1D2935]">Weekend Run-Sheet</h3>
+              <h3 className="text-xs font-extrabold tracking-tight uppercase text-[#0F2942]">Weekend Run-Sheet</h3>
             </div>
-            <span className="text-slate-500 text-xs font-semibold tracking-tight tabular-nums">{games.length} Games Scheduled</span>
+            <span className="text-[#5C6B7B] text-xs font-semibold tracking-tight tabular-nums">{games.length} Games Scheduled</span>
           </div>
 
           {games.map((game, index) => {
@@ -2335,52 +2355,60 @@ function RunSheetContent() {
             const cardJerseyShort =
               (game.jerseyColor || "").replace(/\s*\((Home|Away)\)/i, "").trim() ||
               (isAwayCard ? "Dark" : "White");
+            const cardCourtLabel = /^court\b/i.test(game.court.trim())
+              ? game.court.trim()
+              : `Court ${game.court.trim()}`;
+            const cardVenueMapsQuery =
+              [game.venueName, game.venueAddress, game.city].filter(Boolean).join(", ") ||
+              game.venueAddress ||
+              game.venueName;
 
             return (
               <React.Fragment key={game.id}>
                 {showDayHeader && game.dayLabel && (
                   <div className="flex items-center justify-between gap-2 px-1 pt-1">
-                    <span className="inline-flex items-center gap-1.5 border-l-2 border-l-[#D59B42] bg-white border border-[#E9E5DE] text-[#1D2935] text-xs font-bold tracking-tight px-2.5 py-1 rounded-r shadow-2xs">
-                      <CalendarClock className="w-3.5 h-3.5 text-[#D59B42]" aria-hidden="true" />
+                    <span className="inline-flex items-center gap-1.5 border-l-2 border-l-[#0F2942] bg-white border border-[#DCE1E7] text-[#0F2942] text-xs font-bold tracking-tight px-2.5 py-1 rounded-r shadow-2xs">
+                      <CalendarClock className="w-3.5 h-3.5 text-[#0F2942]" aria-hidden="true" />
                       {game.dayLabel === "Sat, Oct 24" ? "Saturday, Oct 24" : game.dayLabel === "Sun, Oct 25" ? "Sunday, Oct 25" : game.dayLabel}
                     </span>
-                    <span className="text-[11px] font-medium text-slate-500 truncate">
+                    <span className="text-[11px] font-medium text-[#5C6B7B] truncate">
                       {game.venueName}
                     </span>
                   </div>
                 )}
-              <div id={`game-card-${game.id}`} className="bg-white border border-[#E9E5DE]/60 rounded-2xl shadow-sm p-4 overflow-hidden scroll-mt-20">
+              <div id={`game-card-${game.id}`} className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm overflow-hidden scroll-mt-20">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[#1D2935] text-xs font-bold tracking-tight">
-                        Game {index + 1}{game.dayLabel ? <span className="text-slate-500 font-semibold">{` • ${game.dayLabel}`}</span> : ""}
+                      <span className="text-[#0F2942] text-xs font-extrabold tracking-tight">
+                        Game {index + 1}{game.dayLabel ? <span className="text-[#5C6B7B] font-semibold">{` • ${game.dayLabel}`}</span> : ""}
+                      </span>
+                      <span className="inline-flex items-center gap-1 rounded-md bg-[#0F2942] text-white text-[10px] font-black tracking-wide uppercase px-2 py-0.5 shadow-2xs">
+                        <span aria-hidden="true">🏀</span> {cardCourtLabel}
                       </span>
                       {game.telemetryFlag && (
-                        <span className="inline-flex items-center rounded-md bg-[#FFF9EE] text-[#1D2935] border border-[#D59B42]/40 text-[10px] font-bold tracking-tight uppercase px-2 py-0.5">
+                        <span className="inline-flex items-center rounded-full bg-[#F1F3F5] text-[#5C6B7B] text-[10px] font-bold tracking-tight uppercase px-2 py-0.5">
                           {game.telemetryFlag}
                         </span>
                       )}
                       {game.status && (
-                        <span className={`inline-flex items-center rounded-md text-[10px] font-bold tracking-tight uppercase px-2 py-0.5 ${
+                        <span className={`inline-flex items-center rounded-full text-[10px] font-bold tracking-tight uppercase px-2 py-0.5 ${
                           game.status === "Live"
                             ? "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/25"
                             : game.status === "Delayed"
-                            ? "bg-[#FFF9EE] text-[#D59B42] border border-[#D59B42]/40"
-                            : game.status === "Final"
-                            ? "bg-[#F8F7F3] text-[#1D2935] border border-[#E9E5DE]"
-                            : "bg-[#F8F7F3] text-[#1D2935] border border-[#E9E5DE]"
+                            ? "bg-[#FFF5E6] text-[#9A6218] border border-[#F2C078]"
+                            : "bg-[#F1F3F5] text-[#5C6B7B]"
                         }`}>
                           {game.status}
                         </span>
                       )}
                       {game.jerseyColor && (
-                        <span className="inline-flex items-center rounded-md bg-[#F8F7F3] text-[#1D2935] border border-[#E9E5DE] text-[11px] font-bold tracking-tight px-2 py-0.5">
+                        <span className="inline-flex items-center rounded-full bg-[#F1F3F5] text-[#0F2942] text-[10px] font-bold tracking-tight px-2 py-0.5">
                           {isAwayCard ? "Away" : "Home"} • {cardJerseyShort}
                         </span>
                       )}
                     </div>
-                    <h3 className="text-lg font-bold tracking-tight text-[#1D2935] leading-snug">
+                    <h3 className="text-lg font-extrabold tracking-tight text-[#0F2942] leading-snug">
                       {game.matchup || `vs. ${game.opponent}`}
                     </h3>
                   </div>
@@ -2391,103 +2419,118 @@ function RunSheetContent() {
                       onClick={() => openEditDrawer(game)}
                       title="Quick-Edit Game"
                       aria-label={`Edit Game ${index + 1}`}
-                      className="p-1.5 rounded-md bg-[#F8F7F3] hover:bg-[#FFF9EE] text-[#D59B42] border border-[#E9E5DE] transition-colors cursor-pointer shrink-0"
+                      className="p-1.5 rounded-lg bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] border border-[#DCE1E7] transition-colors cursor-pointer shrink-0"
                     >
                       <Pencil className="w-3.5 h-3.5" />
                     </button>
                   )}
                 </div>
 
-                {/* Arrival Banner */}
-                <div className="mt-3 rounded-lg bg-[#FDF9F0] border border-[#D59B42]/30 text-[#1D2935] px-3 py-2 flex items-center gap-1.5 text-xs font-semibold">
-                  <Clock className="w-3.5 h-3.5 text-[#D59B42] shrink-0" />
-                  <span>
-                    Arrive by <strong className="tabular-nums font-bold">{formatTime(arrivalMinutes)}</strong> ({bufferMins}m before tip)
-                  </span>
-                </div>
-
                 {/* Three-Column Timing Display */}
-                <div className="grid grid-cols-3 gap-2 my-3">
-                  <div className="bg-[#F8F7F3] border border-[#E9E5DE] px-2 py-2.5 rounded-lg text-center">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Depart</span>
-                    <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">{formatTime(departMinutes)}</span>
-                    <span className="block text-[11px] text-slate-500 font-medium mt-0.5">{game.hotelTravelMin}m drive</span>
+                <div className="grid grid-cols-3 gap-2 mt-3">
+                  <div className="bg-[#F1F3F5] border border-[#DCE1E7] px-2 py-2.5 rounded-xl text-center">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-[#5C6B7B]">Depart</span>
+                    <span className="block tabular-nums font-black text-sm sm:text-base text-[#0F2942] mt-0.5">{formatTime(departMinutes)}</span>
+                    <span className="block text-[11px] text-[#5C6B7B] font-medium mt-0.5">{game.hotelTravelMin || 15}m drive</span>
                   </div>
-                  <div className="bg-[#F8F7F3] border border-[#E9E5DE] px-2 py-2.5 rounded-lg text-center">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500">Gym Arrival</span>
-                    <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">{formatTime(arrivalMinutes)}</span>
-                    <span className="block text-[11px] text-slate-500 font-medium mt-0.5">{bufferMins}m before tip</span>
+                  <div className="bg-[#F1F3F5] border border-[#DCE1E7] px-2 py-2.5 rounded-xl text-center">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-[#5C6B7B]">Gym Arrival</span>
+                    <span className="block tabular-nums font-black text-sm sm:text-base text-[#0F2942] mt-0.5">{formatTime(arrivalMinutes)}</span>
+                    <span className="block text-[11px] text-[#5C6B7B] font-medium mt-0.5">{bufferMins}m buffer</span>
                   </div>
-                  <div className="bg-[#FFF9EE] border border-[#D59B42]/40 px-2 py-2.5 rounded-lg text-center">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-[#D59B42]">Tip-Off</span>
-                    <span className="block tabular-nums font-bold text-sm sm:text-base text-[#1D2935] mt-0.5">{formatTime(game.tipOffMinutes)}</span>
-                    <span className="block text-[11px] text-slate-500 font-medium mt-0.5">Game time</span>
+                  <div className="bg-[#F1F3F5] border border-[#DCE1E7] px-2 py-2.5 rounded-xl text-center">
+                    <span className="block text-[10px] font-bold uppercase tracking-wider text-[#0F2942]">Tip-Off</span>
+                    <span className="block tabular-nums font-black text-sm sm:text-base text-[#0F2942] mt-0.5">{formatTime(game.tipOffMinutes)}</span>
+                    <span className="block text-[11px] text-[#5C6B7B] font-medium mt-0.5">Game time</span>
                   </div>
                 </div>
 
-                <p className="text-[11px] text-slate-500 mt-1 italic text-center sm:text-left">
-                  Est. distance time • Check Maps for live traffic &amp; weather
-                </p>
+                {/* Nested Travel Footnote */}
+                <div className="mt-2 pt-2 border-t border-[#E9ECEF] flex items-center justify-between gap-2 text-[11px] text-[#5C6B7B] font-medium">
+                  <span className="flex items-center gap-1 font-bold text-[#0F2942] shrink-0 tabular-nums">
+                    <span aria-hidden="true">🚗</span> {game.hotelTravelMin || 15}m drive
+                  </span>
+                  <span className="italic truncate">Check Maps for live traffic &amp; weather</span>
+                </div>
 
-                {/* Venue & Native Directions Bar */}
-                <div className="mt-3 flex items-center justify-between gap-2 rounded-lg bg-[#F8F7F3] border border-[#E9E5DE] px-3 py-2.5">
-                  <div className="min-w-0 pr-1">
-                    <div className="flex items-center gap-1.5">
-                      <MapPin className="w-3.5 h-3.5 text-[#D59B42] shrink-0" />
-                      <span className="font-bold text-[#1D2935] text-xs truncate">{game.venueName}</span>
-                      <span className="shrink-0 rounded bg-white border border-[#E9E5DE] px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[#1D2935]">
-                        {game.court}
-                      </span>
-                    </div>
-                    <span className="text-slate-500 text-[11px] truncate block ml-5">
-                      {game.venueAddress}, {game.city}
-                    </span>
+                {/* Venue Details & Streamlined Google Maps Action Button */}
+                <div className="mt-3 rounded-2xl bg-[#F1F3F5] border border-[#DCE1E7] p-3">
+                  <div className="flex items-center gap-1.5">
+                    <svg
+                      aria-hidden="true"
+                      className="w-3.5 h-3.5 text-[#0F2942] fill-current shrink-0"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                    </svg>
+                    <span className="font-bold text-[#0F2942] text-xs truncate">{game.venueName}</span>
                   </div>
-                  <a 
-                    href={getMapsUrl(`${game.venueName} ${game.venueAddress} ${game.city}`)} 
-                    target="_blank" 
-                    rel="noreferrer"
-                    className="shrink-0 bg-[#1D2935] hover:bg-[#1D2935]/90 text-white px-3 py-1.5 rounded-lg font-semibold text-xs inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
+                  <span className="text-[#5C6B7B] text-[11px] font-medium truncate block ml-5 mt-0.5">
+                    {game.venueAddress}, {game.city}
+                  </span>
+
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cardVenueMapsQuery)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
                   >
-                    <Navigation className="w-3.5 h-3.5 text-[#D59B42]" /> Directions
+                    <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                    </svg>
+                    <span>Open Directions in Google Maps</span>
                   </a>
                 </div>
 
-                <div className="border-t border-[#E9E5DE] mt-3 pt-3 text-xs">
+                <div className="border-t border-[#DCE1E7] mt-3 pt-3 text-xs">
                   <button
                     type="button"
                     onClick={() => setOpenTipsGameId(openTipsGameId === game.id ? null : game.id)}
                     aria-expanded={openTipsGameId === game.id}
                     className="w-full flex items-center justify-between gap-2 active:scale-[0.99] transition-transform duration-100 ease-out cursor-pointer"
                   >
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-[#1D2935] flex items-center gap-1.5">
-                      <AlertCircle className="w-3.5 h-3.5 text-[#D59B42]" /> Hub Tips ({gameAlerts.length})
-                      <span className="inline-flex items-center rounded bg-[#FFF9EE] border border-[#D59B42]/35 text-[#9A6B21] font-mono text-[11px] px-1.5 py-0.5">
-                        {gameAlerts.length}
+                    <span className="text-[11px] font-extrabold uppercase tracking-wider text-[#0F2942] flex items-center gap-1.5">
+                      <Lightbulb className="w-3.5 h-3.5 text-[#0F2942]" aria-hidden="true" /> HUB TIPS
+                      <span className="bg-[#E2E8F0] text-[#0F2942] font-black text-xs px-2 py-0.5 rounded-full tabular-nums">
+                        {gameAlerts.length + (game.downtimeAfter ? 1 : 0)}
                       </span>
                     </span>
-                    <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${openTipsGameId === game.id ? "rotate-180" : ""}`} />
+                    <ChevronDown className={`w-4 h-4 text-[#5C6B7B] transition-transform duration-200 ${openTipsGameId === game.id ? "rotate-180" : ""}`} />
                   </button>
 
                   {openTipsGameId === game.id && (
                     <div className="mt-3 space-y-2.5 animate-in fade-in-50 slide-in-from-top-1 duration-200 ease-out">
-                      {gameAlerts.length === 0 ? (
-                        <p className="text-[11px] text-slate-500 font-medium italic">No facility warnings posted yet for this gym.</p>
+                      {game.downtimeAfter && (
+                        <div className="bg-[#FFF5E6] border border-[#F2C078] text-[#9A6218] rounded-xl p-3 font-medium text-xs space-y-1">
+                          <div className="flex flex-wrap items-center justify-between gap-1.5">
+                            <span className="font-extrabold text-[#0F2942] text-xs">
+                              {game.downtimeAfter.type}
+                            </span>
+                            <span className="inline-flex items-center gap-1 rounded-md bg-white/85 border border-[#F2C078] text-[#9A6218] px-2 py-0.5 text-[10px] font-black uppercase tracking-wider">
+                              {game.downtimeAfter.duration}
+                            </span>
+                          </div>
+                          <p className="text-xs text-[#9A6218] leading-snug">{game.downtimeAfter.note}</p>
+                        </div>
+                      )}
+                      {gameAlerts.length === 0 && !game.downtimeAfter ? (
+                        <p className="text-[11px] text-slate-500 font-medium italic">No facility tips posted yet for this gym.</p>
                       ) : (
                         <div className="space-y-2">
                           {gameAlerts.map(alert => (
-                            <div key={alert.id} className="bg-[#F8F7F3] border border-[#E9E5DE] rounded-lg p-3 space-y-2">
+                            <div key={alert.id} className="bg-[#F1F3F5]/70 border border-[#DCE1E7] rounded-xl p-3 space-y-2">
                               <div>
-                                <h4 className="text-xs font-bold text-[#1D2935]">{alert.title}</h4>
+                                <h4 className="text-xs font-bold text-[#0F2942]">{alert.title}</h4>
                                 <p className="text-xs text-slate-600 leading-snug mt-0.5">{alert.content}</p>
                               </div>
-                              <div className="flex items-center justify-between border-t border-[#E9E5DE] pt-1.5 text-[11px] text-slate-500">
+                              <div className="flex items-center justify-between border-t border-[#DCE1E7] pt-1.5 text-[11px] text-slate-500">
                                 <span>By {alert.author}</span>
                                 <button
+                                  type="button"
                                   onClick={() => upvoteAlert(alert.id)}
-                                  className="flex items-center gap-1.5 font-semibold text-[11px] bg-white border border-[#E9E5DE] hover:border-[#D59B42]/50 text-[#1D2935] px-2.5 py-1 rounded-md active:scale-[0.97] transition-all cursor-pointer"
+                                  className="flex items-center gap-1.5 font-semibold text-[11px] bg-white border border-[#DCE1E7] hover:bg-slate-50 text-[#0F2942] px-2.5 py-1 rounded-md active:scale-[0.97] transition-all cursor-pointer"
                                 >
-                                  <ThumbsUp className="w-3 h-3 text-[#D59B42]" /> Helpful ({alert.upvotes})
+                                  <ThumbsUp className="w-3 h-3 text-[#0F2942]" /> Helpful ({alert.upvotes})
                                 </button>
                               </div>
                             </div>
@@ -2495,47 +2538,48 @@ function RunSheetContent() {
                         </div>
                       )}
                       <button
+                        type="button"
                         onClick={() => setActiveModalGameId(game.id)}
-                        className="w-full flex items-center justify-center gap-1 text-xs font-semibold text-[#1D2935] bg-[#FDF9F0] hover:bg-[#FFF9EE] px-2.5 py-2 rounded-lg border border-[#D59B42]/40 active:scale-[0.98] transition-all cursor-pointer"
+                        className="w-full flex items-center justify-center gap-1 text-xs font-bold text-[#0F2942] bg-[#F1F3F5] hover:bg-[#E2E8F0] px-2.5 py-2 rounded-xl border border-[#DCE1E7] active:scale-[0.98] transition-all cursor-pointer"
                       >
-                        <Plus className="w-3.5 h-3.5 text-[#D59B42]" /> Add Tip
+                        <Plus className="w-3.5 h-3.5 text-[#0F2942]" /> Add Tip
                       </button>
                     </div>
                   )}
                 </div>
 
                 {isAdmin && (
-                  <div className="border-t border-[#E9E5DE] bg-[#F8F7F3] -mx-4 -mb-4 mt-3 px-4 py-3 flex items-center justify-between gap-2 text-[11px]">
-                    <div className="flex items-center gap-1.5 font-bold tracking-wider uppercase text-slate-500">
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#D59B42]" />
+                  <div className="border-t border-[#DCE1E7] bg-[#F1F3F5] -mx-4 -mb-4 mt-3 px-4 py-3 flex items-center justify-between gap-2 text-[11px]">
+                    <div className="flex items-center gap-1.5 font-bold tracking-wider uppercase text-[#5C6B7B]">
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#0F2942]" />
                       <span>Quick-Shift</span>
                     </div>
                     <div className="flex gap-1.5">
                       <button 
                         type="button"
                         onClick={() => shiftGameTime(game.id, -30)} 
-                        className="bg-white border border-[#E9E5DE] text-[#1D2935] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
+                        className="bg-white border border-[#DCE1E7] text-[#0F2942] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         -30m
                       </button>
                       <button 
                         type="button"
                         onClick={() => shiftGameTime(game.id, -15)} 
-                        className="bg-white border border-[#E9E5DE] text-[#1D2935] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
+                        className="bg-white border border-[#DCE1E7] text-[#0F2942] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         -15m
                       </button>
                       <button 
                         type="button"
                         onClick={() => shiftGameTime(game.id, 15)} 
-                        className="bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] hover:bg-[#FDF3DE] font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
+                        className="bg-white border border-[#DCE1E7] text-[#0F2942] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         +15m
                       </button>
                       <button 
                         type="button"
                         onClick={() => shiftGameTime(game.id, 30)} 
-                        className="bg-[#FFF9EE] border border-[#D59B42]/40 text-[#D59B42] hover:bg-[#FDF3DE] font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
+                        className="bg-white border border-[#DCE1E7] text-[#0F2942] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         +30m
                       </button>
@@ -2543,24 +2587,6 @@ function RunSheetContent() {
                   </div>
                 )}
               </div>
-
-              {game.downtimeAfter && (
-                <div className="bg-[#FDF9F0] border border-[#D59B42]/35 rounded-xl p-3.5 shadow-2xs flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-white border border-[#D59B42]/40 text-[#9A6B21] font-mono text-[11px] font-bold uppercase tracking-wider px-2 py-0.5">
-                        <Timer className="w-3 h-3 text-[#D59B42]" /> {game.downtimeAfter.duration}
-                      </span>
-                      <span className="text-xs font-bold uppercase tracking-wider text-[#1D2935]">
-                        {game.downtimeAfter.type}
-                      </span>
-                    </div>
-                    <p className="text-xs text-slate-600 leading-snug">
-                      {game.downtimeAfter.note}
-                    </p>
-                  </div>
-                </div>
-              )}
               </React.Fragment>
             );
           })}
@@ -2597,7 +2623,7 @@ function RunSheetContent() {
           </div>
 
           {/* Downtime Window Card with Corrected Timestamps */}
-          <div className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4">
+          <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-4">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-bold tracking-tight uppercase text-[#1D2935] flex items-center gap-1.5">
                 {isLunch ? <Salad className="w-4 h-4 text-[#D59B42]" /> : <Utensils className="w-4 h-4 text-[#D59B42]" />}
@@ -2630,7 +2656,7 @@ function RunSheetContent() {
 
           {/* LUNCH: GRAB & GO */}
           {isLunch ? (
-            <div className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3">
+            <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-4 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <h4 className="text-xs font-bold tracking-tight uppercase text-[#1D2935] flex items-center gap-1.5">
@@ -2674,7 +2700,7 @@ function RunSheetContent() {
             </div>
           ) : (
             /* DINNER: FORMAL CONSENSUS & RESERVATION POLL */
-            <div className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3.5">
+            <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-4 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3.5">
               {/* Manager "Poll Time-Travel" Dev Toggle */}
               {isAdmin && (
                 <div className="bg-[#F8F7F3] border border-[#E9E5DE] rounded-lg p-2.5 space-y-1.5">
@@ -3163,7 +3189,7 @@ function RunSheetContent() {
         </section>
 
         {/* Sideline Fuel / Coffee Radar */}
-        <section id="section-coffee" className="bg-white rounded-xl p-4 shadow-sm border border-[#E9E5DE] space-y-3">
+        <section id="section-coffee" className="bg-white rounded-[26px] p-4 shadow-tactile-sm border-[1.5px] border-[#DCE1E7] space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-[#FDF9F0] border border-[#D59B42]/30 text-[#D59B42]">
@@ -3233,7 +3259,7 @@ function RunSheetContent() {
             </span>
           </div>
 
-          <div className="bg-white border border-[#E9E5DE] rounded-xl shadow-sm p-4 space-y-3.5">
+          <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-4 space-y-3.5">
             {/* Inline 2-Way Direction Segmented Control: [ ➔ To Tournament | ↺ Trip Home ] */}
             <div className="grid grid-cols-2 gap-1 bg-[#F8F7F3] border border-[#E9E5DE] p-1 rounded-lg">
               <button
@@ -3401,54 +3427,42 @@ function RunSheetContent() {
               {corridorPlan.stops.map((stop, idx) => (
                 <div
                   key={stop.id}
-                  className="bg-[#F8F7F3] border border-[#E9E5DE] hover:border-[#D59B42]/40 rounded-xl p-3 space-y-2 transition-colors"
+                  className="bg-[#F1F3F5] border border-[#DCE1E7] rounded-2xl p-3 space-y-2 transition-colors"
                 >
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="inline-flex items-center rounded-md bg-white border border-[#D59B42]/40 text-[#1D2935] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
+                        <span className="inline-flex items-center rounded-md bg-white border border-[#DCE1E7] text-[#0F2942] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
                           Stop #{idx + 1} • {stop.milestoneTag}
                         </span>
-                        <span className="inline-flex items-center rounded-md bg-white border border-[#E9E5DE] text-slate-600 text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
+                        <span className="inline-flex items-center rounded-md bg-white border border-[#DCE1E7] text-[#5C6B7B] text-[10px] font-semibold uppercase tracking-wider px-2 py-0.5">
                           {stop.elapsedDriveLabel}
                         </span>
                       </div>
-                      <h5 className="text-sm font-bold tracking-tight text-[#1D2935] mt-1.5 leading-snug">
+                      <h5 className="text-sm font-bold tracking-tight text-[#0F2942] mt-1.5 leading-snug">
                         {stop.title}
                       </h5>
                     </div>
                   </div>
 
                   <p className="text-xs text-slate-600 font-medium leading-snug">
-                    <span className="text-[#D59B42] text-[11px] uppercase tracking-wider font-bold mr-1">
+                    <span className="text-[#0F2942] text-[11px] uppercase tracking-wider font-bold mr-1">
                       Athlete Fuel &amp; Coffee:
                     </span>
                     {stop.fuelAndCoffeeOptions}
                   </p>
 
-                  <div className="pt-2 flex items-center justify-between gap-2 border-t border-[#E9E5DE]">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider truncate">
-                      Open in Maps:
-                    </span>
-                    <div className="flex items-center gap-1.5 shrink-0">
-                      <a
-                        href={stop.appleMapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="bg-white hover:bg-slate-50 text-[#1D2935] border border-[#E9E5DE] px-2.5 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1 active:scale-[0.97] transition-all cursor-pointer"
-                      >
-                        <Navigation className="w-3 h-3 text-[#D59B42]" /> Apple Maps
-                      </a>
-                      <a
-                        href={stop.googleMapsUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="bg-[#1D2935] hover:bg-[#1D2935]/90 text-white px-2.5 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1 active:scale-[0.97] transition-all cursor-pointer"
-                      >
-                        <MapPin className="w-3 h-3 text-[#D59B42]" /> Google Maps
-                      </a>
-                    </div>
-                  </div>
+                  <a
+                    href={stop.googleMapsUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
+                  >
+                    <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                    </svg>
+                    <span>Open Directions in Google Maps</span>
+                  </a>
                 </div>
               ))}
             </div>
@@ -3456,58 +3470,66 @@ function RunSheetContent() {
         </section>
 
         {/* Hotel Base Camp */}
-        <section id="section-hotel" className="bg-white rounded-xl p-4 shadow-sm border border-[#E9E5DE] space-y-3">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <span className="inline-flex items-center gap-1 rounded-md bg-[#F8F7F3] border border-[#E9E5DE] text-[#1D2935] text-[10px] font-bold uppercase tracking-wider px-2 py-0.5">
-                <Hotel className="w-3 h-3 text-[#D59B42]" /> Team Hotel Base Camp
-              </span>
-              <h2 className="text-lg font-bold text-[#1D2935] tracking-tight mt-1.5 leading-snug">
-                {tournament.hotel.name}
-              </h2>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">{tournament.hotel.address}</p>
-            </div>
-            <a 
-              href={getMapsUrl(tournament.hotel.address)} 
-              target="_blank" 
-              rel="noreferrer"
-              className="text-xs inline-flex items-center gap-1.5 text-white font-semibold bg-[#1D2935] hover:bg-[#1D2935]/90 px-3 py-1.5 rounded-lg active:scale-[0.97] transition-all cursor-pointer shrink-0"
+        <section id="section-hotel" className="bg-white rounded-[26px] p-4 shadow-tactile-sm border-[1.5px] border-[#DCE1E7] space-y-3">
+          <div>
+            <span className="inline-flex items-center gap-1 rounded-full bg-[#F1F3F5] text-[#5C6B7B] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5">
+              <Hotel className="w-3 h-3 text-[#0F2942]" aria-hidden="true" /> Team Hotel Base Camp
+            </span>
+            <h2 className="text-lg font-extrabold text-[#0F2942] tracking-tight mt-1.5 leading-snug">
+              {tournament.hotel.name}
+            </h2>
+            <p className="text-xs text-slate-600 font-semibold mt-0.5 flex items-center gap-1">
+              <svg aria-hidden="true" className="w-3.5 h-3.5 text-[#0F2942] fill-current shrink-0" viewBox="0 0 24 24">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+              </svg>
+              <span className="truncate">{tournament.hotel.address}</span>
+            </p>
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                `${tournament.hotel.name}, ${tournament.hotel.address}`
+              )}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
             >
-              <Navigation className="w-3.5 h-3.5 text-[#D59B42]" /> Map
+              <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+              </svg>
+              <span>Open Directions in Google Maps</span>
             </a>
           </div>
 
-          <div className="bg-[#FDF9F0] border border-[#D59B42]/30 rounded-lg p-2.5 flex items-center justify-between gap-2 text-xs">
-            <span className="text-slate-600 text-[10px] font-bold uppercase tracking-wider">Team Room Block Rate</span>
-            <span className="font-bold text-[#1D2935] text-xs">{tournament.hotel.rate}</span>
+          <div className="bg-[#F1F3F5] border border-[#DCE1E7] rounded-xl p-2.5 flex items-center justify-between gap-2 text-xs">
+            <span className="text-[#5C6B7B] text-[10px] font-bold uppercase tracking-wider">Team Room Block Rate</span>
+            <span className="font-bold text-[#0F2942] text-xs">{tournament.hotel.rate}</span>
           </div>
 
-          <div className="grid grid-cols-2 gap-2 text-xs border-t border-[#E9E5DE] pt-3">
-            <div className="bg-[#F8F7F3] p-2.5 rounded-lg border border-[#E9E5DE]">
-              <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider">Breakfast</span>
-              <span className="font-bold text-[#1D2935] text-xs sm:text-sm mt-0.5 block">{tournament.hotel.breakfastHours}</span>
+          <div className="grid grid-cols-2 gap-2 text-xs border-t border-[#DCE1E7] pt-3">
+            <div className="bg-[#F1F3F5] p-2.5 rounded-xl border border-[#DCE1E7]">
+              <span className="text-[#5C6B7B] font-bold block text-[10px] uppercase tracking-wider">Breakfast</span>
+              <span className="font-bold text-[#0F2942] text-xs sm:text-sm mt-0.5 block">{tournament.hotel.breakfastHours}</span>
             </div>
-            <div className="bg-[#F8F7F3] p-2.5 rounded-lg border border-[#E9E5DE]">
-              <span className="text-slate-500 font-bold block text-[10px] uppercase tracking-wider">Checkout</span>
-              <span className="font-bold text-[#1D2935] text-xs sm:text-sm mt-0.5 block">{tournament.hotel.checkoutTime}</span>
+            <div className="bg-[#F1F3F5] p-2.5 rounded-xl border border-[#DCE1E7]">
+              <span className="text-[#5C6B7B] font-bold block text-[10px] uppercase tracking-wider">Checkout</span>
+              <span className="font-bold text-[#0F2942] text-xs sm:text-sm mt-0.5 block">{tournament.hotel.checkoutTime}</span>
             </div>
           </div>
 
           {/* Hub Tips Collapsible Accordion */}
-          <div className="border-t border-[#E9E5DE] pt-3">
+          <div className="border-t border-[#DCE1E7] pt-3">
             <button
               type="button"
               onClick={() => setOpenTipsGameId(openTipsGameId === "hotel" ? null : "hotel")}
               aria-expanded={openTipsGameId === "hotel"}
               className="w-full flex items-center justify-between gap-2 active:scale-[0.99] transition-transform duration-100 ease-out cursor-pointer"
             >
-              <span className="text-xs font-bold uppercase tracking-wider text-[#1D2935] flex items-center gap-1.5">
-                <Lightbulb className="w-3.5 h-3.5 text-[#D59B42]" /> Hub Tips
-                <span className="inline-flex items-center justify-center rounded-full bg-[#D59B42] text-white text-[10px] font-bold tabular-nums px-2 py-0.5 leading-none">
+              <span className="text-xs font-extrabold uppercase tracking-wider text-[#0F2942] flex items-center gap-1.5">
+                <Lightbulb className="w-3.5 h-3.5 text-[#0F2942]" aria-hidden="true" /> HUB TIPS
+                <span className="bg-[#E2E8F0] text-[#0F2942] font-black text-xs px-2 py-0.5 rounded-full tabular-nums leading-none">
                   {hotelAlerts.length}
                 </span>
               </span>
-              <ChevronDown className={`w-4 h-4 text-slate-500 transition-transform duration-200 ${openTipsGameId === "hotel" ? "rotate-180" : ""}`} />
+              <ChevronDown className={`w-4 h-4 text-[#5C6B7B] transition-transform duration-200 ${openTipsGameId === "hotel" ? "rotate-180" : ""}`} />
             </button>
 
             {openTipsGameId === "hotel" && (

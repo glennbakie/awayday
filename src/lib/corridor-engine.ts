@@ -8,7 +8,6 @@ export interface CorridorStop {
   milestoneTag: string;
   fuelAndCoffeeOptions: string;
   addressQuery: string;
-  appleMapsUrl: string;
   googleMapsUrl: string;
 }
 
@@ -57,12 +56,8 @@ export function getDynamicOriginPresets(
 
 export const CORRIDOR_ORIGIN_PRESETS = getDynamicOriginPresets("Ottawa, ON", "Oakville, ON");
 
-export function getAppleMapsDeepLink(address: string): string {
-  return `https://maps.apple.com/?daddr=${encodeURIComponent(address)}`;
-}
-
 export function getGoogleMapsDeepLink(address: string): string {
-  return `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(address)}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
 }
 
 function formatDurationMinutes(totalMins: number): string {
@@ -197,7 +192,6 @@ export function computeTravelCorridor(
           milestoneTag: "50% • Halfway Meal Stop",
           fuelAndCoffeeOptions: "Chipotle, Panera Bread, Starbucks, Shell Gas, Clean Restrooms",
           addressQuery: s1Addr,
-          appleMapsUrl: getAppleMapsDeepLink(s1Addr),
           googleMapsUrl: getGoogleMapsDeepLink(s1Addr),
         },
         {
@@ -208,7 +202,6 @@ export function computeTravelCorridor(
           milestoneTag: "75% • Quick Stretch / Coffee",
           fuelAndCoffeeOptions: "Starbucks, Tim Hortons, Pur & Simple, Esso / Canadian Tire Gas, Clean Restrooms",
           addressQuery: s2Addr,
-          appleMapsUrl: getAppleMapsDeepLink(s2Addr),
           googleMapsUrl: getGoogleMapsDeepLink(s2Addr),
         },
       ];
@@ -228,7 +221,6 @@ export function computeTravelCorridor(
           milestoneTag: "Stop 1 • Post-GTA Coffee & Fuel",
           fuelAndCoffeeOptions: "Starbucks, Tim Hortons, Subway, Esso / Petro-Canada, Clean Restrooms",
           addressQuery: s1Addr,
-          appleMapsUrl: getAppleMapsDeepLink(s1Addr),
           googleMapsUrl: getGoogleMapsDeepLink(s1Addr),
         },
         {
@@ -239,7 +231,6 @@ export function computeTravelCorridor(
           milestoneTag: "Stop 2 • Halfway Team Recovery Dinner",
           fuelAndCoffeeOptions: "Chipotle, Panera Bread, Starbucks, Harper's Burger Bar, Shell Gas, Clean Restrooms",
           addressQuery: s2Addr,
-          appleMapsUrl: getAppleMapsDeepLink(s2Addr),
           googleMapsUrl: getGoogleMapsDeepLink(s2Addr),
         },
       ];
@@ -256,7 +247,6 @@ export function computeTravelCorridor(
         milestoneTag: "50% • Primary Halfway Stop",
         fuelAndCoffeeOptions: "Starbucks, Panera Bread, Booster Juice, Tim Hortons, Shell Gas, Clean Restrooms",
         addressQuery: stopAddr,
-        appleMapsUrl: getAppleMapsDeepLink(stopAddr),
         googleMapsUrl: getGoogleMapsDeepLink(stopAddr),
       },
     ];
@@ -272,7 +262,6 @@ export function computeTravelCorridor(
         milestoneTag: "Optional Quick Stop",
         fuelAndCoffeeOptions: "Tim Hortons, Freshii, Tribeca Coffee, Booster Juice, Petro-Canada, Clean Restrooms",
         addressQuery: stopAddr,
-        appleMapsUrl: getAppleMapsDeepLink(stopAddr),
         googleMapsUrl: getGoogleMapsDeepLink(stopAddr),
       },
     ];
