@@ -67,6 +67,7 @@ interface DowntimeWindow {
 
 interface Game {
   id: string;
+  gameNumber?: number;
   dayLabel?: string;
   matchup?: string;
   opponent: string;
@@ -1807,7 +1808,7 @@ function RunSheetContent() {
           const heroJerseyShort =
             (nextGame.jerseyColor || "").replace(/\s*\((Home|Away)\)/i, "").trim() ||
             (isAwayHero ? "Dark" : "White");
-          const heroCourtLabel = /^court\b/i.test(nextGame.court.trim())
+          const heroCourtLabel = /^(court|rink|field|pad|pitch|diamond|gym)\b/i.test(nextGame.court.trim())
             ? nextGame.court.trim()
             : `Court ${nextGame.court.trim()}`;
           const heroVenueMapsQuery =
@@ -1894,38 +1895,21 @@ function RunSheetContent() {
 
           return (
             <>
-              {/* Active Hero Game Card (Crisp White Surface, Neutral Depth & Defined Alabaster Pills) */}
+              {/* Active Hero Game Card (Crisp White Surface, Neutral Depth & Sport-Neutral Monogram) */}
               <section className="hero-card-bloom relative rounded-[28px] bg-white border-[1.5px] border-[#DCE1E7] p-4 shadow-[0_12px_36px_-6px_rgba(11,25,44,0.09),0_4px_16px_rgba(11,25,44,0.03)] mb-3">
-                {/* Top Row (Pill Badges) */}
+                {/* Top Row (Pill Badge) */}
                 <div className="flex items-center justify-between gap-2 mb-3.5">
                   <span className="bg-[#EFEFEA] border border-[#D1D5DB] text-[11px] font-black tracking-wide text-[#0B192C] uppercase px-3 py-1 rounded-full">
                     {nextGame.status === "Live" ? "LIVE GAME" : "NEXT GAME"}
                   </span>
-                  <span className="bg-white border border-[#D1D5DB] text-[11px] font-black tracking-wide text-[#0B192C] uppercase px-3 py-1 rounded-full">
-                    Game {nextGameIndex + 1}
-                  </span>
                 </div>
 
-                {/* Matchup & Time Hero (Gym-First Hierarchy with Elevated Court Badge) */}
+                {/* Matchup & Time Hero (Sport-Neutral G1 Monogram & Elevated Venue Surface Badge) */}
                 <div className="flex items-start gap-4">
-                  <div
-                    aria-hidden="true"
-                    className="relative w-14 h-14 rounded-full bg-gradient-to-br from-[#FFB865] via-[#F68B28] to-[#D95D08] shadow-[0_4px_14px_rgba(217,93,8,0.32),inset_0_2px_4px_rgba(255,255,255,0.7)] flex items-center justify-center shrink-0 ring-4 ring-[#F7F6F2]"
-                  >
-                    <svg
-                      className="w-10 h-10 text-[#2B1006] stroke-current"
-                      viewBox="0 0 24 24"
-                      fill="none"
-                      strokeWidth="2.4"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                    >
-                      <circle cx="12" cy="12" r="9.5" />
-                      <path d="M12 2.5v19" />
-                      <path d="M5.2 5.2c3.5 3.5 3.5 10.1 0 13.6" />
-                      <path d="M18.8 5.2c-3.5 3.5-3.5 10.1 0 13.6" />
-                      <path d="M2.5 12h19" />
-                    </svg>
+                  <div className="w-12 h-12 rounded-2xl bg-[#0F2942] text-white flex items-center justify-center shrink-0 shadow-sm border border-white/20">
+                    <span className="text-base sm:text-lg font-black tracking-tighter tabular-nums">
+                      G{nextGame.gameNumber || nextGameIndex + 1}
+                    </span>
                   </div>
 
                   <div className="min-w-0 flex-1">
@@ -1933,8 +1917,8 @@ function RunSheetContent() {
                       <span className="text-3xl sm:text-4xl font-black text-[#0F2942] tracking-tight leading-none tabular-nums">
                         {formatTime(nextGame.tipOffMinutes)}
                       </span>
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#0F2942] text-white text-xs font-black tracking-wide uppercase shadow-xs">
-                        <span aria-hidden="true">🏀</span> {heroCourtLabel}
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-[#0F2942] text-white text-xs font-black tracking-wide uppercase shadow-xs">
+                        {heroCourtLabel}
                       </span>
                     </div>
                     <h2 className="text-base sm:text-lg font-extrabold text-[#0F2942] mt-1 leading-snug">
@@ -2230,7 +2214,7 @@ function RunSheetContent() {
                 )}
               </section>
 
-              {/* Following Game Preview Card (Clean White + Crisp Stone Border + Platinum Badge) */}
+              {/* Following Game Preview Card (Clean White + Crisp Stone Border + Sport-Neutral G2 Monogram) */}
               {followingGame && (
                 <button
                   type="button"
@@ -2241,24 +2225,10 @@ function RunSheetContent() {
                   className="w-full text-left bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3 flex items-center justify-between cursor-pointer hover:border-[#0F2942]/30 active:scale-[0.99] transition-all"
                 >
                   <div className="flex items-center gap-3 min-w-0 pr-2">
-                    <div
-                      aria-hidden="true"
-                      className="relative w-10 h-10 rounded-full bg-gradient-to-br from-[#FFB865] via-[#F68B28] to-[#D95D08] shadow-[0_3px_10px_rgba(217,93,8,0.28),inset_0_1.5px_3px_rgba(255,255,255,0.7)] ring-3 ring-[#F1F3F5] flex items-center justify-center shrink-0 overflow-hidden"
-                    >
-                      <svg
-                        className="w-7 h-7 text-[#2B1006] stroke-current"
-                        viewBox="0 0 24 24"
-                        fill="none"
-                        strokeWidth="2.4"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <circle cx="12" cy="12" r="9.5" />
-                        <path d="M12 2.5v19" />
-                        <path d="M5.2 5.2c3.5 3.5 3.5 10.1 0 13.6" />
-                        <path d="M18.8 5.2c-3.5 3.5-3.5 10.1 0 13.6" />
-                        <path d="M2.5 12h19" />
-                      </svg>
+                    <div className="w-10 h-10 rounded-xl bg-[#F1F3F5] border border-[#DCE1E7] text-[#0F2942] flex items-center justify-center shrink-0">
+                      <span className="text-sm font-black tracking-tight tabular-nums">
+                        G{followingGame.gameNumber || nextGameIndex + 2}
+                      </span>
                     </div>
                     <div className="min-w-0">
                       <span className="inline-block bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] font-black text-[11px] px-2.5 py-0.5 rounded-full uppercase tracking-wide">
@@ -2355,7 +2325,7 @@ function RunSheetContent() {
             const cardJerseyShort =
               (game.jerseyColor || "").replace(/\s*\((Home|Away)\)/i, "").trim() ||
               (isAwayCard ? "Dark" : "White");
-            const cardCourtLabel = /^court\b/i.test(game.court.trim())
+            const cardCourtLabel = /^(court|rink|field|pad|pitch|diamond|gym)\b/i.test(game.court.trim())
               ? game.court.trim()
               : `Court ${game.court.trim()}`;
             const cardVenueMapsQuery =
@@ -2381,10 +2351,10 @@ function RunSheetContent() {
                   <div className="min-w-0 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-1.5">
                       <span className="text-[#0F2942] text-xs font-extrabold tracking-tight">
-                        Game {index + 1}{game.dayLabel ? <span className="text-[#5C6B7B] font-semibold">{` • ${game.dayLabel}`}</span> : ""}
+                        Game {game.gameNumber || index + 1}{game.dayLabel ? <span className="text-[#5C6B7B] font-semibold">{` • ${game.dayLabel}`}</span> : ""}
                       </span>
-                      <span className="inline-flex items-center gap-1 rounded-md bg-[#0F2942] text-white text-[10px] font-black tracking-wide uppercase px-2 py-0.5 shadow-2xs">
-                        <span aria-hidden="true">🏀</span> {cardCourtLabel}
+                      <span className="inline-flex items-center rounded-md bg-[#0F2942] text-white text-[10px] font-black tracking-wide uppercase px-2 py-0.5 shadow-2xs">
+                        {cardCourtLabel}
                       </span>
                       {game.telemetryFlag && (
                         <span className="inline-flex items-center rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
