@@ -42,11 +42,15 @@
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
   --color-warm-ivory: var(--awayday-warm-ivory);
+  --color-neutral-cream: var(--awayday-neutral-cream);
+  --color-pill-fill: var(--awayday-pill-fill);
+  --color-pill-border: var(--awayday-pill-border);
   --color-clean-white: var(--awayday-clean-white);
   --color-warm-stone: var(--awayday-warm-stone);
   --color-platinum-stone: var(--awayday-platinum-stone);
   --color-card-border: var(--awayday-card-border);
   --color-midnight-ink: var(--awayday-midnight-ink);
+  --color-deep-navy: var(--awayday-deep-navy);
   --color-golden-amber: var(--awayday-golden-amber);
   --color-status-emerald: var(--awayday-status-emerald);
   --color-status-cobalt: var(--awayday-status-cobalt);
@@ -62,11 +66,15 @@
 
 :root {
   --awayday-warm-ivory: #F8F7F3;
+  --awayday-neutral-cream: #F7F6F2;
+  --awayday-pill-fill: #EFEFEA;
+  --awayday-pill-border: #D1D5DB;
   --awayday-clean-white: #FFFFFF;
   --awayday-warm-stone: #E9E5DE;
   --awayday-platinum-stone: #F1F3F5;
   --awayday-card-border: #DCE1E7;
   --awayday-midnight-ink: #1D2935;
+  --awayday-deep-navy: #0B192C;
   --awayday-golden-amber: #D59B42;
   --awayday-status-emerald: #10B981;
   --awayday-status-cobalt: #2563EB;
@@ -192,11 +200,11 @@ body {
   border-radius: 26px;
 }
 
-/* Custom ambient glow shadows (composes cleanly with Tailwind ring-* utilities) */
+/* Neutral cool-slate tactile depth shadows (zero peach/orange cast) */
 .shadow-tactile {
   --tw-shadow:
-    0 1px 2px rgba(0, 0, 0, 0.02),
-    0 8px 24px -4px rgba(180, 140, 75, 0.10),
+    0 1px 2px rgba(11, 25, 44, 0.03),
+    0 8px 24px -4px rgba(11, 25, 44, 0.06),
     0 16px 36px -6px rgba(29, 41, 53, 0.05);
   box-shadow:
     var(--tw-inset-shadow, 0 0 #0000),
@@ -208,8 +216,8 @@ body {
 
 .shadow-tactile-sm {
   --tw-shadow:
-    0 4px 14px -2px rgba(180, 140, 75, 0.08),
-    0 2px 6px -1px rgba(0, 0, 0, 0.03);
+    0 4px 14px -2px rgba(11, 25, 44, 0.05),
+    0 2px 6px -1px rgba(11, 25, 44, 0.03);
   box-shadow:
     var(--tw-inset-shadow, 0 0 #0000),
     var(--tw-inset-ring-shadow, 0 0 #0000),
@@ -220,8 +228,8 @@ body {
 
 .shadow-tactile-banner {
   --tw-shadow:
-    0 8px 20px -4px rgba(213, 155, 66, 0.22),
-    0 3px 8px -2px rgba(213, 155, 66, 0.12);
+    0 8px 20px -4px rgba(11, 25, 44, 0.08),
+    0 3px 8px -2px rgba(11, 25, 44, 0.04);
   box-shadow:
     var(--tw-inset-shadow, 0 0 #0000),
     var(--tw-inset-ring-shadow, 0 0 #0000),
@@ -240,7 +248,7 @@ body {
 }
 
 .stadium-canvas :is(a, button):focus-visible {
-  outline: 2px solid var(--awayday-golden-amber);
+  outline: 2px solid var(--awayday-deep-navy);
   outline-offset: 2px;
 }
 
