@@ -1572,10 +1572,10 @@ function RunSheetContent() {
       <header className="sticky top-0 z-30 bg-[#F8F7F3]/90 backdrop-blur-md px-4 py-3">
         <div className="max-w-md mx-auto flex items-center justify-between">
           <div className="flex items-baseline select-none tracking-tight">
-            <span className="text-2xl font-black italic text-[#0B192C] tracking-tighter">
+            <span className="text-[28px] leading-none font-black italic text-[#0B192C] tracking-tight pr-0.5 [-webkit-text-stroke:0.45px_#0B192C]">
               Away
             </span>
-            <span className="text-2xl font-black italic text-[#D59B42] tracking-tighter">
+            <span className="text-[28px] leading-none font-black italic text-[#D59B42] tracking-tight [-webkit-text-stroke:0.45px_#D59B42]">
               Day.
             </span>
           </div>
@@ -1900,26 +1900,26 @@ function RunSheetContent() {
                   <div className="flex items-start gap-4">
                     <div
                       aria-hidden="true"
-                      className="relative w-14 h-14 rounded-full bg-gradient-to-br from-[#FDBA74] via-[#FB923C] to-[#EA580C] shadow-[0_4px_12px_rgba(234,88,12,0.35),inset_0_2px_4px_rgba(255,255,255,0.7)] ring-4 ring-[#FDEFD9] flex items-center justify-center shrink-0 overflow-hidden"
+                      className="relative w-14 h-14 rounded-full bg-gradient-to-br from-[#FFB865] via-[#F68B28] to-[#D95D08] shadow-[0_4px_14px_rgba(217,93,8,0.4),inset_0_2px_4px_rgba(255,255,255,0.7)] flex items-center justify-center shrink-0 ring-4 ring-[#FDEFD9]"
                     >
                       <svg
-                        className="w-10 h-10 text-[#7C2D12] stroke-current"
+                        className="w-10 h-10 text-[#2B1006] stroke-current"
                         viewBox="0 0 24 24"
                         fill="none"
-                        strokeWidth="1.8"
+                        strokeWidth="2.4"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M4.93 4.93c3.9 3.9 3.9 10.24 0 14.14" />
-                        <path d="M19.07 4.93c-3.9 3.9-3.9 10.24 0 14.14" />
-                        <path d="M12 2v20" />
-                        <path d="M2 12h20" />
+                        <circle cx="12" cy="12" r="9.5" />
+                        <path d="M12 2.5v19" />
+                        <path d="M5.2 5.2c3.5 3.5 3.5 10.1 0 13.6" />
+                        <path d="M18.8 5.2c-3.5 3.5-3.5 10.1 0 13.6" />
+                        <path d="M2.5 12h19" />
                       </svg>
                     </div>
 
                     <div className="min-w-0 flex-1">
-                      <div className="text-3xl sm:text-4xl font-black text-[#0F2942] tracking-tight leading-none tabular-nums">
+                      <div className="text-3xl sm:text-4xl font-black text-[#0B192C] tracking-tight leading-none tabular-nums">
                         {formatTime(nextGame.tipOffMinutes)}
                       </div>
                       <h2 className="text-base sm:text-lg font-extrabold text-[#0F2942] mt-1 leading-snug">
@@ -1933,20 +1933,20 @@ function RunSheetContent() {
                       >
                         <svg
                           aria-hidden="true"
-                          className="w-3.5 h-3.5 text-[#0F2942] fill-current shrink-0"
+                          className="w-3.5 h-3.5 text-[#0B192C] fill-current shrink-0"
                           viewBox="0 0 24 24"
                         >
-                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                          <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 7.12 11.45 7.42 11.71.34.3.82.3 1.16 0C12.88 21.45 20 15.25 20 10c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
                         </svg>
                         <span className="truncate">{nextGame.venueName}</span>
                       </a>
                       <div className="flex items-center gap-1.5 text-xs font-medium text-[#2A435E] mt-0.5">
                         <svg
                           viewBox="0 0 24 24"
-                          className="w-3.5 h-3.5 text-[#0F2942] shrink-0"
+                          className="w-3.5 h-3.5 text-[#0B192C] shrink-0"
                           fill="none"
                           stroke="currentColor"
-                          strokeWidth="2.2"
+                          strokeWidth="2.3"
                           aria-hidden="true"
                         >
                           <circle cx="12" cy="12" r="9" />
@@ -1959,22 +1959,20 @@ function RunSheetContent() {
 
                   <div className="h-px bg-[#E9E5DE]/80 my-4" />
 
-                  {/* 3-Column Timing Strip (Solid Filled Graphic Icons & Deep Navy Values) */}
+                  {/* 3-Column Timing Strip (Chunky Solid Silhouettes & Sculpted Trophy) */}
                   <div className="divide-x divide-[#E9E5DE]/80 flex items-start text-center py-1">
                     <div className="flex-1 px-1 flex flex-col items-center">
                       <svg
                         aria-hidden="true"
-                        className="w-6 h-6 text-[#0F2942] fill-current mb-1"
+                        className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1"
                         viewBox="0 0 24 24"
                       >
-                        <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.85 7h10.29l1.04 3H5.81l1.04-3zM19 17H5v-4.66l.12-.34h13.77l.11.34V17z" />
-                        <circle cx="7.5" cy="14.5" r="1.5" />
-                        <circle cx="16.5" cy="14.5" r="1.5" />
+                        <path d="M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v9c0 .55.45 1 1 1h1.5c.55 0 1-.45 1-1v-1h11v1c0 .55.45 1 1 1H20c.55 0 1-.45 1-1v-9l-2.08-5.99zM6.5 6h11l1.04 3H5.46l1.04-3zM7.5 16c-.83 0-1.5-.67-1.5-1.5S6.67 13 7.5 13s1.5.67 1.5 1.5S8.33 16 7.5 16zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
                       </svg>
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                      <span className="text-xs font-semibold text-slate-600">
                         Depart
                       </span>
-                      <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                      <span className="text-base sm:text-lg font-black text-[#0B192C] tabular-nums mt-0.5 leading-tight">
                         {formatTime(nextDepart)}
                       </span>
                     </div>
@@ -1982,18 +1980,18 @@ function RunSheetContent() {
                     <div className="flex-1 px-1 flex flex-col items-center">
                       <svg
                         aria-hidden="true"
-                        className="w-6 h-6 text-[#0F2942] fill-current mb-1"
+                        className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1"
                         viewBox="0 0 24 24"
                       >
-                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                        <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 7.12 11.45 7.42 11.71.34.3.82.3 1.16 0C12.88 21.45 20 15.25 20 10c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
                       </svg>
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                      <span className="text-xs font-semibold text-slate-600">
                         Arrive
                       </span>
-                      <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                      <span className="text-base sm:text-lg font-black text-[#0B192C] tabular-nums mt-0.5 leading-tight">
                         {formatTime(nextArrival)}
                       </span>
-                      <span className="text-[10px] font-semibold text-slate-400 mt-0.5">
+                      <span className="text-[11px] font-medium text-slate-500 mt-0.5">
                         ({bufferMins} min buffer)
                       </span>
                     </div>
@@ -2001,15 +1999,44 @@ function RunSheetContent() {
                     <div className="flex-1 px-1 flex flex-col items-center">
                       <svg
                         aria-hidden="true"
-                        className="w-6 h-6 text-[#D59B42] fill-current mb-1"
+                        className="w-7 h-7 sm:w-8 sm:h-8 mx-auto mb-1 drop-shadow-xs"
                         viewBox="0 0 24 24"
+                        fill="none"
                       >
-                        <path d="M19 5h-2V3H7v2H5c-1.1 0-2 .9-2 2v1c0 2.55 1.92 4.63 4.39 4.94A5.01 5.01 0 0011 15.9V19H7v2h10v-2h-4v-3.1a5.01 5.01 0 003.61-2.96C19.08 12.63 21 10.55 21 8V7c0-1.1-.9-2-2-2zM5 8V7h2v3.82C5.84 10.4 5 9.3 5 8zm14 0c0 1.3-.84 2.4-2 2.82V7h2v1z" />
+                        <defs>
+                          <linearGradient id="awayday-trophy-cup" x1="6" y1="3" x2="18" y2="16" gradientUnits="userSpaceOnUse">
+                            <stop offset="0%" stopColor="#FAD275" />
+                            <stop offset="48%" stopColor="#DF9E38" />
+                            <stop offset="100%" stopColor="#B67418" />
+                          </linearGradient>
+                        </defs>
+                        <path
+                          d="M6.5 5H4.5C3.67 5 3 5.67 3 6.5V8c0 2.35 1.72 4.3 3.98 4.68M17.5 5h2c.83 0 1.5.67 1.5 1.5V8c0 2.35-1.72 4.3-3.98 4.68"
+                          stroke="#C88725"
+                          strokeWidth="2.1"
+                          strokeLinecap="round"
+                        />
+                        <path
+                          d="M6.5 3.5h11v4.7c0 3.25-2.35 5.95-5.5 6.45-3.15-.5-5.5-3.2-5.5-6.45V3.5z"
+                          fill="url(#awayday-trophy-cup)"
+                        />
+                        <rect x="6" y="2.5" width="12" height="2" rx="1" fill="#B67418" />
+                        <rect x="6.5" y="2.8" width="11" height="0.9" rx="0.45" fill="#FDE6A6" fillOpacity="0.8" />
+                        <path
+                          d="M8.5 5.5v3.2c0 1.6.7 3.05 1.85 3.95"
+                          stroke="#FFF3CC"
+                          strokeWidth="1.3"
+                          strokeLinecap="round"
+                          strokeOpacity="0.75"
+                        />
+                        <rect x="10.4" y="14.2" width="3.2" height="3.3" rx="0.8" fill="#C88725" />
+                        <path d="M8 17.5h8l.8 2.5H7.2L8 17.5z" fill="#9A6218" />
+                        <rect x="6.5" y="19.8" width="11" height="1.7" rx="0.85" fill="#7C4B0E" />
                       </svg>
-                      <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wide">
+                      <span className="text-xs font-semibold text-slate-600">
                         Tip-Off
                       </span>
-                      <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                      <span className="text-base sm:text-lg font-black text-[#0B192C] tabular-nums mt-0.5 leading-tight">
                         {formatTime(nextGame.tipOffMinutes)}
                       </span>
                     </div>
@@ -2017,12 +2044,12 @@ function RunSheetContent() {
 
                   <div className="h-px bg-[#E9E5DE]/80 my-3" />
 
-                  {/* Bottom Metadata Strip (Solid Navy Shirt & Solid Emerald Check Badge) */}
+                  {/* Bottom Metadata Strip (Bolder w-5 h-5 Shirt & Emerald Check Circle) */}
                   <div className="flex items-center justify-between text-xs font-semibold text-[#2A435E] pt-1">
                     <div className="flex items-center gap-2">
                       <svg
                         aria-hidden="true"
-                        className="w-4 h-4 fill-[#0F2942] shrink-0"
+                        className="w-5 h-5 text-[#0B192C] fill-current shrink-0"
                         viewBox="0 0 24 24"
                       >
                         <path d="M16.5 3c-1.1 1.35-2.68 2.2-4.5 2.2S8.6 4.35 7.5 3L2 5.5l2.2 4.4 2.8-1.1V21h10V8.8l2.8 1.1L22 5.5 16.5 3z" />
@@ -2033,9 +2060,18 @@ function RunSheetContent() {
                     <div className="flex items-center gap-2">
                       <span
                         aria-hidden="true"
-                        className="w-4 h-4 rounded-full bg-emerald-500 text-white flex items-center justify-center text-[10px] font-black shrink-0 shadow-2xs"
+                        className="w-5 h-5 bg-[#10B981] text-white font-black text-xs flex items-center justify-center rounded-full shadow-xs shrink-0"
                       >
-                        ✓
+                        <svg
+                          className="w-3 h-3 stroke-current"
+                          viewBox="0 0 12 12"
+                          fill="none"
+                          strokeWidth="2.6"
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                        >
+                          <path d="M2.5 6.3L5 8.8L9.5 3.5" />
+                        </svg>
                       </span>
                       <span>
                         Team Check-in: {nextGame.status && nextGame.status !== "Upcoming" ? nextGame.status : "Complete"}
@@ -2053,15 +2089,15 @@ function RunSheetContent() {
                   className="w-full text-left rounded-[22px] bg-gradient-to-r from-[#FDE8CC] via-[#FCE3BE] to-[#F7D4A0] border border-[#F2C078]/60 p-3.5 flex items-center justify-between shadow-tactile-banner mb-3 cursor-pointer hover:brightness-[0.99] active:scale-[0.99] transition-all"
                 >
                   <div className="flex items-center gap-3 min-w-0 pr-2">
-                    <div className="w-9 h-9 rounded-full bg-white/70 shadow-xs flex items-center justify-center text-[#9A6218] shrink-0">
-                      <Clock className="w-4 h-4" aria-hidden="true" />
+                    <div className="w-9 h-9 rounded-full bg-white/75 shadow-xs flex items-center justify-center text-[#B4690E] shrink-0">
+                      <Clock className="w-5 h-5 stroke-[2.4]" aria-hidden="true" />
                     </div>
                     <div className="min-w-0">
-                      <div className="text-[13px] font-extrabold text-[#0F2942]">{turnaroundTitle}</div>
+                      <div className="text-[13px] font-extrabold text-[#0B192C]">{turnaroundTitle}</div>
                       <div className="text-[11px] font-medium text-[#7A531C] leading-snug">{turnaroundSubtitle}</div>
                     </div>
                   </div>
-                  <ChevronRight className="w-5 h-5 text-[#9A6218] shrink-0" aria-hidden="true" />
+                  <ChevronRight className="w-5 h-5 text-[#9A6218] stroke-[2.4] shrink-0" aria-hidden="true" />
                 </button>
               )}
 
@@ -2078,21 +2114,21 @@ function RunSheetContent() {
                   <div className="flex items-center gap-3 min-w-0 pr-2">
                     <div
                       aria-hidden="true"
-                      className="relative w-10 h-10 rounded-full bg-gradient-to-br from-[#FDBA74] via-[#FB923C] to-[#EA580C] shadow-[0_3px_10px_rgba(234,88,12,0.3),inset_0_1.5px_3px_rgba(255,255,255,0.7)] ring-3 ring-[#FDEFD9] flex items-center justify-center shrink-0 overflow-hidden"
+                      className="relative w-10 h-10 rounded-full bg-gradient-to-br from-[#FFB865] via-[#F68B28] to-[#D95D08] shadow-[0_3px_10px_rgba(217,93,8,0.32),inset_0_1.5px_3px_rgba(255,255,255,0.7)] ring-3 ring-[#FDEFD9] flex items-center justify-center shrink-0 overflow-hidden"
                     >
                       <svg
-                        className="w-7 h-7 text-[#7C2D12] stroke-current"
+                        className="w-7 h-7 text-[#2B1006] stroke-current"
                         viewBox="0 0 24 24"
                         fill="none"
-                        strokeWidth="1.9"
+                        strokeWidth="2.4"
                         strokeLinecap="round"
                         strokeLinejoin="round"
                       >
-                        <circle cx="12" cy="12" r="10" />
-                        <path d="M4.93 4.93c3.9 3.9 3.9 10.24 0 14.14" />
-                        <path d="M19.07 4.93c-3.9 3.9-3.9 10.24 0 14.14" />
-                        <path d="M12 2v20" />
-                        <path d="M2 12h20" />
+                        <circle cx="12" cy="12" r="9.5" />
+                        <path d="M12 2.5v19" />
+                        <path d="M5.2 5.2c3.5 3.5 3.5 10.1 0 13.6" />
+                        <path d="M18.8 5.2c-3.5 3.5-3.5 10.1 0 13.6" />
+                        <path d="M2.5 12h19" />
                       </svg>
                     </div>
                     <div className="min-w-0">
