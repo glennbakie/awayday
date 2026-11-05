@@ -122,6 +122,24 @@ function CitySkylineFallback() {
   );
 }
 
+function getDynamicCityPhoto(cityName?: string): string {
+  const city = (cityName || "").toLowerCase();
+  if (city.includes("oakville") || city.includes("burlington")) {
+    return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&h=300&q=80";
+  }
+  if (city.includes("ottawa")) {
+    return "https://images.unsplash.com/photo-1541888946425-d0fbb1866ff6?auto=format&fit=crop&w=300&h=300&q=80";
+  }
+  if (city.includes("toronto")) {
+    return "https://images.unsplash.com/photo-1517090504586-fde19ea6066f?auto=format&fit=crop&w=300&h=300&q=80";
+  }
+  if (city.includes("montreal")) {
+    return "https://images.unsplash.com/photo-1519178152345-4277b0653066?auto=format&fit=crop&w=300&h=300&q=80";
+  }
+  // Clean universal city architecture default
+  return "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=300&h=300&q=80";
+}
+
 function RunSheetContent() {
   const searchParams = useSearchParams();
   const params = useParams();
@@ -251,6 +269,7 @@ function RunSheetContent() {
     teamName: "Ottawa Elite (U16)",
     dates: "Oct 24 - 25, 2026",
     city: "Oakville / Burlington, ON",
+    heroImageUrl: undefined,
     primaryHub: "St. Thomas Aquinas & Notre Dame",
     primaryHubAddress: "124 Dorval Dr, Oakville, ON L6K 2W1",
     lastUpdatedText: "Official NPH Session #1 Weekend Run-Sheet",
@@ -266,13 +285,13 @@ function RunSheetContent() {
   const [imgError, setImgError] = useState(false);
   const cityThumbImgRef = useRef<HTMLImageElement | null>(null);
 
-  // Derive dynamic free Unsplash photo URL from tournament city
+  // Derive curated direct Unsplash CDN photo URL from tournament city
   const primaryCity = (tournament.city || tournament.location || "travel")
     .split("/")[0]
     .split(",")[0]
     .trim();
 
-  const dynamicCityUrl = `https://source.unsplash.com/300x300/?${encodeURIComponent(primaryCity)},city,landmark`;
+  const dynamicCityUrl = getDynamicCityPhoto(tournament.city || tournament.location);
   const resolvedTournamentThumbUrl = tournament.heroImageUrl || dynamicCityUrl;
 
   useEffect(() => {
