@@ -99,45 +99,57 @@ interface MealOption {
   suggestedBy?: string;
 }
 
-function CitySkylineFallback() {
+function TournamentBadge({ seed = "awayday" }: { seed?: string }) {
+  // Deterministic index (0 to 3) based on tournament name/city string
+  const hash = seed.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const variant = Math.abs(hash) % 4;
+
   return (
-    <div className="w-full h-full bg-gradient-to-b from-[#E2E8F0] to-[#CBD5E1] flex items-end justify-center p-2 overflow-hidden relative">
-      <svg
-        viewBox="0 0 100 80"
-        className="w-full h-auto text-[#0B192C]/30 fill-current"
-        preserveAspectRatio="none"
-        aria-hidden="true"
-      >
-        {/* Stylized geometric skyline silhouettes */}
-        <rect x="5" y="30" width="14" height="50" rx="1" />
-        <rect x="22" y="15" width="16" height="65" rx="1" />
-        <polygon points="30,5 24,15 36,15" />
-        <rect x="42" y="38" width="12" height="42" rx="1" />
-        <rect x="58" y="22" width="18" height="58" rx="1" />
-        <rect x="80" y="32" width="15" height="48" rx="1" />
-      </svg>
-      {/* Subtle warm ambient horizon highlight */}
-      <div className="absolute inset-0 bg-gradient-to-t from-[#D59B42]/10 to-transparent pointer-events-none" />
+    <div className="w-24 h-24 rounded-2xl overflow-hidden bg-gradient-to-br from-[#E2E8F0] via-[#F1F3F5] to-[#CBD5E1] border-[1.5px] border-[#DCE1E7] relative flex items-center justify-center shrink-0 shadow-xs">
+      {/* Subtle warm amber ambient glow in the corner */}
+      <div className="absolute -top-4 -right-4 w-12 h-12 rounded-full bg-[#D59B42]/15 blur-lg pointer-events-none" />
+
+      {variant === 0 && (
+        /* 0: Skyline / Spire */
+        <svg viewBox="0 0 64 64" className="w-12 h-12 text-[#0F2942] fill-current" aria-hidden="true">
+          <rect x="8" y="28" width="10" height="30" rx="1" fillOpacity="0.75" />
+          <rect x="22" y="16" width="12" height="42" rx="1" fillOpacity="0.9" />
+          <polygon points="28,6 23,16 33,16" className="text-[#D59B42] fill-current" />
+          <rect x="38" y="24" width="8" height="34" rx="1" fillOpacity="0.7" />
+          <rect x="48" y="32" width="8" height="26" rx="1" fillOpacity="0.8" />
+        </svg>
+      )}
+
+      {variant === 1 && (
+        /* 1: Compass Rose / Travel Pin */
+        <svg viewBox="0 0 64 64" className="w-12 h-12 text-[#0F2942]" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <circle cx="32" cy="32" r="22" strokeOpacity="0.3" />
+          <polygon points="32,14 37,28 32,24 27,28" className="text-[#D59B42] fill-current stroke-none" />
+          <polygon points="32,50 37,36 32,40 27,36" className="text-[#0F2942] fill-current stroke-none" />
+          <polygon points="50,32 36,37 40,32 36,27" className="text-[#0F2942]/60 fill-current stroke-none" />
+          <polygon points="14,32 28,37 24,32 28,27" className="text-[#0F2942]/60 fill-current stroke-none" />
+          <circle cx="32" cy="32" r="2.5" fill="currentColor" />
+        </svg>
+      )}
+
+      {variant === 2 && (
+        /* 2: Arena Gateway / Banners */
+        <svg viewBox="0 0 64 64" className="w-12 h-12 text-[#0F2942] fill-current" aria-hidden="true">
+          <path d="M12 48V20l20-8 20 8v28H44V28H20v20H12z" fillOpacity="0.85" />
+          <circle cx="32" cy="20" r="4" className="text-[#D59B42] fill-current" />
+          <line x1="8" y1="52" x2="56" y2="52" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
+        </svg>
+      )}
+
+      {variant === 3 && (
+        /* 3: Competition Shield & Star */
+        <svg viewBox="0 0 64 64" className="w-12 h-12 text-[#0F2942]" fill="none" aria-hidden="true">
+          <path d="M32 10L16 16v16c0 12 7 20 16 24 9-4 16-12 16-24V16L32 10z" className="fill-[#0F2942]/10 stroke-current" strokeWidth="2.5" />
+          <path d="M32 22l2.5 5.5 6 .8-4.5 4.2 1.2 6-5.2-3-5.2 3 1.2-6-4.5-4.2 6-.8L32 22z" className="text-[#D59B42] fill-current stroke-none" />
+        </svg>
+      )}
     </div>
   );
-}
-
-function getDynamicCityPhoto(cityName?: string): string {
-  const city = (cityName || "").toLowerCase();
-  if (city.includes("oakville") || city.includes("burlington")) {
-    return "https://images.unsplash.com/photo-1507525428034-b723cf961d3e?auto=format&fit=crop&w=300&h=300&q=80";
-  }
-  if (city.includes("ottawa")) {
-    return "https://images.unsplash.com/photo-1541888946425-d0fbb1866ff6?auto=format&fit=crop&w=300&h=300&q=80";
-  }
-  if (city.includes("toronto")) {
-    return "https://images.unsplash.com/photo-1517090504586-fde19ea6066f?auto=format&fit=crop&w=300&h=300&q=80";
-  }
-  if (city.includes("montreal")) {
-    return "https://images.unsplash.com/photo-1519178152345-4277b0653066?auto=format&fit=crop&w=300&h=300&q=80";
-  }
-  // Clean universal city architecture default
-  return "https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?auto=format&fit=crop&w=300&h=300&q=80";
 }
 
 function RunSheetContent() {
@@ -251,7 +263,6 @@ function RunSheetContent() {
     dates: string;
     city: string;
     location?: string;
-    heroImageUrl?: string;
     primaryHub: string;
     primaryHubAddress: string;
     lastUpdatedText: string;
@@ -269,7 +280,6 @@ function RunSheetContent() {
     teamName: "Ottawa Elite (U16)",
     dates: "Oct 24 - 25, 2026",
     city: "Oakville / Burlington, ON",
-    heroImageUrl: undefined,
     primaryHub: "St. Thomas Aquinas & Notre Dame",
     primaryHubAddress: "124 Dorval Dr, Oakville, ON L6K 2W1",
     lastUpdatedText: "Official NPH Session #1 Weekend Run-Sheet",
@@ -281,26 +291,6 @@ function RunSheetContent() {
       checkoutTime: "12:00 PM"
     }
   };
-
-  const [imgError, setImgError] = useState(false);
-  const cityThumbImgRef = useRef<HTMLImageElement | null>(null);
-
-  // Derive curated direct Unsplash CDN photo URL from tournament city
-  const primaryCity = (tournament.city || tournament.location || "travel")
-    .split("/")[0]
-    .split(",")[0]
-    .trim();
-
-  const dynamicCityUrl = getDynamicCityPhoto(tournament.city || tournament.location);
-  const resolvedTournamentThumbUrl = tournament.heroImageUrl || dynamicCityUrl;
-
-  useEffect(() => {
-    setImgError(false);
-    const imgEl = cityThumbImgRef.current;
-    if (imgEl && imgEl.complete && imgEl.naturalWidth === 0) {
-      setImgError(true);
-    }
-  }, [resolvedTournamentThumbUrl]);
 
   const coffeeSpots = [
     {
@@ -1706,23 +1696,8 @@ function RunSheetContent() {
         {/* Tournament Header Card ("YOUR NEXT AWAY DAY") */}
         <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3">
           <div className="flex items-center gap-3.5">
-            {/* Left: Dynamic tournament city photo with stylized SVG skyline fallback */}
-            <div className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 shrink-0 border-[1.5px] border-[#DCE1E7] relative shadow-xs">
-              {!imgError ? (
-                <img
-                  ref={cityThumbImgRef}
-                  src={tournament.heroImageUrl || dynamicCityUrl}
-                  alt={`${primaryCity} tournament location`}
-                  width={96}
-                  height={96}
-                  className="w-full h-full object-cover transition-opacity duration-300"
-                  loading="lazy"
-                  onError={() => setImgError(true)}
-                />
-              ) : (
-                <CitySkylineFallback />
-              )}
-            </div>
+            {/* Left: Deterministic rotating sport-neutral vector badge */}
+            <TournamentBadge seed={tournament.name || tournament.city} />
 
             {/* Right: Tournament metadata & Manager Tools trigger */}
             <div className="flex-1 min-w-0">
