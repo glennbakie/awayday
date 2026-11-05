@@ -99,6 +99,29 @@ interface MealOption {
   suggestedBy?: string;
 }
 
+function CitySkylineFallback() {
+  return (
+    <div className="w-full h-full bg-gradient-to-b from-[#E2E8F0] to-[#CBD5E1] flex items-end justify-center p-2 overflow-hidden relative">
+      <svg
+        viewBox="0 0 100 80"
+        className="w-full h-auto text-[#0B192C]/30 fill-current"
+        preserveAspectRatio="none"
+        aria-hidden="true"
+      >
+        {/* Stylized geometric skyline silhouettes */}
+        <rect x="5" y="30" width="14" height="50" rx="1" />
+        <rect x="22" y="15" width="16" height="65" rx="1" />
+        <polygon points="30,5 24,15 36,15" />
+        <rect x="42" y="38" width="12" height="42" rx="1" />
+        <rect x="58" y="22" width="18" height="58" rx="1" />
+        <rect x="80" y="32" width="15" height="48" rx="1" />
+      </svg>
+      {/* Subtle warm ambient horizon highlight */}
+      <div className="absolute inset-0 bg-gradient-to-t from-[#D59B42]/10 to-transparent pointer-events-none" />
+    </div>
+  );
+}
+
 function RunSheetContent() {
   const searchParams = useSearchParams();
   const params = useParams();
@@ -202,7 +225,26 @@ function RunSheetContent() {
     }
   };
 
-  const tournament = {
+  const tournament: {
+    name: string;
+    division: string;
+    leagueName: string;
+    teamName: string;
+    dates: string;
+    city: string;
+    location?: string;
+    heroImageUrl?: string;
+    primaryHub: string;
+    primaryHubAddress: string;
+    lastUpdatedText: string;
+    hotel: {
+      name: string;
+      address: string;
+      rate: string;
+      breakfastHours: string;
+      checkoutTime: string;
+    };
+  } = {
     name: "NPH Session #1 - Oakville",
     division: "Grade 11 Tier 2",
     leagueName: "Grade 11 Tier 2 • NPH Showcase",
@@ -220,6 +262,26 @@ function RunSheetContent() {
       checkoutTime: "12:00 PM"
     }
   };
+
+  const [imgError, setImgError] = useState(false);
+  const cityThumbImgRef = useRef<HTMLImageElement | null>(null);
+
+  // Derive dynamic free Unsplash photo URL from tournament city
+  const primaryCity = (tournament.city || tournament.location || "travel")
+    .split("/")[0]
+    .split(",")[0]
+    .trim();
+
+  const dynamicCityUrl = `https://source.unsplash.com/300x300/?${encodeURIComponent(primaryCity)},city,landmark`;
+  const resolvedTournamentThumbUrl = tournament.heroImageUrl || dynamicCityUrl;
+
+  useEffect(() => {
+    setImgError(false);
+    const imgEl = cityThumbImgRef.current;
+    if (imgEl && imgEl.complete && imgEl.naturalWidth === 0) {
+      setImgError(true);
+    }
+  }, [resolvedTournamentThumbUrl]);
 
   const coffeeSpots = [
     {
@@ -1625,60 +1687,22 @@ function RunSheetContent() {
         {/* Tournament Header Card ("YOUR NEXT AWAY DAY") */}
         <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3">
           <div className="flex items-center gap-3.5">
-            {/* Left: Rounded travel harbor/cityscape thumbnail */}
-            <div
-              aria-hidden="true"
-              className="w-24 h-24 rounded-2xl object-cover overflow-hidden bg-[#F1F3F5] ring-1 ring-[#DCE1E7] shrink-0 relative"
-            >
-              <svg viewBox="0 0 96 96" className="w-full h-full object-cover" fill="none">
-                <defs>
-                  <linearGradient id="awayday-sky" x1="0" y1="0" x2="0" y2="56" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#4A9AE2" />
-                    <stop offset="65%" stopColor="#A8D4F7" />
-                    <stop offset="100%" stopColor="#FCE7BD" />
-                  </linearGradient>
-                  <linearGradient id="awayday-water" x1="0" y1="56" x2="0" y2="96" gradientUnits="userSpaceOnUse">
-                    <stop offset="0%" stopColor="#5D8BB5" />
-                    <stop offset="55%" stopColor="#7DA7CC" />
-                    <stop offset="100%" stopColor="#4A7399" />
-                  </linearGradient>
-                </defs>
-                <rect width="96" height="58" fill="url(#awayday-sky)" />
-                {/* Soft sunlit clouds */}
-                <ellipse cx="26" cy="18" rx="18" ry="5" fill="#FFFFFF" fillOpacity="0.65" />
-                <ellipse cx="68" cy="14" rx="16" ry="4.5" fill="#FFFFFF" fillOpacity="0.5" />
-                {/* Distant sunlit skyline & spires */}
-                <path
-                  d="M0 56V46H10V40L14 33L18 40V45H26V38H35V44H43V35L47 24L51 35V43H58V37L62 29L66 37V44H75V39H85V45H96V56H0Z"
-                  fill="#C89352"
+            {/* Left: Dynamic tournament city photo with stylized SVG skyline fallback */}
+            <div className="w-24 h-24 rounded-2xl overflow-hidden bg-slate-100 shrink-0 border-[1.5px] border-[#DCE1E7] relative shadow-xs">
+              {!imgError ? (
+                <img
+                  ref={cityThumbImgRef}
+                  src={tournament.heroImageUrl || dynamicCityUrl}
+                  alt={`${primaryCity} tournament location`}
+                  width={96}
+                  height={96}
+                  className="w-full h-full object-cover transition-opacity duration-300"
+                  loading="lazy"
+                  onError={() => setImgError(true)}
                 />
-                <path
-                  d="M12 56V45H22V41H32V46H45V39H55V45H68V40H80V46H96V56H12Z"
-                  fill="#34495E"
-                  fillOpacity="0.55"
-                />
-                {/* Lush shoreline foliage */}
-                <path
-                  d="M0 57C8 50 18 51 26 55C35 49 48 50 58 55C68 49 82 50 96 55V59H0V57Z"
-                  fill="#5E8F3E"
-                />
-                {/* Harbor water */}
-                <rect y="57" width="96" height="39" fill="url(#awayday-water)" />
-                {/* Golden water reflections */}
-                <rect x="42" y="61" width="14" height="2" rx="1" fill="#FCE7BD" fillOpacity="0.65" />
-                <rect x="36" y="66" width="24" height="1.5" rx="0.75" fill="#FCE7BD" fillOpacity="0.45" />
-                <rect x="14" y="74" width="18" height="1.5" rx="0.75" fill="#FFFFFF" fillOpacity="0.35" />
-                <rect x="58" y="79" width="22" height="1.5" rx="0.75" fill="#FFFFFF" fillOpacity="0.35" />
-                {/* Marina sailboats */}
-                <path d="M21 34L27 59H19L21 34Z" fill="#FFFFFF" />
-                <path d="M19.5 39L14 59H19.5V39Z" fill="#F1F5F9" />
-                <path d="M13 60H28L26 64H15L13 60Z" fill="#1D2935" />
-                <path d="M51 38L56 60H49.5L51 38Z" fill="#FFFFFF" />
-                <path d="M49.5 43L45 60H49.5V43Z" fill="#E2E8F0" />
-                <path d="M44 61H57L55.5 64.5H45.5L44 61Z" fill="#B95835" />
-                <path d="M75 41L79.5 61H73.5L75 41Z" fill="#FFFFFF" />
-                <path d="M72 62H81L79.5 65H73.5L72 62Z" fill="#1D2935" />
-              </svg>
+              ) : (
+                <CitySkylineFallback />
+              )}
             </div>
 
             {/* Right: Tournament metadata & Manager Tools trigger */}
