@@ -108,30 +108,66 @@ const VINTAGE_PALETTES = [
   { bg: "bg-[#2B2D42]", text: "text-[#EDF2F4]", border: "border-[#1B1D2E]", accent: "text-[#D59B42]" }, // Heritage Slate
 ];
 
+const KNOWN_TRICODES: Record<string, string> = {
+  oakville: "OAK",
+  mississauga: "MIS",
+  burlington: "BUR",
+  brampton: "BRA",
+  ottawa: "OTT",
+  toronto: "TOR",
+  montreal: "MTL",
+  gatineau: "GAT",
+  hamilton: "HAM",
+  kingston: "KGN",
+  kitchener: "KIT",
+  waterloo: "WAT",
+  london: "LDN",
+  markham: "MRK",
+  vaughan: "VAU",
+  richmond: "RMD",
+  niagara: "NIA",
+  oshawa: "OSH",
+  whitby: "WHI",
+  barrie: "BAR",
+};
+
+function getCityTriCode(cityRaw?: string): { code: string; full: string } {
+  if (!cityRaw) return { code: "AWY", full: "Away" };
+  const firstCity = cityRaw.split("/")[0].split(",")[0].trim();
+  const lower = firstCity.toLowerCase();
+
+  const code = KNOWN_TRICODES[lower] || firstCity.substring(0, 3).toUpperCase();
+  return { code, full: firstCity };
+}
+
 function VintageCityBadge({ city = "AWAY" }: { city?: string }) {
-  // Extract primary city name (e.g. "Oakville / Burlington, ON" -> "OAKVILLE")
-  const primary = (city.split("/")[0].split(",")[0].trim() || "AWAY").toUpperCase();
+  const { code, full } = getCityTriCode(city);
 
-  // Deterministic palette based on city string
-  const hash = primary.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const hash = full.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
   const palette = VINTAGE_PALETTES[Math.abs(hash) % VINTAGE_PALETTES.length];
-
-  // Pick display size based on length
-  const textSize = primary.length > 8 ? "text-[11px]" : primary.length > 5 ? "text-xs" : "text-sm";
 
   return (
     <div
       aria-hidden="true"
       className={`w-24 h-24 rounded-2xl ${palette.bg} ${palette.border} border-[2px] p-2 flex flex-col items-center justify-between shadow-sm relative overflow-hidden select-none shrink-0`}
     >
-      {/* Subtle vintage inner stitch rule */}
-      <div className="w-full h-full border border-white/20 rounded-xl flex flex-col items-center justify-between py-2 px-1 text-center">
-        <span className={`text-[9px] font-black tracking-[0.2em] uppercase opacity-70 ${palette.text}`}>
+      {/* Vintage inner border stitching */}
+      <div className="w-full h-full border border-white/20 rounded-xl flex flex-col items-center justify-between py-1.5 px-1 text-center">
+        <span className={`text-[8px] font-black tracking-[0.2em] uppercase opacity-70 ${palette.text}`}>
           EST. 2026
         </span>
-        <span className={`${textSize} font-black font-serif tracking-wider ${palette.text} leading-tight break-words max-w-full drop-shadow-xs px-0.5`}>
-          {primary}
-        </span>
+
+        {/* Center Tri-Code & City Lockup */}
+        <div className="flex flex-col items-center justify-center my-auto">
+          <span className={`text-2xl font-black font-serif tracking-widest ${palette.text} leading-none drop-shadow-xs`}>
+            {code}
+          </span>
+          <span className={`text-[10px] font-bold tracking-tight opacity-90 ${palette.text} truncate max-w-[70px] mt-0.5`}>
+            {full}
+          </span>
+        </div>
+
+        {/* Footer Accent */}
         <div className="flex items-center gap-1 opacity-75">
           <span className="w-1 h-1 rounded-full bg-current" />
           <span className={`text-[8px] font-black uppercase tracking-widest ${palette.accent}`}>
