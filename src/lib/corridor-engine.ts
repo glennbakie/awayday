@@ -57,7 +57,8 @@ export function getDynamicOriginPresets(
 export const CORRIDOR_ORIGIN_PRESETS = getDynamicOriginPresets("Ottawa, ON", "Oakville, ON");
 
 export function getGoogleMapsDeepLink(address: string): string {
-  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+  const destinationQuery = encodeURIComponent(address);
+  return `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}&travelmode=driving`;
 }
 
 function formatDurationMinutes(totalMins: number): string {

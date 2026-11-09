@@ -4,6 +4,7 @@ import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useParams, useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import { CorridorDirection, getDynamicOriginPresets, computeTravelCorridor } from "@/lib/corridor-engine";
+import { generateQrMatrix } from "@/lib/qr-svg";
 import { 
   Clock, 
   Navigation, 
@@ -152,6 +153,62 @@ function TournamentBadge({ seed = "awayday" }: { seed?: string }) {
   );
 }
 
+function PassQrCodeSvg({ url }: { url: string }) {
+  const matrix = React.useMemo(() => generateQrMatrix(url), [url]);
+  const size = matrix.length;
+  const quietZone = 3;
+  const viewBoxSize = size + quietZone * 2;
+
+  return (
+    <svg
+      width={200}
+      height={200}
+      viewBox={`0 0 ${viewBoxSize} ${viewBoxSize}`}
+      shapeRendering="crispEdges"
+      role="img"
+      aria-label={`QR code for ${url}`}
+      className="w-[200px] h-[200px] rounded-2xl bg-white border-[1.5px] border-[#DCE1E7] shadow-xs mx-auto block"
+    >
+      <rect width={viewBoxSize} height={viewBoxSize} fill="#FFFFFF" />
+      {matrix.map((row, r) =>
+        row.map((dark, c) =>
+          dark ? (
+            <rect
+              key={`${r}-${c}`}
+              x={c + quietZone}
+              y={r + quietZone}
+              width={1}
+              height={1}
+              fill="#0B192C"
+            />
+          ) : null
+        )
+      )}
+    </svg>
+  );
+}
+
+interface TournamentInfo {
+  name: string;
+  division: string;
+  leagueName: string;
+  teamName: string;
+  dates: string;
+  city: string;
+  location?: string;
+  primaryHub: string;
+  primaryHubAddress: string;
+  lastUpdatedText: string;
+  contactInfo?: string;
+  hotel: {
+    name: string;
+    address: string;
+    rate: string;
+    breakfastHours: string;
+    checkoutTime: string;
+  };
+}
+
 function RunSheetContent() {
   const searchParams = useSearchParams();
   const params = useParams();
@@ -160,6 +217,9 @@ function RunSheetContent() {
   const slug = (params?.slug as string) || "test-team";
   const isAdmin = searchParams.get("admin") === "true";
   const [isManagerToolsOpen, setIsManagerToolsOpen] = useState<boolean>(false);
+  const [showPassModal, setShowPassModal] = useState<boolean>(false);
+  const [passCopied, setPassCopied] = useState<boolean>(false);
+  const passDialogRef = useRef<HTMLDialogElement | null>(null);
   const [syncStatus, setSyncStatus] = useState<"connecting" | "live" | "degraded" | "offline">("connecting");
   const realtimeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
@@ -255,25 +315,7 @@ function RunSheetContent() {
     }
   };
 
-  const tournament: {
-    name: string;
-    division: string;
-    leagueName: string;
-    teamName: string;
-    dates: string;
-    city: string;
-    location?: string;
-    primaryHub: string;
-    primaryHubAddress: string;
-    lastUpdatedText: string;
-    hotel: {
-      name: string;
-      address: string;
-      rate: string;
-      breakfastHours: string;
-      checkoutTime: string;
-    };
-  } = {
+  const [tournament, setTournament] = useState<TournamentInfo>({
     name: "NPH Session #1 - Oakville",
     division: "Grade 11 Tier 2",
     leagueName: "Grade 11 Tier 2 • NPH Showcase",
@@ -290,7 +332,39 @@ function RunSheetContent() {
       breakfastHours: "6:30 AM - 9:30 AM (Included)",
       checkoutTime: "12:00 PM"
     }
-  };
+  });
+  const hasLoadedCacheRef = useRef<boolean>(false);
+
+  // Sync native <dialog> showModal()/close() & light-dismiss fallback for Sideline Pass Modal
+  useEffect(() => {
+    const dialog = passDialogRef.current;
+    if (!dialog) return;
+
+    if (showPassModal) {
+      if (!dialog.open) {
+        dialog.showModal();
+      }
+    } else if (dialog.open) {
+      dialog.close();
+    }
+
+    if (!("closedBy" in HTMLDialogElement.prototype)) {
+      const handleBackdropClick = (event: MouseEvent) => {
+        if (event.target !== dialog) return;
+        const rect = dialog.getBoundingClientRect();
+        const isDialogContent =
+          rect.top <= event.clientY &&
+          event.clientY <= rect.top + rect.height &&
+          rect.left <= event.clientX &&
+          event.clientX <= rect.left + rect.width;
+        if (!isDialogContent) {
+          dialog.close();
+        }
+      };
+      dialog.addEventListener("click", handleBackdropClick);
+      return () => dialog.removeEventListener("click", handleBackdropClick);
+    }
+  }, [showPassModal]);
 
   const coffeeSpots = [
     {
@@ -584,14 +658,48 @@ function RunSheetContent() {
   useEffect(() => {
     if (!slug) return;
 
+    const storageCacheKey = `awayday_cache_${slug}`;
     const storageMealKey = `awayday_meal_mode_${slug}`;
     const storageGamesKey = `awayday_games_sprint1_${slug}`;
     const storagePollOptionsKey = `awayday_poll_options_v2_${slug}`;
     const storageVotedOptionKey = `awayday_voted_opt_${slug}`;
     const storageRsvpKey = `awayday_rsvp_${slug}`;
 
-    // Load any cached local broadcast state immediately
+    // Load offline dead-zone cache (`awayday_cache_${slug}`) & broadcast state immediately
     try {
+      const rawOfflineCache = window.localStorage.getItem(storageCacheKey);
+      if (rawOfflineCache) {
+        const parsedCache = JSON.parse(rawOfflineCache);
+        if (parsedCache && typeof parsedCache === "object") {
+          if (parsedCache.tournament && typeof parsedCache.tournament === "object") {
+            setTournament((prev) => ({
+              ...prev,
+              ...parsedCache.tournament,
+              hotel: {
+                ...prev.hotel,
+                ...(parsedCache.tournament.hotel || {}),
+              },
+            }));
+          }
+          if (Array.isArray(parsedCache.games) && parsedCache.games.length > 0) {
+            setGames(parsedCache.games);
+          }
+          if (Array.isArray(parsedCache.alerts) && parsedCache.alerts.length > 0) {
+            setAlerts(parsedCache.alerts);
+          }
+          if (Array.isArray(parsedCache.options) && parsedCache.options.length > 0) {
+            setOptions(parsedCache.options);
+          }
+          if (
+            parsedCache.manualMealMode === "lunch" ||
+            parsedCache.manualMealMode === "dinner" ||
+            parsedCache.manualMealMode === "auto"
+          ) {
+            setManualMealMode(parsedCache.manualMealMode);
+          }
+        }
+      }
+
       const savedMeal = window.localStorage.getItem(storageMealKey);
       if (savedMeal === "lunch" || savedMeal === "dinner" || savedMeal === "auto") {
         setManualMealMode(savedMeal);
@@ -624,6 +732,8 @@ function RunSheetContent() {
       }
     } catch {
       // Ignore storage access errors
+    } finally {
+      hasLoadedCacheRef.current = true;
     }
 
     // 1. Initial data fetch from Supabase
@@ -707,13 +817,15 @@ function RunSheetContent() {
     realtimeChannelRef.current = channel;
 
     const handleOnline = () => {
-      setSyncStatus((prev) => (prev === "offline" ? "connecting" : prev));
+      setSyncStatus((prev) => (prev === "offline" ? "live" : prev));
     };
     const handleOffline = () => {
       setSyncStatus("offline");
     };
     if (typeof window !== "undefined") {
-      if (!navigator.onLine) setSyncStatus("offline");
+      if (navigator.onLine === false) setSyncStatus("offline");
+      window.ononline = handleOnline;
+      window.onoffline = handleOffline;
       window.addEventListener("online", handleOnline);
       window.addEventListener("offline", handleOffline);
     }
@@ -816,6 +928,24 @@ function RunSheetContent() {
     }
   ]);
 
+  // Persist current tournament payload under awayday_cache_${slug} for offline gym dead-zones
+  useEffect(() => {
+    if (!slug || !hasLoadedCacheRef.current) return;
+    try {
+      const payload = {
+        tournament,
+        games,
+        alerts,
+        options,
+        manualMealMode,
+        updatedAt: Date.now(),
+      };
+      window.localStorage.setItem(`awayday_cache_${slug}`, JSON.stringify(payload));
+    } catch {
+      // Ignore storage quota / access errors
+    }
+  }, [slug, tournament, games, alerts, options, manualMealMode]);
+
   const formatTime = (totalMinutes: number) => {
     let normalized = (totalMinutes + 1440) % 1440;
     const hours24 = Math.floor(normalized / 60);
@@ -826,7 +956,8 @@ function RunSheetContent() {
   };
 
   const getMapsUrl = (address: string) => {
-    return "https://www.google.com/maps/search/?api=1&query=" + encodeURIComponent(address);
+    const destinationQuery = encodeURIComponent(address);
+    return `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}&travelmode=driving`;
   };
 
   const shiftGameTime = (gameId: string, deltaMinutes: number) => {
@@ -1629,9 +1760,9 @@ function RunSheetContent() {
         }
       : syncStatus === "offline"
         ? {
-            label: "OFFLINE",
-            pillClass: "bg-slate-100 border border-slate-200/80 text-slate-600",
-            dotClass: "bg-slate-400",
+            label: "Offline Cache",
+            pillClass: "bg-[#F7F6F2] border border-[#D1D5DB] text-[#0B192C]",
+            dotClass: "bg-[#D59B42]",
           }
         : {
             label: "LIVE SYNC",
@@ -1639,12 +1770,15 @@ function RunSheetContent() {
             dotClass: "bg-emerald-500 animate-pulse",
           };
 
+  const shareUrl = `https://awayday-omega.vercel.app/claim?ref=${encodeURIComponent(slug || "test-team")}`;
+  const shareText = `Hey! Saw another team using this mobile run-sheet called AwayDay—it tracks arrival buffers, court delays, and food spots between games so parents stay on time. They gave us a free pass for our next two tournaments: ${shareUrl}`;
+
   return (
     <div className="stadium-canvas font-sans bg-[#F8F7F3] text-[#1D2935] w-full pb-28">
       {/* Top Application Header */}
       <header className="sticky top-0 z-30 bg-[#F8F7F3]/90 backdrop-blur-md px-4 py-3">
-        <div className="max-w-md mx-auto flex items-center justify-between">
-          <div className="flex items-baseline select-none tracking-tight">
+        <div className="max-w-md mx-auto flex items-center justify-between gap-2">
+          <div className="flex items-baseline select-none tracking-tight shrink-0">
             <span className="text-[28px] leading-none font-black italic text-[#0B192C] tracking-tight pr-0.5 [-webkit-text-stroke:0.45px_#0B192C]">
               Away
             </span>
@@ -1652,14 +1786,22 @@ function RunSheetContent() {
               Day.
             </span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 sm:gap-2">
+            <button
+              type="button"
+              onClick={() => setShowPassModal(true)}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF9F0] border-[1.5px] border-[#D59B42] text-[#0B192C] text-xs font-black tracking-tight shadow-tactile-sm active:scale-95 transition-all select-none cursor-pointer"
+            >
+              <span className="text-xs" aria-hidden="true">🎁</span>
+              <span className="whitespace-nowrap">Gift a Pass</span>
+            </button>
             <div
               role="status"
               aria-live="polite"
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${syncPillMeta.pillClass}`}
             >
               <span className={`w-2 h-2 rounded-full ${syncPillMeta.dotClass}`} />
-              <span>{syncPillMeta.label}</span>
+              <span className="whitespace-nowrap">{syncPillMeta.label}</span>
             </div>
             <button
               type="button"
@@ -2085,17 +2227,25 @@ function RunSheetContent() {
                 </div>
 
                 {/* Dedicated Full-Width Google Maps Action Button (44px Accessible Tap Height) */}
-                <a
-                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(heroVenueMapsQuery)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="mt-3 min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
-                >
-                  <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                  </svg>
-                  <span>Open Directions in Google Maps</span>
-                </a>
+                {(() => {
+                  const destinationQuery = encodeURIComponent(
+                    [nextGame.venueName, nextGame.venueAddress, nextGame.city].filter(Boolean).join(", ")
+                  );
+                  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}&travelmode=driving`;
+                  return (
+                    <a
+                      href={mapsUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="mt-3 min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
+                    >
+                      <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                        <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                      </svg>
+                      <span>Open Directions in Google Maps</span>
+                    </a>
+                  );
+                })()}
               </section>
 
               {/* Unified Hub Tips Collapsible Drawer (Consolidating Quick Turnaround & Facility Alerts) */}
@@ -2458,17 +2608,25 @@ function RunSheetContent() {
                     {game.venueAddress}, {game.city}
                   </span>
 
-                  <a
-                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(cardVenueMapsQuery)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
-                  >
-                    <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                    </svg>
-                    <span>Open Directions in Google Maps</span>
-                  </a>
+                  {(() => {
+                    const destinationQuery = encodeURIComponent(
+                      [game.venueName, game.venueAddress, game.city].filter(Boolean).join(", ")
+                    );
+                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}&travelmode=driving`;
+                    return (
+                      <a
+                        href={mapsUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="mt-3 min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
+                      >
+                        <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                        </svg>
+                        <span>Open Directions in Google Maps</span>
+                      </a>
+                    );
+                  })()}
                 </div>
 
                 <div className="border-t border-[#DCE1E7] mt-3 pt-3 text-xs">
@@ -3474,9 +3632,7 @@ function RunSheetContent() {
               <span className="truncate">{tournament.hotel.address}</span>
             </p>
             <a
-              href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
-                `${tournament.hotel.name}, ${tournament.hotel.address}`
-              )}`}
+              href={getMapsUrl(`${tournament.hotel.name}, ${tournament.hotel.address}`)}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-3 min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
@@ -4249,6 +4405,103 @@ function RunSheetContent() {
           </div>
         </div>
       )}
+
+      {/* Sideline Pass to Another Club Modal (<dialog> with closedby="any" + light-dismiss fallback) */}
+      <dialog
+        ref={passDialogRef}
+        {...({ closedby: "any" } as any)}
+        aria-labelledby="pass-modal-title"
+        onClose={() => setShowPassModal(false)}
+        className="backdrop:bg-black/60 backdrop:backdrop-blur-xs bg-transparent p-4 m-auto max-w-md w-full rounded-[26px] open:animate-in open:fade-in-50 open:zoom-in-95 duration-150 focus:outline-none"
+      >
+        <div className="bg-white border-[1.5px] border-[#DCE1E7] rounded-[26px] p-5 shadow-tactile text-[#1D2935] space-y-4">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FFF9F0] border border-[#D59B42] text-[#0B192C] text-[10px] font-black uppercase tracking-wider">
+                <span aria-hidden="true">🎁</span> Sideline Club Pass
+              </span>
+              <h2
+                id="pass-modal-title"
+                className="text-lg font-black text-[#0B192C] tracking-tight leading-snug mt-2"
+              >
+                Traveling with another team this weekend?
+              </h2>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowPassModal(false)}
+              aria-label="Close pass modal"
+              className="p-1.5 rounded-full bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0B192C] transition-colors cursor-pointer shrink-0"
+            >
+              <X className="w-4 h-4" aria-hidden="true" />
+            </button>
+          </div>
+
+          <p className="text-xs font-semibold text-[#1D2935] leading-relaxed">
+            We know how much work goes into away weekends. AwayDay handles the court shifts, gym buffers, and team timing—your club&apos;s first two tournaments are on us.
+          </p>
+
+          <div className="bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] rounded-2xl p-3 text-center">
+            <span className="text-[11px] font-black text-[#0B192C] tracking-wide uppercase block">
+              FIRST 2 TOURNAMENTS ON US — No credit card required. Works directly in your mobile browser.
+            </span>
+          </div>
+
+          <div className="py-1 text-center space-y-2">
+            <PassQrCodeSvg url={shareUrl} />
+            <p className="text-[11px] font-semibold text-[#5C6B7B]">
+              Have another manager or coach scan with their phone camera
+            </p>
+          </div>
+
+          <div className="space-y-2 pt-1">
+            <a
+              href={`sms:?&body=${encodeURIComponent(shareText)}`}
+              className="min-h-[48px] w-full rounded-xl bg-[#0F2942] hover:bg-[#1A365D] text-white font-bold text-xs flex items-center justify-center gap-2 px-4 py-3 shadow-xs transition-colors"
+            >
+              <span aria-hidden="true">💬</span>
+              <span>Text Free Pass to Another Team</span>
+            </a>
+
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    if (typeof navigator !== "undefined" && navigator.share) {
+                      await navigator.share({
+                        title: "AwayDay Tournament Pass",
+                        text: shareText,
+                        url: shareUrl,
+                      });
+                      return;
+                    }
+                  } catch {
+                    // Fall back to clipboard copy
+                  }
+                  try {
+                    await navigator.clipboard.writeText(shareText);
+                    setPassCopied(true);
+                    window.setTimeout(() => setPassCopied(false), 2500);
+                  } catch {
+                    // Ignore clipboard errors
+                  }
+                }}
+                className="min-h-[44px] rounded-xl bg-[#F7F6F2] hover:bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-xs font-bold px-3 py-2 transition-colors cursor-pointer"
+              >
+                {passCopied ? "✓ Pass Copied" : "Copy Pass Message"}
+              </button>
+
+              <a
+                href={`/claim?ref=${encodeURIComponent(slug || "test-team")}`}
+                className="min-h-[44px] rounded-xl bg-white hover:bg-slate-50 border border-[#DCE1E7] text-[#0F2942] text-xs font-bold px-3 py-2 flex items-center justify-center transition-colors"
+              >
+                Preview Claim Page →
+              </a>
+            </div>
+          </div>
+        </div>
+      </dialog>
     </div>
   );
 }
