@@ -1818,9 +1818,20 @@ function RunSheetContent() {
               type="button"
               onClick={() => setShowPassModal(true)}
               className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF9F0] border-[1.5px] border-[#D59B42] text-[#0B192C] text-xs font-black tracking-tight shadow-tactile-sm active:scale-95 transition-all select-none cursor-pointer"
+              aria-label="Pass AwayDay to another squad"
             >
-              <span className="text-xs" aria-hidden="true">🎁</span>
-              <span className="whitespace-nowrap">Gift a Pass</span>
+              {/* Tactile smartphone icon with send arrow */}
+              <svg
+                viewBox="0 0 24 24"
+                className="w-3.5 h-3.5 text-[#0F2942] fill-none stroke-current stroke-[2.2] stroke-linecap-round stroke-linejoin-round shrink-0"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <rect x="5" y="2" width="14" height="20" rx="3" />
+                <path d="M12 18h.01" />
+              </svg>
+              <span className="whitespace-nowrap">Pass to another squad</span>
             </button>
             <div
               role="status"
