@@ -2182,13 +2182,22 @@ function RunSheetContent() {
                   </div>
 
                   <div className="flex-1 px-1 flex flex-col items-center">
-                    {/* Solid Athletic Whistle in Golden Amber */}
+                    {/* Classic Referee Pea Whistle */}
                     <svg
                       viewBox="0 0 24 24"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-current shrink-0 mx-auto mb-1"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                       aria-hidden="true"
                     >
-                      <path d="M8.5 4a6.5 6.5 0 0 0-6.48 6H1a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h1.02A6.5 6.5 0 0 0 8.5 20h3a6.5 6.5 0 0 0 6.5-6.5V11a7 7 0 0 0-7-7h-2.5zm0 2h2.5A5 5 0 0 1 16 11v.5h-5.5a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H16a4.5 4.5 0 0 1-4.5 4.5h-3A4.5 4.5 0 0 1 4 13.5V11a4.5 4.5 0 0 1 4.5-4.5zM18 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+                      {/* Barrel / Mouthpiece */}
+                      <path d="M11 6h8a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4" />
+                      {/* Pea chamber & neck */}
+                      <path d="M11 6H9.5a5.5 5.5 0 1 0 0 11H13a3 3 0 0 0 3-3v-2" />
+                      {/* Sound escape slit */}
+                      <path d="M15 6v6" />
+                      {/* Lanyard eyelet loop */}
+                      <path d="M4 11.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0z" fill="currentColor" />
                     </svg>
                     <span className="text-xs font-semibold text-slate-600">
                       Tip-Off
@@ -2607,13 +2616,22 @@ function RunSheetContent() {
                     <span className="text-[11px] font-medium text-slate-500 mt-0.5">({bufferMins} min buffer)</span>
                   </div>
                   <div className="flex-1 px-1 flex flex-col items-center">
-                    {/* Solid Athletic Whistle in Golden Amber */}
+                    {/* Classic Referee Pea Whistle */}
                     <svg
                       viewBox="0 0 24 24"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-current shrink-0 mx-auto mb-1"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
                       aria-hidden="true"
                     >
-                      <path d="M8.5 4a6.5 6.5 0 0 0-6.48 6H1a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h1.02A6.5 6.5 0 0 0 8.5 20h3a6.5 6.5 0 0 0 6.5-6.5V11a7 7 0 0 0-7-7h-2.5zm0 2h2.5A5 5 0 0 1 16 11v.5h-5.5a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H16a4.5 4.5 0 0 1-4.5 4.5h-3A4.5 4.5 0 0 1 4 13.5V11a4.5 4.5 0 0 1 4.5-4.5zM18 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+                      {/* Barrel / Mouthpiece */}
+                      <path d="M11 6h8a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4" />
+                      {/* Pea chamber & neck */}
+                      <path d="M11 6H9.5a5.5 5.5 0 1 0 0 11H13a3 3 0 0 0 3-3v-2" />
+                      {/* Sound escape slit */}
+                      <path d="M15 6v6" />
+                      {/* Lanyard eyelet loop */}
+                      <path d="M4 11.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0z" fill="currentColor" />
                     </svg>
                     <span className="text-xs font-semibold text-slate-600">Tip-Off</span>
                     <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">{formatTime(game.tipOffMinutes)}</span>
