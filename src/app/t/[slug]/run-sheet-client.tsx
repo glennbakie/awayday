@@ -1856,12 +1856,12 @@ function RunSheetContent() {
             <button
               type="button"
               onClick={() => setShowPassModal(true)}
-              className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-full bg-[#FFF9F0] border-[1.5px] border-[#D59B42] text-[#0B192C] text-xs font-black tracking-tight shadow-tactile-sm active:scale-[0.98] transition-all select-none cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-full bg-[#D59B42] hover:bg-[#C88E37] active:bg-[#B97F29] border-[1.5px] border-[#B97F29] text-[#0B192C] text-xs font-black tracking-tight shadow-tactile-sm active:scale-[0.98] transition-all select-none cursor-pointer"
               aria-label="Pass AwayDay to another squad"
             >
               <svg
                 viewBox="0 0 24 24"
-                className="w-3.5 h-3.5 text-[#0F2942] fill-none stroke-current stroke-[2.2] stroke-linecap-round stroke-linejoin-round shrink-0"
+                className="w-3.5 h-3.5 text-[#0B192C] fill-none stroke-current stroke-[2.4] stroke-linecap-round stroke-linejoin-round shrink-0"
                 strokeLinecap="round"
                 strokeLinejoin="round"
                 aria-hidden="true"
