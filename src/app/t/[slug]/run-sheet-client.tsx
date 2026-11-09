@@ -100,55 +100,46 @@ interface MealOption {
   suggestedBy?: string;
 }
 
-function TournamentBadge({ seed = "awayday" }: { seed?: string }) {
-  // Deterministic index (0 to 3) based on tournament name/city string
-  const hash = seed.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const variant = Math.abs(hash) % 4;
+const VINTAGE_PALETTES = [
+  { bg: "bg-[#8B1E28]", text: "text-[#FBF9F4]", border: "border-[#6F141C]", accent: "text-[#E0A96D]" }, // Harvard / Crimson
+  { bg: "bg-[#1B4332]", text: "text-[#F9F7F1]", border: "border-[#132E22]", accent: "text-[#D59B42]" }, // Ivy / Forest
+  { bg: "bg-[#1B263B]", text: "text-[#F9F7F1]", border: "border-[#0D1522]", accent: "text-[#E0A96D]" }, // Varsity Navy
+  { bg: "bg-[#9C4121]", text: "text-[#FFFDF9]", border: "border-[#782F15]", accent: "text-[#F4D06F]" }, // Burnt Ochre
+  { bg: "bg-[#2B2D42]", text: "text-[#EDF2F4]", border: "border-[#1B1D2E]", accent: "text-[#D59B42]" }, // Heritage Slate
+];
+
+function VintageCityBadge({ city = "AWAY" }: { city?: string }) {
+  // Extract primary city name (e.g. "Oakville / Burlington, ON" -> "OAKVILLE")
+  const primary = (city.split("/")[0].split(",")[0].trim() || "AWAY").toUpperCase();
+
+  // Deterministic palette based on city string
+  const hash = primary.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
+  const palette = VINTAGE_PALETTES[Math.abs(hash) % VINTAGE_PALETTES.length];
+
+  // Pick display size based on length
+  const textSize = primary.length > 8 ? "text-[11px]" : primary.length > 5 ? "text-xs" : "text-sm";
 
   return (
-    <div className="w-24 h-24 rounded-2xl overflow-hidden bg-gradient-to-br from-[#E2E8F0] via-[#F1F3F5] to-[#CBD5E1] border-[1.5px] border-[#DCE1E7] relative flex items-center justify-center shrink-0 shadow-xs">
-      {/* Subtle warm amber ambient glow in the corner */}
-      <div className="absolute -top-4 -right-4 w-12 h-12 rounded-full bg-[#D59B42]/15 blur-lg pointer-events-none" />
-
-      {variant === 0 && (
-        /* 0: Skyline / Spire */
-        <svg viewBox="0 0 64 64" className="w-12 h-12 text-[#0F2942] fill-current" aria-hidden="true">
-          <rect x="8" y="28" width="10" height="30" rx="1" fillOpacity="0.75" />
-          <rect x="22" y="16" width="12" height="42" rx="1" fillOpacity="0.9" />
-          <polygon points="28,6 23,16 33,16" className="text-[#D59B42] fill-current" />
-          <rect x="38" y="24" width="8" height="34" rx="1" fillOpacity="0.7" />
-          <rect x="48" y="32" width="8" height="26" rx="1" fillOpacity="0.8" />
-        </svg>
-      )}
-
-      {variant === 1 && (
-        /* 1: Compass Rose / Travel Pin */
-        <svg viewBox="0 0 64 64" className="w-12 h-12 text-[#0F2942]" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-          <circle cx="32" cy="32" r="22" strokeOpacity="0.3" />
-          <polygon points="32,14 37,28 32,24 27,28" className="text-[#D59B42] fill-current stroke-none" />
-          <polygon points="32,50 37,36 32,40 27,36" className="text-[#0F2942] fill-current stroke-none" />
-          <polygon points="50,32 36,37 40,32 36,27" className="text-[#0F2942]/60 fill-current stroke-none" />
-          <polygon points="14,32 28,37 24,32 28,27" className="text-[#0F2942]/60 fill-current stroke-none" />
-          <circle cx="32" cy="32" r="2.5" fill="currentColor" />
-        </svg>
-      )}
-
-      {variant === 2 && (
-        /* 2: Arena Gateway / Banners */
-        <svg viewBox="0 0 64 64" className="w-12 h-12 text-[#0F2942] fill-current" aria-hidden="true">
-          <path d="M12 48V20l20-8 20 8v28H44V28H20v20H12z" fillOpacity="0.85" />
-          <circle cx="32" cy="20" r="4" className="text-[#D59B42] fill-current" />
-          <line x1="8" y1="52" x2="56" y2="52" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
-        </svg>
-      )}
-
-      {variant === 3 && (
-        /* 3: Competition Shield & Star */
-        <svg viewBox="0 0 64 64" className="w-12 h-12 text-[#0F2942]" fill="none" aria-hidden="true">
-          <path d="M32 10L16 16v16c0 12 7 20 16 24 9-4 16-12 16-24V16L32 10z" className="fill-[#0F2942]/10 stroke-current" strokeWidth="2.5" />
-          <path d="M32 22l2.5 5.5 6 .8-4.5 4.2 1.2 6-5.2-3-5.2 3 1.2-6-4.5-4.2 6-.8L32 22z" className="text-[#D59B42] fill-current stroke-none" />
-        </svg>
-      )}
+    <div
+      aria-hidden="true"
+      className={`w-24 h-24 rounded-2xl ${palette.bg} ${palette.border} border-[2px] p-2 flex flex-col items-center justify-between shadow-sm relative overflow-hidden select-none shrink-0`}
+    >
+      {/* Subtle vintage inner stitch rule */}
+      <div className="w-full h-full border border-white/20 rounded-xl flex flex-col items-center justify-between py-2 px-1 text-center">
+        <span className={`text-[9px] font-black tracking-[0.2em] uppercase opacity-70 ${palette.text}`}>
+          EST. 2026
+        </span>
+        <span className={`${textSize} font-black font-serif tracking-wider ${palette.text} leading-tight break-words max-w-full drop-shadow-xs px-0.5`}>
+          {primary}
+        </span>
+        <div className="flex items-center gap-1 opacity-75">
+          <span className="w-1 h-1 rounded-full bg-current" />
+          <span className={`text-[8px] font-black uppercase tracking-widest ${palette.accent}`}>
+            AWAY
+          </span>
+          <span className="w-1 h-1 rounded-full bg-current" />
+        </div>
+      </div>
     </div>
   );
 }
@@ -1838,8 +1829,8 @@ function RunSheetContent() {
         {/* Tournament Header Card ("YOUR NEXT AWAY DAY") */}
         <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3">
           <div className="flex items-center gap-3.5">
-            {/* Left: Deterministic rotating sport-neutral vector badge */}
-            <TournamentBadge seed={tournament.name || tournament.city} />
+            {/* Left: Vintage collegiate city badge */}
+            <VintageCityBadge city={tournament.city || tournament.location} />
 
             {/* Right: Tournament metadata & Manager Tools trigger */}
             <div className="flex-1 min-w-0">
