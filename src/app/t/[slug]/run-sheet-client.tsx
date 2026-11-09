@@ -2144,7 +2144,7 @@ function RunSheetContent() {
 
                 <div className="h-px bg-[#E9ECEF] my-3.5" />
 
-                {/* 3-Column Timing Strip (Chunky Solid Silhouettes & Sculpted Trophy) */}
+                {/* 3-Column Timing Strip (Chunky Solid Silhouettes & Solid Athletic Whistle) */}
                 <div className="divide-x divide-[#E9ECEF] flex items-start text-center py-1">
                   <div className="flex-1 px-1 flex flex-col items-center">
                     <svg
@@ -2182,41 +2182,13 @@ function RunSheetContent() {
                   </div>
 
                   <div className="flex-1 px-1 flex flex-col items-center">
+                    {/* Solid Athletic Whistle in Golden Amber */}
                     <svg
-                      aria-hidden="true"
-                      className="w-7 h-7 sm:w-8 sm:h-8 mx-auto mb-1 drop-shadow-xs"
                       viewBox="0 0 24 24"
-                      fill="none"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-current shrink-0 mx-auto mb-1"
+                      aria-hidden="true"
                     >
-                      <defs>
-                        <linearGradient id="awayday-trophy-cup" x1="6" y1="3" x2="18" y2="16" gradientUnits="userSpaceOnUse">
-                          <stop offset="0%" stopColor="#FAD275" />
-                          <stop offset="48%" stopColor="#DF9E38" />
-                          <stop offset="100%" stopColor="#B67418" />
-                        </linearGradient>
-                      </defs>
-                      <path
-                        d="M6.5 5H4.5C3.67 5 3 5.67 3 6.5V8c0 2.35 1.72 4.3 3.98 4.68M17.5 5h2c.83 0 1.5.67 1.5 1.5V8c0 2.35-1.72 4.3-3.98 4.68"
-                        stroke="#C88725"
-                        strokeWidth="2.1"
-                        strokeLinecap="round"
-                      />
-                      <path
-                        d="M6.5 3.5h11v4.7c0 3.25-2.35 5.95-5.5 6.45-3.15-.5-5.5-3.2-5.5-6.45V3.5z"
-                        fill="url(#awayday-trophy-cup)"
-                      />
-                      <rect x="6" y="2.5" width="12" height="2" rx="1" fill="#B67418" />
-                      <rect x="6.5" y="2.8" width="11" height="0.9" rx="0.45" fill="#FDE6A6" fillOpacity="0.8" />
-                      <path
-                        d="M8.5 5.5v3.2c0 1.6.7 3.05 1.85 3.95"
-                        stroke="#FFF3CC"
-                        strokeWidth="1.3"
-                        strokeLinecap="round"
-                        strokeOpacity="0.75"
-                      />
-                      <rect x="10.4" y="14.2" width="3.2" height="3.3" rx="0.8" fill="#C88725" />
-                      <path d="M8 17.5h8l.8 2.5H7.2L8 17.5z" fill="#9A6218" />
-                      <rect x="6.5" y="19.8" width="11" height="1.7" rx="0.85" fill="#7C4B0E" />
+                      <path d="M8.5 4a6.5 6.5 0 0 0-6.48 6H1a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h1.02A6.5 6.5 0 0 0 8.5 20h3a6.5 6.5 0 0 0 6.5-6.5V11a7 7 0 0 0-7-7h-2.5zm0 2h2.5A5 5 0 0 1 16 11v.5h-5.5a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H16a4.5 4.5 0 0 1-4.5 4.5h-3A4.5 4.5 0 0 1 4 13.5V11a4.5 4.5 0 0 1 4.5-4.5zM18 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
                     </svg>
                     <span className="text-xs font-semibold text-slate-600">
                       Tip-Off
@@ -2610,21 +2582,41 @@ function RunSheetContent() {
                 </div>
 
                 {/* Three-Column Timing Display */}
-                <div className="grid grid-cols-3 gap-2 mt-3">
-                  <div className="bg-[#F1F3F5] border border-[#DCE1E7] px-2 py-2.5 rounded-xl text-center">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-[#5C6B7B]">Depart</span>
-                    <span className="block tabular-nums font-black text-sm sm:text-base text-[#0F2942] mt-0.5">{formatTime(departMinutes)}</span>
-                    <span className="block text-[11px] text-[#5C6B7B] font-medium mt-0.5">{game.hotelTravelMin || 15}m drive</span>
+                <div className="divide-x divide-[#E9ECEF] flex items-start text-center py-1 mt-3 border-t border-[#E9ECEF] pt-3">
+                  <div className="flex-1 px-1 flex flex-col items-center">
+                    <svg
+                      aria-hidden="true"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1 shrink-0"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v9c0 .55.45 1 1 1h1.5c.55 0 1-.45 1-1v-1h11v1c0 .55.45 1 1 1H20c.55 0 1-.45 1-1v-9l-2.08-5.99zM6.5 6h11l1.04 3H5.46l1.04-3zM7.5 16c-.83 0-1.5-.67-1.5-1.5S6.67 13 7.5 13s1.5.67 1.5 1.5S8.33 16 7.5 16zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-slate-600">Depart</span>
+                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">{formatTime(departMinutes)}</span>
                   </div>
-                  <div className="bg-[#F1F3F5] border border-[#DCE1E7] px-2 py-2.5 rounded-xl text-center">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-[#5C6B7B]">Gym Arrival</span>
-                    <span className="block tabular-nums font-black text-sm sm:text-base text-[#0F2942] mt-0.5">{formatTime(arrivalMinutes)}</span>
-                    <span className="block text-[11px] text-[#5C6B7B] font-medium mt-0.5">{bufferMins}m buffer</span>
+                  <div className="flex-1 px-1 flex flex-col items-center">
+                    <svg
+                      aria-hidden="true"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1 shrink-0"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 7.12 11.45 7.42 11.71.34.3.82.3 1.16 0C12.88 21.45 20 15.25 20 10c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-slate-600">Arrive</span>
+                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">{formatTime(arrivalMinutes)}</span>
+                    <span className="text-[11px] font-medium text-slate-500 mt-0.5">({bufferMins} min buffer)</span>
                   </div>
-                  <div className="bg-[#F1F3F5] border border-[#DCE1E7] px-2 py-2.5 rounded-xl text-center">
-                    <span className="block text-[10px] font-bold uppercase tracking-wider text-[#0F2942]">Tip-Off</span>
-                    <span className="block tabular-nums font-black text-sm sm:text-base text-[#0F2942] mt-0.5">{formatTime(game.tipOffMinutes)}</span>
-                    <span className="block text-[11px] text-[#5C6B7B] font-medium mt-0.5">Game time</span>
+                  <div className="flex-1 px-1 flex flex-col items-center">
+                    {/* Solid Athletic Whistle in Golden Amber */}
+                    <svg
+                      viewBox="0 0 24 24"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-current shrink-0 mx-auto mb-1"
+                      aria-hidden="true"
+                    >
+                      <path d="M8.5 4a6.5 6.5 0 0 0-6.48 6H1a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h1.02A6.5 6.5 0 0 0 8.5 20h3a6.5 6.5 0 0 0 6.5-6.5V11a7 7 0 0 0-7-7h-2.5zm0 2h2.5A5 5 0 0 1 16 11v.5h-5.5a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H16a4.5 4.5 0 0 1-4.5 4.5h-3A4.5 4.5 0 0 1 4 13.5V11a4.5 4.5 0 0 1 4.5-4.5zM18 7a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />
+                    </svg>
+                    <span className="text-xs font-semibold text-slate-600">Tip-Off</span>
+                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">{formatTime(game.tipOffMinutes)}</span>
                   </div>
                 </div>
 
