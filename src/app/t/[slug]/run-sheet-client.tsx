@@ -1801,26 +1801,64 @@ function RunSheetContent() {
   const shareText = `Hey! Saw another team using this mobile run-sheet called AwayDay—it tracks arrival buffers, court delays, and food spots between games so parents stay on time. They gave us a free pass for our next two tournaments: ${shareUrl}`;
 
   return (
-    <div className="stadium-canvas font-sans bg-[#F8F7F3] text-[#1D2935] w-full pb-28">
+    <div className="stadium-canvas font-sans bg-[#F8F7F3] text-[#1D2935] w-full overflow-x-hidden pb-28">
       {/* Top Application Header */}
       <header className="sticky top-0 z-30 bg-[#F8F7F3]/90 backdrop-blur-md px-4 py-3">
-        <div className="max-w-md mx-auto flex items-center justify-between gap-2">
-          <div className="flex items-baseline select-none tracking-tight shrink-0">
-            <span className="text-[28px] leading-none font-black italic text-[#0B192C] tracking-tight pr-0.5 [-webkit-text-stroke:0.45px_#0B192C]">
-              Away
-            </span>
-            <span className="text-[28px] leading-none font-black italic text-[#D59B42] tracking-tight [-webkit-text-stroke:0.45px_#D59B42]">
-              Day.
-            </span>
+        <div className="overflow-x-hidden w-full max-w-md mx-auto">
+          {/* Top Row: AwayDay. Logo on Left, LIVE SYNC + Notification Bell on Right */}
+          <div className="flex items-center justify-between w-full">
+            <div className="flex items-baseline select-none tracking-tight shrink-0">
+              <span className="text-[28px] leading-none font-black italic text-[#0B192C] tracking-tight pr-0.5 [-webkit-text-stroke:0.45px_#0B192C]">
+                Away
+              </span>
+              <span className="text-[28px] leading-none font-black italic text-[#D59B42] tracking-tight [-webkit-text-stroke:0.45px_#D59B42]">
+                Day.
+              </span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div
+                role="status"
+                aria-live="polite"
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${syncPillMeta.pillClass}`}
+              >
+                <span className={`w-2 h-2 rounded-full ${syncPillMeta.dotClass}`} />
+                <span className="whitespace-nowrap">{syncPillMeta.label}</span>
+              </div>
+              <button
+                type="button"
+                aria-label="Notifications and hub tips"
+                onClick={() => {
+                  const nextIdx = games.findIndex((g) => !isGameElapsedByClock(g, nowMs));
+                  const activeGame = nextIdx >= 0 ? games[nextIdx] : undefined;
+                  if (activeGame) {
+                    setHeroTipsManualState((prev) => ({ ...prev, [activeGame.id]: true }));
+                  }
+                  if (activeTab !== "schedule") {
+                    setActiveTab("schedule");
+                  }
+                  window.setTimeout(() => {
+                    const tipsEl = document.getElementById("section-hub-tips") || document.getElementById("section-games");
+                    tipsEl?.scrollIntoView({ behavior: "smooth", block: "center" });
+                  }, 60);
+                }}
+                className="w-8 h-8 rounded-full bg-white border border-[#E9E5DE] shadow-xs flex items-center justify-center relative text-[#1D2935] cursor-pointer hover:bg-slate-50 transition-colors shrink-0"
+              >
+                <Bell className="w-4 h-4" aria-hidden="true" />
+                {alerts.length > 0 && (
+                  <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#D59B42]" />
+                )}
+              </button>
+            </div>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2">
+
+          {/* Second Row: Full-Width "Pass to another squad" Action Bar */}
+          <div className="w-full pt-2 pb-0.5">
             <button
               type="button"
               onClick={() => setShowPassModal(true)}
-              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FFF9F0] border-[1.5px] border-[#D59B42] text-[#0B192C] text-xs font-black tracking-tight shadow-tactile-sm active:scale-95 transition-all select-none cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-1.5 px-3 rounded-full bg-[#FFF9F0] border-[1.5px] border-[#D59B42] text-[#0B192C] text-xs font-black tracking-tight shadow-tactile-sm active:scale-[0.98] transition-all select-none cursor-pointer"
               aria-label="Pass AwayDay to another squad"
             >
-              {/* Tactile smartphone icon with send arrow */}
               <svg
                 viewBox="0 0 24 24"
                 className="w-3.5 h-3.5 text-[#0F2942] fill-none stroke-current stroke-[2.2] stroke-linecap-round stroke-linejoin-round shrink-0"
@@ -1831,39 +1869,7 @@ function RunSheetContent() {
                 <rect x="5" y="2" width="14" height="20" rx="3" />
                 <path d="M12 18h.01" />
               </svg>
-              <span className="whitespace-nowrap">Pass to another squad</span>
-            </button>
-            <div
-              role="status"
-              aria-live="polite"
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${syncPillMeta.pillClass}`}
-            >
-              <span className={`w-2 h-2 rounded-full ${syncPillMeta.dotClass}`} />
-              <span className="whitespace-nowrap">{syncPillMeta.label}</span>
-            </div>
-            <button
-              type="button"
-              aria-label="Notifications and hub tips"
-              onClick={() => {
-                const nextIdx = games.findIndex((g) => !isGameElapsedByClock(g, nowMs));
-                const activeGame = nextIdx >= 0 ? games[nextIdx] : undefined;
-                if (activeGame) {
-                  setHeroTipsManualState((prev) => ({ ...prev, [activeGame.id]: true }));
-                }
-                if (activeTab !== "schedule") {
-                  setActiveTab("schedule");
-                }
-                window.setTimeout(() => {
-                  const tipsEl = document.getElementById("section-hub-tips") || document.getElementById("section-games");
-                  tipsEl?.scrollIntoView({ behavior: "smooth", block: "center" });
-                }, 60);
-              }}
-              className="w-8 h-8 rounded-full bg-white border border-[#E9E5DE] shadow-xs flex items-center justify-center relative text-[#1D2935] cursor-pointer hover:bg-slate-50 transition-colors"
-            >
-              <Bell className="w-4 h-4" aria-hidden="true" />
-              {alerts.length > 0 && (
-                <span className="absolute top-1 right-1 w-2 h-2 rounded-full bg-[#D59B42]" />
-              )}
+              <span>Pass to another squad</span>
             </button>
           </div>
         </div>
