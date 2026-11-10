@@ -723,11 +723,31 @@ function RunSheetContent() {
           if (Array.isArray(parsedCache.alerts) && parsedCache.alerts.length > 0) {
             setAlerts(parsedCache.alerts);
           }
+          const existingUserVote = window.localStorage.getItem(storageVotedOptionKey);
+          const isStaleMockVotes = (arr: any[]) =>
+            !existingUserVote &&
+            arr.length >= 3 &&
+            arr[0]?.votes === 8 &&
+            arr[1]?.votes === 11 &&
+            arr[2]?.votes === 4;
+          const zeroOutOptions = (arr: any[]) =>
+            arr.map((o: any) => ({
+              ...o,
+              votes: 0,
+              totalSeats: 0,
+              playerCount: 0,
+              parentCount: 0,
+            }));
+
           if (Array.isArray(parsedCache.options) && parsedCache.options.length > 0) {
             const hasStaleOakvilleOnNonDemo =
               !isDemoSlug && parsedCache.options.some((o: any) => /oakville/i.test(o?.name || "") || /oakville/i.test(o?.address || ""));
             if (!hasStaleOakvilleOnNonDemo) {
-              setOptions(parsedCache.options);
+              setOptions(
+                isStaleMockVotes(parsedCache.options)
+                  ? zeroOutOptions(parsedCache.options)
+                  : parsedCache.options
+              );
             }
           }
           if (
@@ -751,20 +771,36 @@ function RunSheetContent() {
           setGames(parsed);
         }
       }
+      const savedVotedId = window.localStorage.getItem(storageVotedOptionKey);
+      if (savedVotedId) {
+        setUserVotedOptionId(savedVotedId);
+      }
       const savedPoll = window.localStorage.getItem(storagePollOptionsKey);
       if (savedPoll) {
         const parsedPoll = JSON.parse(savedPoll);
         if (Array.isArray(parsedPoll) && parsedPoll.length > 0) {
           const hasStaleOakvilleOnNonDemo =
             !isDemoSlug && parsedPoll.some((o: any) => /oakville/i.test(o?.name || "") || /oakville/i.test(o?.address || ""));
+          const isStaleDefaultPoll =
+            !savedVotedId &&
+            parsedPoll.length >= 3 &&
+            parsedPoll[0]?.votes === 8 &&
+            parsedPoll[1]?.votes === 11 &&
+            parsedPoll[2]?.votes === 4;
           if (!hasStaleOakvilleOnNonDemo) {
-            setOptions(parsedPoll);
+            setOptions(
+              isStaleDefaultPoll
+                ? parsedPoll.map((o: any) => ({
+                    ...o,
+                    votes: 0,
+                    totalSeats: 0,
+                    playerCount: 0,
+                    parentCount: 0,
+                  }))
+                : parsedPoll
+            );
           }
         }
-      }
-      const savedVotedId = window.localStorage.getItem(storageVotedOptionKey);
-      if (savedVotedId) {
-        setUserVotedOptionId(savedVotedId);
       }
       const savedRsvp = window.localStorage.getItem(storageRsvpKey);
       if (savedRsvp !== null) {
@@ -961,17 +997,14 @@ function RunSheetContent() {
   const mapDinnerSpotsToMealOptions = (
     spots: ReturnType<typeof getCityFuelAndFoodRecommendations>["dinnerSpots"]
   ): MealOption[] => {
-    const defaultVotes = [8, 11, 4];
-    const defaultPlayers = [8, 11, 4];
-    const defaultParents = [6, 8, 3];
     return spots.map((spot, idx) => ({
       id: `p${idx + 1}`,
       name: spot.name,
       type: spot.type,
-      totalSeats: (defaultPlayers[idx] ?? 4) + (defaultParents[idx] ?? 3),
-      playerCount: defaultPlayers[idx] ?? 4,
-      parentCount: defaultParents[idx] ?? 3,
-      votes: defaultVotes[idx] ?? 4,
+      totalSeats: spot.seats ?? 0,
+      playerCount: spot.players ?? 0,
+      parentCount: spot.adults ?? 0,
+      votes: spot.votes ?? 0,
       phone: spot.phone || "(905) 555-0100",
       address: spot.address,
     }));
@@ -2040,32 +2073,65 @@ function RunSheetContent() {
           </div>
 
           {isAdmin && isManagerToolsOpen && (
-            <div className="mt-3 pt-2.5 border-t border-[#DCE1E7] flex flex-wrap items-center justify-between gap-2">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
-                Manager Actions
-              </span>
-              <div className="flex items-center gap-2">
+            <div className="mt-3 pt-2.5 border-t border-[#DCE1E7]">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Manager Actions
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setParsedPreviewGames(null);
+                      setIsIngestModalOpen(true);
+                    }}
+                    className="bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] border border-[#DCE1E7] text-xs font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                  >
+                    <span className="sm:hidden">+ Run Sheet</span>
+                    <span className="hidden sm:inline">+ Update Run Sheet</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsManagerToolsOpen(false);
+                      handleExitAdmin();
+                    }}
+                    title="Exit Admin Mode"
+                    className="bg-white hover:bg-slate-50 text-slate-700 border border-[#DCE1E7] text-xs font-medium px-2.5 py-1 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
+                  >
+                    <Lock className="w-3 h-3 text-[#D59B42]" aria-hidden="true" /> Exit Admin
+                  </button>
+                </div>
+              </div>
+
+              <div className="pt-4 mt-4 border-t border-slate-200 space-y-2.5">
+                <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                  Tournament Status &amp; Data
+                </div>
+
+                {/* Delete Action */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setParsedPreviewGames(null);
-                    setIsIngestModalOpen(true);
+                  onClick={async () => {
+                    if (window.confirm("Permanently delete this run-sheet? This cannot be undone.")) {
+                      try {
+                        await fetch(`/api/tournaments/${slug}`, { method: "DELETE" });
+                      } catch (e) {
+                        console.error("Delete failed", e);
+                      }
+                      localStorage.removeItem(`awayday_cache_${slug}`);
+                      localStorage.removeItem(`awayday_poll_options_v2_${slug}`);
+                      localStorage.removeItem(`awayday_games_sprint1_${slug}`);
+                      localStorage.removeItem(`awayday_voted_opt_${slug}`);
+                      localStorage.removeItem(`awayday_rsvp_${slug}`);
+                      localStorage.removeItem(`awayday_meal_mode_${slug}`);
+                      window.location.href = "/claim";
+                    }
                   }}
-                  className="bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] border border-[#DCE1E7] text-xs font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-red-200 bg-red-50/60 text-xs font-bold text-red-600 hover:bg-red-100/60 active:scale-[0.98] transition-all cursor-pointer"
                 >
-                  <span className="sm:hidden">+ Run Sheet</span>
-                  <span className="hidden sm:inline">+ Update Run Sheet</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsManagerToolsOpen(false);
-                    handleExitAdmin();
-                  }}
-                  title="Exit Admin Mode"
-                  className="bg-white hover:bg-slate-50 text-slate-700 border border-[#DCE1E7] text-xs font-medium px-2.5 py-1 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
-                >
-                  <Lock className="w-3 h-3 text-[#D59B42]" aria-hidden="true" /> Exit Admin
+                  <span>🗑️ Delete Run-Sheet</span>
+                  <span className="text-[10px] text-red-400">Scrub tournament data</span>
                 </button>
               </div>
             </div>
@@ -3386,10 +3452,11 @@ function RunSheetContent() {
 
               <div className="space-y-2.5 pt-0.5">
                 {options.map(option => {
-                  const isWinner = winningOption?.id === option.id;
+                  const totalVotes = totalPollVotes;
+                  const isWinner = totalVotes > 0 && winningOption?.id === option.id;
                   const isUserPick = userVotedOptionId === option.id;
-                  const votePercent = totalPollVotes > 0 ? Math.round((option.votes / totalPollVotes) * 100) : 0;
-                  const optionSeats = option.totalSeats || option.votes * 2;
+                  const votePercent = totalVotes > 0 ? Math.round((option.votes / totalVotes) * 100) : 0;
+                  const optionSeats = totalVotes > 0 ? (option.totalSeats || option.votes * 2) : 0;
 
                   if (isPollLocked && isWinner) {
                     return (
@@ -3430,7 +3497,7 @@ function RunSheetContent() {
                         <div className="h-1.5 w-full bg-[#F7F6F2] border border-[#DCE1E7] rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full bg-[#0B192C] transition-all duration-300"
-                            style={{ width: `${votePercent}%` }}
+                            style={{ width: `${totalVotes > 0 ? votePercent : 0}%` }}
                           />
                         </div>
 
@@ -3513,7 +3580,7 @@ function RunSheetContent() {
                           ? "bg-[#F7F6F2] border-[#DCE1E7] opacity-55 pointer-events-none cursor-default"
                           : isUserPick
                             ? "bg-[#F7F6F2] border-2 border-[#0B192C] shadow-xs cursor-pointer active:scale-[0.98]"
-                            : isWinner
+                            : totalVotes > 0 && isWinner
                               ? "bg-white border-[1.5px] border-[#0B192C]/40 shadow-xs cursor-pointer active:scale-[0.98]"
                               : "bg-white border-[#DCE1E7] hover:border-[#0B192C]/35 shadow-2xs cursor-pointer active:scale-[0.98]"
                       }`}
@@ -3523,7 +3590,7 @@ function RunSheetContent() {
                           <span className="text-sm font-black tracking-tight block text-[#0B192C]">
                             {option.name}
                           </span>
-                          {isWinner && !isPollLocked && (
+                          {totalVotes > 0 && isWinner && !isPollLocked && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
                               <Trophy className="w-2.5 h-2.5 text-[#0B192C]" /> Leading
                             </span>
@@ -3533,7 +3600,7 @@ function RunSheetContent() {
                               Your Vote
                             </span>
                           )}
-                          {option.isCustom && !isWinner && (
+                          {option.isCustom && !(totalVotes > 0 && isWinner) && (
                             <span className="inline-flex items-center gap-1 rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
                               <Sparkles className="w-2.5 h-2.5 text-[#0B192C]" /> Parent Pick
                             </span>
@@ -3545,7 +3612,7 @@ function RunSheetContent() {
                         <div className="mt-2 h-1.5 w-full bg-[#F1F3F5] border border-[#DCE1E7] rounded-full overflow-hidden">
                           <div
                             className="h-full rounded-full bg-[#0B192C] transition-all duration-300"
-                            style={{ width: `${votePercent}%` }}
+                            style={{ width: `${totalVotes > 0 ? votePercent : 0}%` }}
                           />
                         </div>
                       </div>
@@ -3557,7 +3624,7 @@ function RunSheetContent() {
                           </span>
                         ) : (
                           <span className={`font-black px-2.5 py-1 rounded-lg text-xs block tabular-nums ${
-                            isWinner 
+                            totalVotes > 0 && isWinner 
                               ? "bg-[#EFEFEA] text-[#0B192C] border border-[#D1D5DB]" 
                               : isUserPick
                                 ? "bg-[#0B192C] text-white"
@@ -4699,9 +4766,40 @@ function RunSheetContent() {
                   onClick={handleParseSchedule}
                   className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs uppercase tracking-wider py-2.5 px-4 rounded-xl transition-all cursor-pointer"
                 >
-                  Parse & Preview
+                  Parse &amp; Preview
                 </button>
               )}
+            </div>
+
+            <div className="pt-4 mt-4 border-t border-slate-200 space-y-2.5">
+              <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Tournament Status &amp; Data
+              </div>
+
+              {/* Delete Action */}
+              <button
+                type="button"
+                onClick={async () => {
+                  if (window.confirm("Permanently delete this run-sheet? This cannot be undone.")) {
+                    try {
+                      await fetch(`/api/tournaments/${slug}`, { method: "DELETE" });
+                    } catch (e) {
+                      console.error("Delete failed", e);
+                    }
+                    localStorage.removeItem(`awayday_cache_${slug}`);
+                    localStorage.removeItem(`awayday_poll_options_v2_${slug}`);
+                    localStorage.removeItem(`awayday_games_sprint1_${slug}`);
+                    localStorage.removeItem(`awayday_voted_opt_${slug}`);
+                    localStorage.removeItem(`awayday_rsvp_${slug}`);
+                    localStorage.removeItem(`awayday_meal_mode_${slug}`);
+                    window.location.href = "/claim";
+                  }
+                }}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-red-200 bg-red-50/60 text-xs font-bold text-red-600 hover:bg-red-100/60 active:scale-[0.98] transition-all cursor-pointer"
+              >
+                <span>🗑️ Delete Run-Sheet</span>
+                <span className="text-[10px] text-red-400">Scrub tournament data</span>
+              </button>
             </div>
           </div>
         </div>

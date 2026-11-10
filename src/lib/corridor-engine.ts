@@ -35,6 +35,12 @@ export interface CityDiningSpot {
   note: string;
   address: string;
   phone?: string;
+  votes?: number;
+  seats?: number;
+  players?: number;
+  adults?: number;
+  percentage?: number;
+  isLeading?: boolean;
 }
 
 export interface CityFuelRecommendations {
@@ -141,6 +147,12 @@ export function getCityFuelAndFoodRecommendations(
           note: "Large group tables and athlete-friendly menu",
           phone: "(905) 849-8696",
           address: "271 Cornwall Rd, Oakville, ON",
+          votes: 0,
+          seats: 0,
+          players: 0,
+          adults: 0,
+          percentage: 0,
+          isLeading: false,
         },
         {
           name: "Scaddabush Italian Kitchen (Oakville)",
@@ -149,6 +161,12 @@ export function getCityFuelAndFoodRecommendations(
           note: "Pre-game pasta bowls & shareable team platters",
           phone: "(905) 829-0070",
           address: "2095 Winston Park Dr, Oakville, ON",
+          votes: 0,
+          seats: 0,
+          players: 0,
+          adults: 0,
+          percentage: 0,
+          isLeading: false,
         },
         {
           name: "State & Main Kitchen (Oakville)",
@@ -157,6 +175,12 @@ export function getCityFuelAndFoodRecommendations(
           note: "Easy group seating for parents & players",
           phone: "(289) 291-0022",
           address: "478 Dundas St W, Oakville, ON",
+          votes: 0,
+          seats: 0,
+          players: 0,
+          adults: 0,
+          percentage: 0,
+          isLeading: false,
         },
       ],
       quickLunchSpots: [
@@ -225,6 +249,12 @@ export function getCityFuelAndFoodRecommendations(
         note: "Right across Steeles Ave near Hwy 410 — accommodates 20+ player & parent tables.",
         phone: "(905) 455-5225",
         address: "20 Biscayne Crescent, Brampton, ON",
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
       },
       {
         name: "Boston Pizza (Brampton — Steeles & Great Lakes)",
@@ -233,6 +263,12 @@ export function getCityFuelAndFoodRecommendations(
         note: "Classic team carb-load spot within a 5-minute radius of Fairfield Inn Brampton.",
         phone: "(905) 459-0990",
         address: "80 Great Lakes Dr, Brampton, ON",
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
       },
       {
         name: "Lone Star Texas Grill / Chuck's Roadhouse (Brampton)",
@@ -241,6 +277,12 @@ export function getCityFuelAndFoodRecommendations(
         note: "Fast group seating off Hurontario & County Court Blvd (within 10-min radius of hotel).",
         phone: "(905) 454-0150",
         address: "200 County Ct Blvd, Brampton, ON",
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
       },
     ],
     quickLunchSpots: [
