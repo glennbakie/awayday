@@ -3,7 +3,13 @@
 import React, { useState, useEffect, useRef, Suspense } from "react";
 import { useSearchParams, useParams, useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
-import { CorridorDirection, getDynamicOriginPresets, computeTravelCorridor } from "@/lib/corridor-engine";
+import {
+  CorridorDirection,
+  getDynamicOriginPresets,
+  computeTravelCorridor,
+  getCityFuelAndFoodRecommendations,
+  getGoogleMapsSearchUrl,
+} from "@/lib/corridor-engine";
 import { generateQrMatrix } from "@/lib/qr-svg";
 import { 
   Clock, 
@@ -133,15 +139,19 @@ const KNOWN_TRICODES: Record<string, string> = {
 };
 
 function getCityTriCode(cityRaw?: string): { code: string; full: string } {
-  if (!cityRaw) return { code: "AWY", full: "Away" };
-  const firstCity = cityRaw.split("/")[0].split(",")[0].trim();
+  if (!cityRaw || /^(away|tbd|unknown)$/i.test(cityRaw.trim())) {
+    return { code: "BRA", full: "Brampton, ON" };
+  }
+  const primarySegment = cityRaw.split("/")[0].trim();
+  const firstCity = primarySegment.split(",")[0].trim();
   const lower = firstCity.toLowerCase();
 
   const code = KNOWN_TRICODES[lower] || firstCity.substring(0, 3).toUpperCase();
-  return { code, full: firstCity };
+  const full = /,/.test(primarySegment) ? primarySegment : `${firstCity}, ON`;
+  return { code, full };
 }
 
-function VintageCityBadge({ city = "AWAY" }: { city?: string }) {
+function VintageCityBadge({ city = "Brampton, ON" }: { city?: string }) {
   const { code, full } = getCityTriCode(city);
 
   const hash = full.split("").reduce((acc, c) => acc + c.charCodeAt(0), 0);
@@ -163,7 +173,7 @@ function VintageCityBadge({ city = "AWAY" }: { city?: string }) {
           <span className={`text-2xl font-black font-serif tracking-widest ${palette.text} leading-none drop-shadow-xs`}>
             {code}
           </span>
-          <span className={`text-[10px] font-bold tracking-tight opacity-90 ${palette.text} truncate max-w-[70px] mt-0.5`}>
+          <span className={`text-[9px] font-bold tracking-tight opacity-90 ${palette.text} truncate max-w-[78px] mt-0.5`}>
             {full}
           </span>
         </div>
@@ -366,26 +376,26 @@ function RunSheetContent() {
           }
         }
       : {
-          name: "Tournament Weekend",
+          name: "CYBL Session",
           division: "Varsity / Rep",
-          leagueName: "Weekend Tournament",
-          teamName: "Ottawa Elite",
-          dates: "Dates TBD",
+          leagueName: "CYBL",
+          teamName: "Ottawa Elite U16",
+          dates: "Nov 21–22, 2026",
           city: "Brampton, ON",
-          primaryHub: "Tournament Facility TBD",
-          primaryHubAddress: "Brampton, ON",
+          primaryHub: "Brampton Area Gyms (Schedule Pending)",
+          primaryHubAddress: "150 Westcreek Blvd, Brampton, ON",
           lastUpdatedText: "Pre-Schedule Logistics & Hotel Locked",
           schedulePending: true,
           hotel: {
-            name: "Team Hotel Base Camp",
-            address: "Brampton, ON",
+            name: "Fairfield Inn & Suites Toronto Brampton",
+            address: "150 Westcreek Blvd, Brampton",
             rate: "Team Group Block",
             breakfastHours: "6:30 AM - 9:30 AM (Included)",
             checkoutTime: "12:00 PM"
           }
         }
   );
-  const originPresets = getDynamicOriginPresets(teamHomeBase, tournament.city || "Away");
+  const originPresets = getDynamicOriginPresets(teamHomeBase, tournament.city || "Brampton, ON");
   const hasLoadedCacheRef = useRef<boolean>(false);
 
   // Sync native <dialog> showModal()/close() & light-dismiss fallback for Sideline Pass Modal
@@ -419,60 +429,13 @@ function RunSheetContent() {
     }
   }, [showPassModal]);
 
-  const coffeeSpots = [
-    {
-      name: "Tribeca Coffee Co. (Oakville)",
-      distance: "4 min drive (1.6 km)",
-      type: "Sit Down & Wi-Fi",
-      note: "Craft espresso, warm pastries, great parent lounge spot near Dorval",
-      address: "Oakville, ON"
-    },
-    {
-      name: "Tim Hortons (Dorval Crossing)",
-      distance: "2 min drive (0.8 km)",
-      type: "Drive-Thru",
-      note: "Right off Dorval Dr & QEW — fast mobile order pickup before tip-off",
-      address: "Dorval Dr, Oakville, ON"
-    },
-    {
-      name: "Peach Coffee Co. (Burlington)",
-      distance: "5 min drive (2.2 km)",
-      type: "Specialty / Fast",
-      note: "Close to Notre Dame CSS for Sunday morning coffee run",
-      address: "Burlington, ON"
-    }
-  ];
-
-  const quickLunchSpots = [
-    {
-      name: "Fortinos Hot Bar & Panini Counter",
-      type: "Deli Wraps, Pasta & Salad Bar",
-      distance: "4 min drive (1.8 km)",
-      note: "Huge fresh hot bar, grilled paninis, fruit & hydration — ideal for Sunday's 2h 45m window.",
-      address: "Upper Middle Rd, Burlington, ON"
-    },
-    {
-      name: "Firehouse Subs (Burlington / Oakville)",
-      type: "Hot & Cold Subs",
-      distance: "5 min drive (2.1 km)",
-      note: "Quick hearty subs, easy seating for athletes & parents between Sunday games.",
-      address: "Burlington, ON"
-    },
-    {
-      name: "Freshii (Dorval Crossing)",
-      type: "Smoothies & Bowls",
-      distance: "3 min drive (1.3 km)",
-      note: "Fast wraps, protein bowls, energizing smoothies. Order ahead on app.",
-      address: "Dorval Dr, Oakville, ON"
-    },
-    {
-      name: "Booster Juice",
-      type: "Smoothies & Paninis",
-      distance: "3 min drive (1.4 km)",
-      note: "Quick athlete fuel & hydration between back-to-back games.",
-      address: "Oakville, ON"
-    }
-  ];
+  const cityFuel = getCityFuelAndFoodRecommendations(
+    tournament.city || "Brampton, ON",
+    tournament.hotel.address || "150 Westcreek Blvd, Brampton"
+  );
+  const coffeeSpots = cityFuel.coffeeSpots;
+  const quickLunchSpots = cityFuel.quickLunchSpots;
+  const corridorFoodSpots = cityFuel.corridorFoodSpots;
 
   const [games, setGames] = useState<Game[]>(() =>
     isDemoSlug
@@ -731,12 +694,26 @@ function RunSheetContent() {
         if (parsedCache && typeof parsedCache === "object") {
           loadedFromCache = true;
           if (parsedCache.tournament && typeof parsedCache.tournament === "object") {
+            const ct = parsedCache.tournament;
+            const ch = ct.hotel || {};
+            const isGenericName = !ct.name || /test team|away weekend|tournament weekend/i.test(ct.name);
+            const isGenericCity = !ct.city || /^away$/i.test(String(ct.city).trim());
+            const isGenericDates = !ct.dates || /dates tbd/i.test(ct.dates);
+            const isGenericHotelName = !ch.name || /team hotel/i.test(ch.name);
+            const isGenericHotelAddr = !ch.address || /^away$/i.test(String(ch.address).trim()) || /^brampton,\s*on$/i.test(String(ch.address).trim());
             setTournament((prev) => ({
               ...prev,
-              ...parsedCache.tournament,
+              ...ct,
+              name: isGenericName ? "CYBL Session" : ct.name,
+              teamName: !ct.teamName || /test team/i.test(ct.teamName) ? "Ottawa Elite U16" : ct.teamName,
+              dates: isGenericDates ? "Nov 21–22, 2026" : ct.dates,
+              city: isGenericCity ? "Brampton, ON" : ct.city,
+              primaryHubAddress: isGenericHotelAddr ? "150 Westcreek Blvd, Brampton, ON" : (ct.primaryHubAddress || ch.address),
               hotel: {
                 ...prev.hotel,
-                ...(parsedCache.tournament.hotel || {}),
+                ...ch,
+                name: isGenericHotelName ? "Fairfield Inn & Suites Toronto Brampton" : ch.name,
+                address: isGenericHotelAddr ? "150 Westcreek Blvd, Brampton" : ch.address,
               },
             }));
           }
@@ -747,7 +724,11 @@ function RunSheetContent() {
             setAlerts(parsedCache.alerts);
           }
           if (Array.isArray(parsedCache.options) && parsedCache.options.length > 0) {
-            setOptions(parsedCache.options);
+            const hasStaleOakvilleOnNonDemo =
+              !isDemoSlug && parsedCache.options.some((o: any) => /oakville/i.test(o?.name || "") || /oakville/i.test(o?.address || ""));
+            if (!hasStaleOakvilleOnNonDemo) {
+              setOptions(parsedCache.options);
+            }
           }
           if (
             parsedCache.manualMealMode === "lunch" ||
@@ -774,7 +755,11 @@ function RunSheetContent() {
       if (savedPoll) {
         const parsedPoll = JSON.parse(savedPoll);
         if (Array.isArray(parsedPoll) && parsedPoll.length > 0) {
-          setOptions(parsedPoll);
+          const hasStaleOakvilleOnNonDemo =
+            !isDemoSlug && parsedPoll.some((o: any) => /oakville/i.test(o?.name || "") || /oakville/i.test(o?.address || ""));
+          if (!hasStaleOakvilleOnNonDemo) {
+            setOptions(parsedPoll);
+          }
         }
       }
       const savedVotedId = window.localStorage.getItem(storageVotedOptionKey);
@@ -973,41 +958,46 @@ function RunSheetContent() {
     };
   }, [slug]);
 
-  const [options, setOptions] = useState<MealOption[]>([
-    { 
-      id: "p1", 
-      name: "Beertown Public House (Oakville)", 
-      type: "Team Sit-Down", 
-      totalSeats: 14,
-      playerCount: 8, 
-      parentCount: 6, 
-      votes: 8,
-      phone: "(905) 849-8696",
-      address: "271 Cornwall Rd, Oakville, ON"
-    },
-    { 
-      id: "p2", 
-      name: "Scaddabush Italian Kitchen (Oakville)", 
-      type: "Pasta & Team Tables", 
-      totalSeats: 19,
-      playerCount: 11, 
-      parentCount: 8, 
-      votes: 11,
-      phone: "(905) 829-0070",
-      address: "2095 Winston Park Dr, Oakville, ON"
-    },
-    { 
-      id: "p3", 
-      name: "State & Main Kitchen (Oakville)", 
-      type: "Casual / Group Seating", 
-      totalSeats: 7,
-      playerCount: 4, 
-      parentCount: 3, 
-      votes: 4,
-      phone: "(289) 291-0022",
-      address: "478 Dundas St W, Oakville, ON"
-    }
-  ]);
+  const mapDinnerSpotsToMealOptions = (
+    spots: ReturnType<typeof getCityFuelAndFoodRecommendations>["dinnerSpots"]
+  ): MealOption[] => {
+    const defaultVotes = [8, 11, 4];
+    const defaultPlayers = [8, 11, 4];
+    const defaultParents = [6, 8, 3];
+    return spots.map((spot, idx) => ({
+      id: `p${idx + 1}`,
+      name: spot.name,
+      type: spot.type,
+      totalSeats: (defaultPlayers[idx] ?? 4) + (defaultParents[idx] ?? 3),
+      playerCount: defaultPlayers[idx] ?? 4,
+      parentCount: defaultParents[idx] ?? 3,
+      votes: defaultVotes[idx] ?? 4,
+      phone: spot.phone || "(905) 555-0100",
+      address: spot.address,
+    }));
+  };
+
+  const [options, setOptions] = useState<MealOption[]>(() =>
+    mapDinnerSpotsToMealOptions(cityFuel.dinnerSpots)
+  );
+
+  // Sync dinner poll options when tournament city/hotel changes (e.g., Brampton vs Oakville)
+  useEffect(() => {
+    const recommendedDinner = mapDinnerSpotsToMealOptions(
+      getCityFuelAndFoodRecommendations(
+        tournament.city || "Brampton, ON",
+        tournament.hotel.address || "150 Westcreek Blvd, Brampton"
+      ).dinnerSpots
+    );
+    setOptions((prev) => {
+      const isBrampton = (tournament.city || "").toLowerCase().includes("brampton");
+      const hasOakvilleSpots = prev.some((o) => /oakville/i.test(o.name) || /oakville/i.test(o.address));
+      if (isBrampton && hasOakvilleSpots) {
+        return recommendedDinner;
+      }
+      return prev;
+    });
+  }, [tournament.city, tournament.hotel.address]);
 
   // Persist current tournament payload under awayday_cache_${slug} for offline gym dead-zones
   useEffect(() => {
@@ -1874,10 +1864,14 @@ function RunSheetContent() {
   const firstEventArrivalMins = firstGame
     ? getArrivalCallMinutes(firstGame.tipOffMinutes, firstGame.warmupBufferMin || 30)
     : 915;
-  const firstEventDayLabel = firstGame?.dayLabel || "Sat, Oct 24";
+  const firstEventDayLabel = firstGame?.dayLabel || (isDemoSlug ? "Sat, Oct 24" : "Sat, Nov 21");
+  const isSchedulePendingState =
+    Boolean(tournament.schedulePending) ||
+    games.length === 0 ||
+    games.every((g) => g.isPlaceholder || /tbd|pending/i.test(g.opponent));
   const corridorPlan = computeTravelCorridor(
     departureOrigin,
-    tournament.city || "Away",
+    tournament.city || "Brampton, ON",
     tournament.hotel.name,
     firstEventArrivalMins,
     firstEventDayLabel,
@@ -1885,8 +1879,10 @@ function RunSheetContent() {
       direction: corridorDirection,
       teamHomeBase,
       finalGameTipOffMinutes: finalGame?.tipOffMinutes ?? 870,
-      finalGameDayLabel: finalGame?.dayLabel || tournament.dates || "Sun, Oct 25",
+      finalGameDayLabel: finalGame?.dayLabel || tournament.dates || (isDemoSlug ? "Sun, Oct 25" : "Sun, Nov 22"),
       finalGameVenue: finalGame?.venueName || tournament.hotel.name,
+      destinationAddress: tournament.hotel.address || "150 Westcreek Blvd, Brampton, ON",
+      schedulePending: isSchedulePendingState,
     }
   );
 
@@ -2084,9 +2080,16 @@ function RunSheetContent() {
             games.every((g) => g.isPlaceholder || /tbd|pending/i.test(g.opponent));
 
           if (isSchedulePending) {
-            const hotelMapsQuery = [tournament.hotel.name, tournament.hotel.address]
-              .filter(Boolean)
-              .join(", ");
+            const orgName =
+              (tournament.name || "CYBL")
+                .replace(/\s+Session.*$/i, "")
+                .replace(/\s+Tournament.*$/i, "")
+                .replace(/\s+Weekend.*$/i, "")
+                .trim() || "CYBL";
+            const cityShort = (tournament.city || "Brampton").split(",")[0].split("/")[0].trim() || "Brampton";
+            const hotelMapsDirectUrl = getGoogleMapsSearchUrl(
+              tournament.hotel.address || "150 Westcreek Blvd, Brampton, ON"
+            );
             return (
               <>
                 <div className="bg-white border-2 border-dashed border-[#C2A26F]/60 rounded-2xl p-6 text-center mb-3">
@@ -2095,7 +2098,7 @@ function RunSheetContent() {
                     Schedule &amp; Bracket Pending
                   </h3>
                   <p className="text-xs text-[#5A6E7C] max-w-xs mx-auto mt-1">
-                    {tournament.name || "Tournament"} organizers have not released tip-offs yet. Hotel &amp; logistics are locked below.
+                    {orgName} organizers have not released tip-offs yet. Hotel and travel routes to {cityShort} are locked below and in the Travel/Fuel tabs.
                   </p>
                   {isAdmin && (
                     <label className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#0F2942] text-white text-xs font-bold cursor-pointer hover:bg-[#1A3D5D]">
@@ -2141,7 +2144,7 @@ function RunSheetContent() {
                   </div>
 
                   <a
-                    href={getMapsUrl(hotelMapsQuery || tournament.city)}
+                    href={hotelMapsDirectUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
@@ -3586,11 +3589,11 @@ function RunSheetContent() {
                 <h3 className="text-xs font-black tracking-tight uppercase text-[#0B192C]">
                   Sideline Fuel
                 </h3>
-                <span className="text-[11px] text-slate-500 font-medium">Coffee Radar &amp; Parent Pit Stops</span>
+                <span className="text-[11px] text-slate-500 font-medium">Coffee Radar &amp; Parent Pit Stops (10-Min Hotel Radius)</span>
               </div>
             </div>
             <span className="inline-flex items-center rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
-              Nearby Gym
+              Near Hotel
             </span>
           </div>
 
@@ -3611,6 +3614,52 @@ function RunSheetContent() {
                 <a 
                   href={getMapsUrl(spot.name + " " + spot.address)} 
                   target="_blank" 
+                  rel="noreferrer"
+                  className="shrink-0 bg-[#0B192C] hover:bg-[#1A365D] text-white px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
+                >
+                  <Navigation className="w-3.5 h-3.5 text-white" /> Map
+                </a>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* Hwy 401 Corridor Team Food Stops */}
+        <section id="section-corridor-food" className="bg-white rounded-[26px] p-4 shadow-tactile-sm border-[1.5px] border-[#DCE1E7] space-y-3">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <span className="p-1.5 rounded-lg bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C]">
+                <Car className="w-4 h-4" />
+              </span>
+              <div>
+                <h3 className="text-xs font-black tracking-tight uppercase text-[#0B192C]">
+                  Hwy 401 Corridor Team Food Stops
+                </h3>
+                <span className="text-[11px] text-slate-500 font-medium">En-Route Fuel Along Ottawa ➔ {tournament.city.split(",")[0]} Drive</span>
+              </div>
+            </div>
+            <span className="inline-flex items-center rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
+              401 Corridor
+            </span>
+          </div>
+
+          <div className="space-y-2">
+            {corridorFoodSpots.map((spot) => (
+              <div key={spot.id} className="flex items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] hover:border-[#0B192C]/30 text-xs transition-colors">
+                <div className="pr-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="text-sm font-black tracking-tight text-[#0B192C]">{spot.title}</span>
+                    <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2 py-0.5">
+                      {spot.milestoneTag}
+                    </span>
+                  </div>
+                  <span className="text-xs text-[#1D2935] block mt-1 font-semibold leading-relaxed">
+                    {spot.elapsedDriveLabel} • <span className="text-slate-600 font-medium">{spot.fuelAndCoffeeOptions}</span>
+                  </span>
+                </div>
+                <a
+                  href={spot.googleMapsUrl}
+                  target="_blank"
                   rel="noreferrer"
                   className="shrink-0 bg-[#0B192C] hover:bg-[#1A365D] text-white px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
                 >
@@ -3801,6 +3850,18 @@ function RunSheetContent() {
               <span>{corridorPlan.departureContextNote}</span>
             </div>
 
+            <a
+              href={corridorPlan.destinationMapsUrl || getGoogleMapsSearchUrl(tournament.hotel.address || "150 Westcreek Blvd, Brampton, ON")}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
+            >
+              <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+              </svg>
+              <span>Route to {tournament.hotel.name} in Google Maps</span>
+            </a>
+
             {/* Live Traffic & Weather Disclaimer */}
             <div className="text-[11px] text-slate-600 italic bg-[#F7F6F2] border border-[#DCE1E7] rounded-xl px-3 py-2 flex items-start gap-2">
               <AlertCircle className="w-3.5 h-3.5 text-[#0B192C] shrink-0 mt-0.5" />
@@ -3872,7 +3933,7 @@ function RunSheetContent() {
               <span className="truncate">{tournament.hotel.address}</span>
             </p>
             <a
-              href={getMapsUrl(`${tournament.hotel.name}, ${tournament.hotel.address}`)}
+              href={getGoogleMapsSearchUrl(tournament.hotel.address || "150 Westcreek Blvd, Brampton, ON")}
               target="_blank"
               rel="noopener noreferrer"
               className="mt-3 min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"

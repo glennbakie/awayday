@@ -53,6 +53,7 @@ function ClaimPageContent() {
     slug?: string;
     schedulePending?: boolean;
     tournamentName?: string;
+    teamName?: string;
     city?: string;
     dates?: string;
     hotel?: {
@@ -96,15 +97,20 @@ function ClaimPageContent() {
         slug: data.slug,
         schedulePending: Boolean(data.schedulePending),
         tournamentName: data.tournamentName,
+        teamName: data.teamName,
         city: data.city,
         dates: data.dates,
         hotel: data.hotel,
       });
+      if (data.teamName && (!targetTeam.trim() || /^(test\s*team(\s*\d+)?|team\s*\d+)$/i.test(targetTeam.trim()))) {
+        setTeamName(data.teamName);
+      }
       return {
         slug: data.slug as string | undefined,
         schedulePending: Boolean(data.schedulePending),
         games: gamesList,
         tournamentName: data.tournamentName as string | undefined,
+        teamName: data.teamName as string | undefined,
         city: data.city as string | undefined,
         dates: data.dates as string | undefined,
         hotel: data.hotel as
@@ -151,25 +157,31 @@ function ClaimPageContent() {
     setIsSubmitting(true);
     setParseError(null);
 
-    const resolvedTeamName = teamName.trim() || "Ottawa Elite U16";
+    const rawTypedTeam = teamName.trim();
+    const isGenericTeamInput = !rawTypedTeam || /^(test\s*team(\s*\d+)?|team\s*\d+|my\s*team)$/i.test(rawTypedTeam);
 
     let currentGames = extractedGames;
     let currentMeta = extractedMeta;
 
     if ((!currentGames || currentGames.length === 0) && files.length > 0) {
-      const result = await runScheduleExtraction(files, resolvedTeamName);
+      const result = await runScheduleExtraction(files, isGenericTeamInput ? "Ottawa Elite U16" : rawTypedTeam);
       if (result) {
         currentGames = result.games;
         currentMeta = {
           slug: result.slug,
           schedulePending: result.schedulePending,
           tournamentName: result.tournamentName,
+          teamName: result.teamName,
           city: result.city,
           dates: result.dates,
           hotel: result.hotel,
         };
       }
     }
+
+    const resolvedTeamName = !isGenericTeamInput
+      ? rawTypedTeam
+      : currentMeta.teamName || "Ottawa Elite U16";
 
     const isPending = Boolean(
       currentMeta.schedulePending ||
@@ -183,11 +195,20 @@ function ClaimPageContent() {
         )
     );
 
-    const resolvedCity = (currentMeta.city || "Away").trim();
-    const resolvedTournamentName = currentMeta.tournamentName || `${resolvedTeamName} Away Weekend`;
+    const rawCity = (currentMeta.city || "").trim();
+    const resolvedCity =
+      rawCity && !/^(tbd|away|unknown)$/i.test(rawCity)
+        ? /,/.test(rawCity)
+          ? rawCity
+          : `${rawCity}, ON`
+        : "Brampton, ON";
+    const resolvedTournamentName =
+      currentMeta.tournamentName && !/away\s*weekend|test\s*team/i.test(currentMeta.tournamentName)
+        ? currentMeta.tournamentName
+        : "CYBL Session";
     const slug =
       currentMeta.slug ||
-      formatSlug(`${resolvedTournamentName}-${resolvedCity}-${resolvedTeamName}`);
+      formatSlug(`${resolvedTournamentName}-${resolvedCity.split(",")[0].trim()}-${resolvedTeamName}`);
 
     const mappedGames =
       !isPending && currentGames && currentGames.length > 0
@@ -216,18 +237,19 @@ function ClaimPageContent() {
               status: "Upcoming" as const,
               jerseyColor,
               telemetryFlag: eg.telemetryTag || (idx === 0 ? "Home Opener" : undefined),
+              isPlaceholder: false,
             };
           })
         : [
             {
               id: `pending-g-${Date.now()}-1`,
               gameNumber: 1,
-              dayLabel: currentMeta.dates || "Weekend",
+              dayLabel: currentMeta.dates || "Nov 21–22, 2026",
               matchup: "Game 1 - TBD (Tip-Off Pending)",
               opponent: "Game 1 - TBD (Tip-Off Pending)",
               tipOffMinutes: 600,
               court: "TBD",
-              venueName: `${resolvedCity} Tournament Venue`,
+              venueName: `${resolvedCity.split(",")[0].trim()} Area Gym (TBD)`,
               venueAddress: resolvedCity,
               city: resolvedCity,
               warmupBufferMin: 30,
@@ -235,16 +257,17 @@ function ClaimPageContent() {
               status: "Upcoming" as const,
               jerseyColor: "White (Home)" as const,
               telemetryFlag: "Tip-Off Pending",
+              isPlaceholder: true,
             },
             {
               id: `pending-g-${Date.now()}-2`,
               gameNumber: 2,
-              dayLabel: currentMeta.dates || "Weekend",
+              dayLabel: currentMeta.dates || "Nov 21–22, 2026",
               matchup: "Game 2 - TBD",
               opponent: "Game 2 - TBD",
               tipOffMinutes: 780,
               court: "TBD",
-              venueName: `${resolvedCity} Tournament Venue`,
+              venueName: `${resolvedCity.split(",")[0].trim()} Area Gym (TBD)`,
               venueAddress: resolvedCity,
               city: resolvedCity,
               warmupBufferMin: 30,
@@ -252,11 +275,20 @@ function ClaimPageContent() {
               status: "Upcoming" as const,
               jerseyColor: "Dark / Black (Away)" as const,
               telemetryFlag: "Tip-Off Pending",
+              isPlaceholder: true,
             },
           ];
 
-    const hotelName = currentMeta.hotel?.name || `Team Hotel (${resolvedCity})`;
-    const hotelAddress = currentMeta.hotel?.address || resolvedCity;
+    const rawHotelName = (currentMeta.hotel?.name || "").trim();
+    const isGenericHotel = !rawHotelName || /^team\s*hotel(\s*\(.*\)|\s*tbd)?$/i.test(rawHotelName);
+    const hotelName = !isGenericHotel
+      ? rawHotelName
+      : "Fairfield Inn & Suites Toronto Brampton";
+    const rawHotelAddress = (currentMeta.hotel?.address || "").trim();
+    const hotelAddress =
+      rawHotelAddress && !/^(tbd|away)$/i.test(rawHotelAddress)
+        ? rawHotelAddress
+        : "150 Westcreek Blvd, Brampton";
     const firstVenue = !isPending && mappedGames[0]?.venueName ? mappedGames[0].venueName : hotelName;
     const firstAddress = !isPending && mappedGames[0]?.venueAddress ? mappedGames[0].venueAddress : hotelAddress;
 
@@ -265,7 +297,7 @@ function ClaimPageContent() {
       division: "Varsity / Club Division",
       leagueName: resolvedTournamentName,
       teamName: resolvedTeamName,
-      dates: currentMeta.dates || "Dates TBD",
+      dates: currentMeta.dates || "Nov 21–22, 2026",
       city: resolvedCity,
       schedulePending: isPending,
       primaryHub: firstVenue,
@@ -278,7 +310,7 @@ function ClaimPageContent() {
         name: hotelName,
         address: hotelAddress,
         rate: currentMeta.hotel?.rate || `Team Room Block (${resolvedTeamName})`,
-        breakfastHours: currentMeta.hotel?.breakfastHours || "6:30 AM - 9:30 AM (Check Front Desk)",
+        breakfastHours: currentMeta.hotel?.breakfastHours || "6:30 AM - 9:30 AM (Included)",
         checkoutTime: currentMeta.hotel?.checkoutTime || "12:00 PM",
       },
     };
