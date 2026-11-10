@@ -1808,11 +1808,8 @@ function RunSheetContent() {
           {/* Top Row: AwayDay. Logo on Left, LIVE SYNC + Notification Bell on Right */}
           <div className="flex items-center justify-between w-full">
             <div className="flex items-baseline select-none tracking-tight shrink-0">
-              <span className="text-[28px] leading-none font-black italic text-[#0B192C] tracking-tight pr-0.5 [-webkit-text-stroke:0.45px_#0B192C]">
-                Away
-              </span>
-              <span className="text-[28px] leading-none font-black italic text-[#D59B42] tracking-tight [-webkit-text-stroke:0.45px_#D59B42]">
-                Day.
+              <span className="text-xl font-black italic tracking-tight text-[#0B192C]">
+                Away<span className="text-[#3A4750]">Day.</span>
               </span>
             </div>
             <div className="flex items-center gap-2">
@@ -1856,7 +1853,7 @@ function RunSheetContent() {
             <button
               type="button"
               onClick={() => setShowPassModal(true)}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-full bg-[#D59B42] hover:bg-[#C88E37] active:bg-[#B97F29] border-[1.5px] border-[#B97F29] text-[#0B192C] text-xs font-black tracking-tight shadow-tactile-sm active:scale-[0.98] transition-all select-none cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-full bg-[#F0EFE6] hover:bg-[#F7F6F0] active:bg-[#E6E4D9] border-[1.5px] border-[#0B192C] text-[#0B192C] text-xs font-black tracking-tight shadow-tactile-sm active:scale-[0.98] transition-all select-none cursor-pointer"
               aria-label="Pass AwayDay to another squad"
             >
               <svg
@@ -2184,25 +2181,25 @@ function RunSheetContent() {
                   <div className="flex-1 px-1 flex flex-col items-center">
                     {/* Authentic Referee Whistle with Sound Burst Rays */}
                     <svg
-                      viewBox="0 0 64 64"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-none stroke-current stroke-[4.5] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
+                      viewBox="0 0 72 64"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-none stroke-current stroke-[4] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       aria-hidden="true"
                     >
                       {/* Sound Burst Rays */}
-                      <path d="M28 12V6" strokeWidth="4" />
-                      <path d="M22 14l-3-4" strokeWidth="4" />
-                      <path d="M34 14l3-4" strokeWidth="4" />
+                      <path d="M30 11V5" strokeWidth="3.5" />
+                      <path d="M24 13l-3-4" strokeWidth="3.5" />
+                      <path d="M36 13l3-4" strokeWidth="3.5" />
 
-                      {/* Lanyard Ring Tab */}
-                      <path d="M7 25l-3 3 3 3" />
+                      {/* Lanyard Ring Eyelet */}
+                      <path d="M8 27l-4 3 4 3" />
 
                       {/* Outer Whistle Body (Round Chamber + Tapered Mouthpiece Barrel) */}
-                      <path d="M26 21H25a17 17 0 1 0 7 13.5v-2.5h26v-11H30v3.5h-4V21z" />
+                      <path d="M28 22H26a16 16 0 1 0 6 13v-2h28v-11H32v3.5h-4V22z" />
 
                       {/* Inner Pea Chamber Rim */}
-                      <circle cx="20" cy="38" r="9" />
+                      <circle cx="21" cy="38" r="8" />
                     </svg>
                     <span className="text-xs font-semibold text-slate-600">
                       Tip-Off
@@ -2602,25 +2599,25 @@ function RunSheetContent() {
                   <div className="flex-1 px-1 flex flex-col items-center">
                     {/* Authentic Referee Whistle with Sound Burst Rays */}
                     <svg
-                      viewBox="0 0 64 64"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-none stroke-current stroke-[4.5] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
+                      viewBox="0 0 72 64"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-none stroke-current stroke-[4] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       aria-hidden="true"
                     >
                       {/* Sound Burst Rays */}
-                      <path d="M28 12V6" strokeWidth="4" />
-                      <path d="M22 14l-3-4" strokeWidth="4" />
-                      <path d="M34 14l3-4" strokeWidth="4" />
+                      <path d="M30 11V5" strokeWidth="3.5" />
+                      <path d="M24 13l-3-4" strokeWidth="3.5" />
+                      <path d="M36 13l3-4" strokeWidth="3.5" />
 
-                      {/* Lanyard Ring Tab */}
-                      <path d="M7 25l-3 3 3 3" />
+                      {/* Lanyard Ring Eyelet */}
+                      <path d="M8 27l-4 3 4 3" />
 
                       {/* Outer Whistle Body (Round Chamber + Tapered Mouthpiece Barrel) */}
-                      <path d="M26 21H25a17 17 0 1 0 7 13.5v-2.5h26v-11H30v3.5h-4V21z" />
+                      <path d="M28 22H26a16 16 0 1 0 6 13v-2h28v-11H32v3.5h-4V22z" />
 
                       {/* Inner Pea Chamber Rim */}
-                      <circle cx="20" cy="38" r="9" />
+                      <circle cx="21" cy="38" r="8" />
                     </svg>
                     <span className="text-xs font-semibold text-slate-600">Tip-Off</span>
                     <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">{formatTime(game.tipOffMinutes)}</span>
