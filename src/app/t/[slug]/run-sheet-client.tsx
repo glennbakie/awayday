@@ -2182,22 +2182,27 @@ function RunSheetContent() {
                   </div>
 
                   <div className="flex-1 px-1 flex flex-col items-center">
-                    {/* Classic Referee Pea Whistle */}
+                    {/* Authentic Referee Whistle with Sound Burst Rays */}
                     <svg
-                      viewBox="0 0 24 24"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
+                      viewBox="0 0 64 64"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-none stroke-current stroke-[4.5] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       aria-hidden="true"
                     >
-                      {/* Barrel / Mouthpiece */}
-                      <path d="M11 6h8a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4" />
-                      {/* Pea chamber & neck */}
-                      <path d="M11 6H9.5a5.5 5.5 0 1 0 0 11H13a3 3 0 0 0 3-3v-2" />
-                      {/* Sound escape slit */}
-                      <path d="M15 6v6" />
-                      {/* Lanyard eyelet loop */}
-                      <path d="M4 11.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0z" fill="currentColor" />
+                      {/* Sound Burst Rays */}
+                      <path d="M28 12V6" strokeWidth="4" />
+                      <path d="M22 14l-3-4" strokeWidth="4" />
+                      <path d="M34 14l3-4" strokeWidth="4" />
+
+                      {/* Lanyard Ring Tab */}
+                      <path d="M7 25l-3 3 3 3" />
+
+                      {/* Outer Whistle Body (Round Chamber + Tapered Mouthpiece Barrel) */}
+                      <path d="M26 21H25a17 17 0 1 0 7 13.5v-2.5h26v-11H30v3.5h-4V21z" />
+
+                      {/* Inner Pea Chamber Rim */}
+                      <circle cx="20" cy="38" r="9" />
                     </svg>
                     <span className="text-xs font-semibold text-slate-600">
                       Tip-Off
@@ -2216,8 +2221,8 @@ function RunSheetContent() {
                   <span className="italic truncate">Check Maps for live traffic &amp; weather</span>
                 </div>
 
-                {/* Bottom Metadata Strip (Bolder w-5 h-5 Shirt & Emerald Check Circle) */}
-                <div className="mt-2.5 pt-2.5 border-t border-[#E9ECEF] flex items-center justify-between text-xs font-semibold text-[#2A435E]">
+                {/* Bottom Metadata Strip (Jersey Indicator) */}
+                <div className="mt-2.5 pt-2.5 border-t border-[#E9ECEF] flex items-center text-xs font-semibold text-[#2A435E]">
                   <div className="flex items-center gap-2">
                     <svg
                       aria-hidden="true"
@@ -2227,27 +2232,6 @@ function RunSheetContent() {
                       <path d="M16.5 3c-1.1 1.35-2.68 2.2-4.5 2.2S8.6 4.35 7.5 3L2 5.5l2.2 4.4 2.8-1.1V21h10V8.8l2.8 1.1L22 5.5 16.5 3z" />
                     </svg>
                     <span>Jerseys: {heroJerseyShort || "White"}</span>
-                  </div>
-                  <div className="h-4 w-px bg-[#E9ECEF] shrink-0" aria-hidden="true" />
-                  <div className="flex items-center gap-2">
-                    <span
-                      aria-hidden="true"
-                      className="w-5 h-5 bg-[#10B981] text-white font-black text-xs flex items-center justify-center rounded-full shadow-xs shrink-0"
-                    >
-                      <svg
-                        className="w-3 h-3 stroke-current"
-                        viewBox="0 0 12 12"
-                        fill="none"
-                        strokeWidth="2.6"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      >
-                        <path d="M2.5 6.3L5 8.8L9.5 3.5" />
-                      </svg>
-                    </span>
-                    <span>
-                      Team Check-in: {nextGame.status && nextGame.status !== "Upcoming" ? nextGame.status : "Complete"}
-                    </span>
                   </div>
                 </div>
 
@@ -2616,22 +2600,27 @@ function RunSheetContent() {
                     <span className="text-[11px] font-medium text-slate-500 mt-0.5">({bufferMins} min buffer)</span>
                   </div>
                   <div className="flex-1 px-1 flex flex-col items-center">
-                    {/* Classic Referee Pea Whistle */}
+                    {/* Authentic Referee Whistle with Sound Burst Rays */}
                     <svg
-                      viewBox="0 0 24 24"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-none stroke-current stroke-[2] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
+                      viewBox="0 0 64 64"
+                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#D59B42] fill-none stroke-current stroke-[4.5] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
                       strokeLinecap="round"
                       strokeLinejoin="round"
                       aria-hidden="true"
                     >
-                      {/* Barrel / Mouthpiece */}
-                      <path d="M11 6h8a2 2 0 0 1 2 2v2a2 2 0 0 1-2 2h-4" />
-                      {/* Pea chamber & neck */}
-                      <path d="M11 6H9.5a5.5 5.5 0 1 0 0 11H13a3 3 0 0 0 3-3v-2" />
-                      {/* Sound escape slit */}
-                      <path d="M15 6v6" />
-                      {/* Lanyard eyelet loop */}
-                      <path d="M4 11.5a1.5 1.5 0 1 0-3 0 1.5 1.5 0 0 0 3 0z" fill="currentColor" />
+                      {/* Sound Burst Rays */}
+                      <path d="M28 12V6" strokeWidth="4" />
+                      <path d="M22 14l-3-4" strokeWidth="4" />
+                      <path d="M34 14l3-4" strokeWidth="4" />
+
+                      {/* Lanyard Ring Tab */}
+                      <path d="M7 25l-3 3 3 3" />
+
+                      {/* Outer Whistle Body (Round Chamber + Tapered Mouthpiece Barrel) */}
+                      <path d="M26 21H25a17 17 0 1 0 7 13.5v-2.5h26v-11H30v3.5h-4V21z" />
+
+                      {/* Inner Pea Chamber Rim */}
+                      <circle cx="20" cy="38" r="9" />
                     </svg>
                     <span className="text-xs font-semibold text-slate-600">Tip-Off</span>
                     <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">{formatTime(game.tipOffMinutes)}</span>
