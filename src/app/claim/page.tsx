@@ -50,9 +50,18 @@ function ClaimPageContent() {
   const [parseError, setParseError] = useState<string | null>(null);
   const [extractedGames, setExtractedGames] = useState<ExtractedClaimGame[] | null>(null);
   const [extractedMeta, setExtractedMeta] = useState<{
+    slug?: string;
+    schedulePending?: boolean;
     tournamentName?: string;
     city?: string;
     dates?: string;
+    hotel?: {
+      name?: string;
+      address?: string;
+      rate?: string;
+      breakfastHours?: string;
+      checkoutTime?: string;
+    };
   }>({});
 
   const [teamName, setTeamName] = useState("");
@@ -84,15 +93,29 @@ function ClaimPageContent() {
       const gamesList: ExtractedClaimGame[] = Array.isArray(data.games) ? data.games : [];
       setExtractedGames(gamesList);
       setExtractedMeta({
+        slug: data.slug,
+        schedulePending: Boolean(data.schedulePending),
         tournamentName: data.tournamentName,
         city: data.city,
         dates: data.dates,
+        hotel: data.hotel,
       });
       return {
+        slug: data.slug as string | undefined,
+        schedulePending: Boolean(data.schedulePending),
         games: gamesList,
         tournamentName: data.tournamentName as string | undefined,
         city: data.city as string | undefined,
         dates: data.dates as string | undefined,
+        hotel: data.hotel as
+          | {
+              name?: string;
+              address?: string;
+              rate?: string;
+              breakfastHours?: string;
+              checkoutTime?: string;
+            }
+          | undefined,
       };
     } catch (err: any) {
       setParseError(err?.message || "Unable to read the uploaded schedule file.");
@@ -129,25 +152,45 @@ function ClaimPageContent() {
     setParseError(null);
 
     const resolvedTeamName = teamName.trim() || "Ottawa Elite U16";
-    const slug = formatSlug(resolvedTeamName);
 
     let currentGames = extractedGames;
     let currentMeta = extractedMeta;
 
     if ((!currentGames || currentGames.length === 0) && files.length > 0) {
       const result = await runScheduleExtraction(files, resolvedTeamName);
-      if (result && result.games.length > 0) {
+      if (result) {
         currentGames = result.games;
         currentMeta = {
+          slug: result.slug,
+          schedulePending: result.schedulePending,
           tournamentName: result.tournamentName,
           city: result.city,
           dates: result.dates,
+          hotel: result.hotel,
         };
       }
     }
 
+    const isPending = Boolean(
+      currentMeta.schedulePending ||
+        !currentGames ||
+        currentGames.length === 0 ||
+        currentGames.every(
+          (g: any) =>
+            g.isPlaceholder === true ||
+            /tbd|pending/i.test(g.tipOff || "") ||
+            /game\s*\d+\s*-\s*tbd|tip-off pending/i.test(g.opponent || "")
+        )
+    );
+
+    const resolvedCity = (currentMeta.city || "Away").trim();
+    const resolvedTournamentName = currentMeta.tournamentName || `${resolvedTeamName} Away Weekend`;
+    const slug =
+      currentMeta.slug ||
+      formatSlug(`${resolvedTournamentName}-${resolvedCity}-${resolvedTeamName}`);
+
     const mappedGames =
-      currentGames && currentGames.length > 0
+      !isPending && currentGames && currentGames.length > 0
         ? currentGames.map((eg, idx) => {
             const tipOffMinutes = parseTimeStringToMinutes(eg.tipOff, 585 + idx * 180);
             const jerseyColor =
@@ -155,20 +198,19 @@ function ClaimPageContent() {
             const isAway = jerseyColor.toLowerCase().includes("away");
             const opponent = (eg.opponent || `Opponent ${idx + 1}`).trim();
             const venueName = (eg.venueName || "Main Tournament Centre").trim();
-            const venueAddress = (eg.venueAddress || "124 Dorval Dr").trim();
-            const city = (currentMeta.city || "Oakville, ON").trim();
+            const venueAddress = (eg.venueAddress || resolvedCity).trim();
 
             return {
               id: `claim-g-${Date.now()}-${idx}`,
               gameNumber: idx + 1,
-              dayLabel: eg.day || "Sat, Oct 24",
+              dayLabel: eg.day || currentMeta.dates || "Day 1",
               matchup: `${resolvedTeamName} ${isAway ? "at" : "vs"} ${opponent}`,
               opponent,
               tipOffMinutes,
               court: eg.court || `Court ${idx + 1}`,
               venueName,
               venueAddress,
-              city,
+              city: resolvedCity,
               warmupBufferMin: 30,
               hotelTravelMin: 15,
               status: "Upcoming" as const,
@@ -178,65 +220,66 @@ function ClaimPageContent() {
           })
         : [
             {
-              id: "g1",
+              id: `pending-g-${Date.now()}-1`,
               gameNumber: 1,
-              dayLabel: "Sat, Oct 24",
-              matchup: `${resolvedTeamName} vs Dragons de Gatineau - Gabriel`,
-              opponent: "Dragons de Gatineau - Gabriel",
-              tipOffMinutes: 945,
-              court: "Court 2",
-              venueName: "St. Thomas Aquinas",
-              venueAddress: "124 Dorval Dr",
-              city: "Oakville, ON L6K 2W1",
+              dayLabel: currentMeta.dates || "Weekend",
+              matchup: "Game 1 - TBD (Tip-Off Pending)",
+              opponent: "Game 1 - TBD (Tip-Off Pending)",
+              tipOffMinutes: 600,
+              court: "TBD",
+              venueName: `${resolvedCity} Tournament Venue`,
+              venueAddress: resolvedCity,
+              city: resolvedCity,
               warmupBufferMin: 30,
               hotelTravelMin: 15,
               status: "Upcoming" as const,
               jerseyColor: "White (Home)" as const,
-              telemetryFlag: "Home Opener",
-              downtimeAfter: {
-                duration: "1h 30m",
-                type: "Quick Turnaround (Stay On-Site)",
-                note: "Both games on Court 2. Fuel athletes with sideline snacks/hydration between games.",
-              },
+              telemetryFlag: "Tip-Off Pending",
             },
             {
-              id: "g2",
+              id: `pending-g-${Date.now()}-2`,
               gameNumber: 2,
-              dayLabel: "Sat, Oct 24",
-              matchup: `${resolvedTeamName} at MC Elite White`,
-              opponent: "MC Elite White",
-              tipOffMinutes: 1095,
-              court: "Court 2",
-              venueName: "St. Thomas Aquinas",
-              venueAddress: "124 Dorval Dr",
-              city: "Oakville, ON L6K 2W1",
+              dayLabel: currentMeta.dates || "Weekend",
+              matchup: "Game 2 - TBD",
+              opponent: "Game 2 - TBD",
+              tipOffMinutes: 780,
+              court: "TBD",
+              venueName: `${resolvedCity} Tournament Venue`,
+              venueAddress: resolvedCity,
+              city: resolvedCity,
               warmupBufferMin: 30,
               hotelTravelMin: 15,
               status: "Upcoming" as const,
               jerseyColor: "Dark / Black (Away)" as const,
-              telemetryFlag: "Back-to-Back",
+              telemetryFlag: "Tip-Off Pending",
             },
           ];
 
-    const firstVenue = mappedGames[0]?.venueName || "St. Thomas Aquinas";
-    const firstAddress = mappedGames[0]?.venueAddress || "124 Dorval Dr, Oakville, ON";
+    const hotelName = currentMeta.hotel?.name || `Team Hotel (${resolvedCity})`;
+    const hotelAddress = currentMeta.hotel?.address || resolvedCity;
+    const firstVenue = !isPending && mappedGames[0]?.venueName ? mappedGames[0].venueName : hotelName;
+    const firstAddress = !isPending && mappedGames[0]?.venueAddress ? mappedGames[0].venueAddress : hotelAddress;
+
     const tournamentPayload = {
-      name: currentMeta.tournamentName || `${resolvedTeamName} Away Weekend`,
+      name: resolvedTournamentName,
       division: "Varsity / Club Division",
-      leagueName: "Weekend Tournament Run-Sheet",
+      leagueName: resolvedTournamentName,
       teamName: resolvedTeamName,
-      dates: currentMeta.dates || "Oct 24 - 25, 2026",
-      city: currentMeta.city || "Oakville / Burlington, ON",
+      dates: currentMeta.dates || "Dates TBD",
+      city: resolvedCity,
+      schedulePending: isPending,
       primaryHub: firstVenue,
       primaryHubAddress: firstAddress,
-      lastUpdatedText: "Official Team Weekend Run-Sheet",
+      lastUpdatedText: isPending
+        ? "Hotel & Logistics Locked • Schedule Pending"
+        : "Official Team Weekend Run-Sheet",
       contactInfo: contactInfo.trim() || undefined,
       hotel: {
-        name: "Fairfield Inn Toronto Oakville",
-        address: "2937 Sherwood Heights Dr, Oakville, ON L6J 7L3",
-        rate: `$169 / night (${resolvedTeamName} Room Block)`,
-        breakfastHours: "6:30 AM - 9:30 AM (Included)",
-        checkoutTime: "12:00 PM",
+        name: hotelName,
+        address: hotelAddress,
+        rate: currentMeta.hotel?.rate || `Team Room Block (${resolvedTeamName})`,
+        breakfastHours: currentMeta.hotel?.breakfastHours || "6:30 AM - 9:30 AM (Check Front Desk)",
+        checkoutTime: currentMeta.hotel?.checkoutTime || "12:00 PM",
       },
     };
 
@@ -399,13 +442,15 @@ function ClaimPageContent() {
               </div>
             )}
 
-            {/* Extracted Games Preview */}
+            {/* Extracted Games / Hotel Logistics Preview */}
             {extractedGames && extractedGames.length > 0 && !isParsing && (
               <div className="bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] rounded-2xl p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="inline-flex items-center gap-1.5 text-xs font-black text-[#0B192C]">
                     <CheckCircle2 className="w-4 h-4 text-[#10B981]" aria-hidden="true" />
-                    {extractedGames.length} Game{extractedGames.length > 1 ? "s" : ""} Extracted
+                    {extractedMeta.schedulePending
+                      ? "Hotel & Logistics Extracted (Schedule Pending)"
+                      : `${extractedGames.length} Game${extractedGames.length > 1 ? "s" : ""} Extracted`}
                   </span>
                   {extractedMeta.city && (
                     <span className="text-[11px] font-bold text-[#5C6B7B]">
@@ -413,6 +458,18 @@ function ClaimPageContent() {
                     </span>
                   )}
                 </div>
+                {extractedMeta.hotel?.name && (
+                  <div className="bg-white border border-[#DCE1E7] rounded-xl p-2.5 text-xs">
+                    <div className="font-black text-[#0F2942] truncate">
+                      🏨 {extractedMeta.hotel.name}
+                    </div>
+                    {extractedMeta.hotel.address && (
+                      <div className="text-[11px] font-semibold text-[#5C6B7B] truncate mt-0.5">
+                        {extractedMeta.hotel.address}
+                      </div>
+                    )}
+                  </div>
+                )}
                 <div className="space-y-1.5">
                   {extractedGames.map((g, i) => (
                     <div
@@ -421,12 +478,14 @@ function ClaimPageContent() {
                     >
                       <div className="min-w-0">
                         <div className="font-black text-[#0F2942] truncate">
-                          G{i + 1}: {g.tipOff} vs {g.opponent}
+                          {extractedMeta.schedulePending
+                            ? g.opponent
+                            : `G${i + 1}: ${g.tipOff} vs ${g.opponent}`}
                         </div>
                         <div className="text-[11px] font-semibold text-[#5C6B7B] flex items-center gap-2 mt-0.5 truncate">
                           <span className="inline-flex items-center gap-1">
                             <CalendarDays className="w-3 h-3 text-[#0F2942]" aria-hidden="true" />
-                            {g.day}
+                            {g.day || extractedMeta.dates || "Weekend"}
                           </span>
                           <span>•</span>
                           <span className="inline-flex items-center gap-1 truncate">

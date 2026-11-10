@@ -83,6 +83,7 @@ interface Game {
   jerseyColor?: JerseyColor;
   telemetryFlag?: string;
   downtimeAfter?: DowntimeWindow;
+  isPlaceholder?: boolean;
 }
 
 interface MealOption {
@@ -227,6 +228,7 @@ interface TournamentInfo {
   primaryHubAddress: string;
   lastUpdatedText: string;
   contactInfo?: string;
+  schedulePending?: boolean;
   hotel: {
     name: string;
     address: string;
@@ -279,13 +281,13 @@ function RunSheetContent() {
   };
 
   // Step 2: Any-City Travel Corridor Engine Origin & Direction State + Persistence
+  const isDemoSlug = slug === "test-team";
   const teamHomeBase = "Ottawa, ON";
   const [departureOrigin, setDepartureOrigin] = useState<string>(teamHomeBase);
   const [corridorDirection, setCorridorDirection] = useState<CorridorDirection>("to_tournament");
   const [isOriginPopoverOpen, setIsOriginPopoverOpen] = useState<boolean>(false);
   const [isCustomOriginMode, setIsCustomOriginMode] = useState<boolean>(false);
   const [customOriginDraft, setCustomOriginDraft] = useState<string>("");
-  const originPresets = getDynamicOriginPresets(teamHomeBase, "Oakville, ON");
 
   useEffect(() => {
     if (!slug) return;
@@ -342,24 +344,48 @@ function RunSheetContent() {
     }
   };
 
-  const [tournament, setTournament] = useState<TournamentInfo>({
-    name: "NPH Session #1 - Oakville",
-    division: "Grade 11 Tier 2",
-    leagueName: "Grade 11 Tier 2 • NPH Showcase",
-    teamName: "Ottawa Elite (U16)",
-    dates: "Oct 24 - 25, 2026",
-    city: "Oakville / Burlington, ON",
-    primaryHub: "St. Thomas Aquinas & Notre Dame",
-    primaryHubAddress: "124 Dorval Dr, Oakville, ON L6K 2W1",
-    lastUpdatedText: "Official NPH Session #1 Weekend Run-Sheet",
-    hotel: {
-      name: "Fairfield Inn Toronto Oakville",
-      address: "2937 Sherwood Heights Dr, Oakville, ON L6J 7L3",
-      rate: "$169 / night (Ottawa Elite Room Block)",
-      breakfastHours: "6:30 AM - 9:30 AM (Included)",
-      checkoutTime: "12:00 PM"
-    }
-  });
+  const [tournament, setTournament] = useState<TournamentInfo>(() =>
+    isDemoSlug
+      ? {
+          name: "NPH Session #1 - Oakville",
+          division: "Grade 11 Tier 2",
+          leagueName: "Grade 11 Tier 2 • NPH Showcase",
+          teamName: "Ottawa Elite (U16)",
+          dates: "Oct 24 - 25, 2026",
+          city: "Oakville / Burlington, ON",
+          primaryHub: "St. Thomas Aquinas & Notre Dame",
+          primaryHubAddress: "124 Dorval Dr, Oakville, ON L6K 2W1",
+          lastUpdatedText: "Official NPH Session #1 Weekend Run-Sheet",
+          schedulePending: false,
+          hotel: {
+            name: "Fairfield Inn Toronto Oakville",
+            address: "2937 Sherwood Heights Dr, Oakville, ON L6J 7L3",
+            rate: "$169 / night (Ottawa Elite Room Block)",
+            breakfastHours: "6:30 AM - 9:30 AM (Included)",
+            checkoutTime: "12:00 PM"
+          }
+        }
+      : {
+          name: "Tournament Weekend",
+          division: "Varsity / Rep",
+          leagueName: "Weekend Tournament",
+          teamName: "Ottawa Elite",
+          dates: "Dates TBD",
+          city: "Brampton, ON",
+          primaryHub: "Tournament Facility TBD",
+          primaryHubAddress: "Brampton, ON",
+          lastUpdatedText: "Pre-Schedule Logistics & Hotel Locked",
+          schedulePending: true,
+          hotel: {
+            name: "Team Hotel Base Camp",
+            address: "Brampton, ON",
+            rate: "Team Group Block",
+            breakfastHours: "6:30 AM - 9:30 AM (Included)",
+            checkoutTime: "12:00 PM"
+          }
+        }
+  );
+  const originPresets = getDynamicOriginPresets(teamHomeBase, tournament.city || "Away");
   const hasLoadedCacheRef = useRef<boolean>(false);
 
   // Sync native <dialog> showModal()/close() & light-dismiss fallback for Sideline Pass Modal
@@ -448,82 +474,86 @@ function RunSheetContent() {
     }
   ];
 
-  const [games, setGames] = useState<Game[]>([
-    {
-      id: "g1",
-      dayLabel: "Sat, Oct 24",
-      matchup: "Ottawa Elite vs Dragons de Gatineau - Gabriel",
-      opponent: "Dragons de Gatineau - Gabriel",
-      tipOffMinutes: 945, // 3:45 PM
-      court: "Court 2",
-      venueName: "St. Thomas Aquinas",
-      venueAddress: "124 Dorval Dr",
-      city: "Oakville, ON L6K 2W1",
-      warmupBufferMin: 30, // 3:15 PM arrival buffer (30m before tip)
-      hotelTravelMin: 15,
-      status: "Upcoming",
-      jerseyColor: "White (Home)",
-      telemetryFlag: "Home Opener",
-      downtimeAfter: {
-        duration: "1h 30m",
-        type: "Quick Turnaround (Stay On-Site)",
-        note: "Both games on Court 2. Fuel athletes with sideline snacks/hydration between games."
-      }
-    },
-    {
-      id: "g2",
-      dayLabel: "Sat, Oct 24",
-      matchup: "Ottawa Elite at MC Elite White",
-      opponent: "MC Elite White",
-      tipOffMinutes: 1095, // 6:15 PM
-      court: "Court 2",
-      venueName: "St. Thomas Aquinas",
-      venueAddress: "124 Dorval Dr",
-      city: "Oakville, ON L6K 2W1",
-      warmupBufferMin: 30, // 5:45 PM arrival buffer (30m before tip)
-      hotelTravelMin: 15,
-      status: "Upcoming",
-      jerseyColor: "Dark / Black (Away)",
-      telemetryFlag: "Back-to-Back"
-    },
-    {
-      id: "g3",
-      dayLabel: "Sun, Oct 25",
-      matchup: "Ottawa Elite at YASO Basketball Academy (Black)",
-      opponent: "YASO Basketball Academy (Black)",
-      tipOffMinutes: 645, // 10:45 AM
-      court: "Court 1",
-      venueName: "Notre Dame",
-      venueAddress: "2333 Headon Forest Dr",
-      city: "Burlington, ON L7M 3X6",
-      warmupBufferMin: 30, // 10:15 AM arrival buffer (30m before tip)
-      hotelTravelMin: 15,
-      status: "Upcoming",
-      jerseyColor: "Dark / Black (Away)",
-      telemetryFlag: "Morning Tip",
-      downtimeAfter: {
-        duration: "2h 45m Window",
-        type: "Athlete Lunch & Fuel Window",
-        note: "Prime window for team lunch and rest before Game 4."
-      }
-    },
-    {
-      id: "g4",
-      dayLabel: "Sun, Oct 25",
-      matchup: "Ottawa Elite vs Kingston Impact",
-      opponent: "Kingston Impact",
-      tipOffMinutes: 870, // 2:30 PM
-      court: "Court 1",
-      venueName: "Notre Dame",
-      venueAddress: "2333 Headon Forest Dr",
-      city: "Burlington, ON L7M 3X6",
-      warmupBufferMin: 30, // 2:00 PM arrival buffer (30m before tip)
-      hotelTravelMin: 15,
-      status: "Upcoming",
-      jerseyColor: "White (Home)",
-      telemetryFlag: "Session Finale"
-    }
-  ]);
+  const [games, setGames] = useState<Game[]>(() =>
+    isDemoSlug
+      ? [
+          {
+            id: "g1",
+            dayLabel: "Sat, Oct 24",
+            matchup: "Ottawa Elite vs Dragons de Gatineau - Gabriel",
+            opponent: "Dragons de Gatineau - Gabriel",
+            tipOffMinutes: 945, // 3:45 PM
+            court: "Court 2",
+            venueName: "St. Thomas Aquinas",
+            venueAddress: "124 Dorval Dr",
+            city: "Oakville, ON L6K 2W1",
+            warmupBufferMin: 30, // 3:15 PM arrival buffer (30m before tip)
+            hotelTravelMin: 15,
+            status: "Upcoming",
+            jerseyColor: "White (Home)",
+            telemetryFlag: "Home Opener",
+            downtimeAfter: {
+              duration: "1h 30m",
+              type: "Quick Turnaround (Stay On-Site)",
+              note: "Both games on Court 2. Fuel athletes with sideline snacks/hydration between games."
+            }
+          },
+          {
+            id: "g2",
+            dayLabel: "Sat, Oct 24",
+            matchup: "Ottawa Elite at MC Elite White",
+            opponent: "MC Elite White",
+            tipOffMinutes: 1095, // 6:15 PM
+            court: "Court 2",
+            venueName: "St. Thomas Aquinas",
+            venueAddress: "124 Dorval Dr",
+            city: "Oakville, ON L6K 2W1",
+            warmupBufferMin: 30, // 5:45 PM arrival buffer (30m before tip)
+            hotelTravelMin: 15,
+            status: "Upcoming",
+            jerseyColor: "Dark / Black (Away)",
+            telemetryFlag: "Back-to-Back"
+          },
+          {
+            id: "g3",
+            dayLabel: "Sun, Oct 25",
+            matchup: "Ottawa Elite at YASO Basketball Academy (Black)",
+            opponent: "YASO Basketball Academy (Black)",
+            tipOffMinutes: 645, // 10:45 AM
+            court: "Court 1",
+            venueName: "Notre Dame",
+            venueAddress: "2333 Headon Forest Dr",
+            city: "Burlington, ON L7M 3X6",
+            warmupBufferMin: 30, // 10:15 AM arrival buffer (30m before tip)
+            hotelTravelMin: 15,
+            status: "Upcoming",
+            jerseyColor: "Dark / Black (Away)",
+            telemetryFlag: "Morning Tip",
+            downtimeAfter: {
+              duration: "2h 45m Window",
+              type: "Athlete Lunch & Fuel Window",
+              note: "Prime window for team lunch and rest before Game 4."
+            }
+          },
+          {
+            id: "g4",
+            dayLabel: "Sun, Oct 25",
+            matchup: "Ottawa Elite vs Kingston Impact",
+            opponent: "Kingston Impact",
+            tipOffMinutes: 870, // 2:30 PM
+            court: "Court 1",
+            venueName: "Notre Dame",
+            venueAddress: "2333 Headon Forest Dr",
+            city: "Burlington, ON L7M 3X6",
+            warmupBufferMin: 30, // 2:00 PM arrival buffer (30m before tip)
+            hotelTravelMin: 15,
+            status: "Upcoming",
+            jerseyColor: "White (Home)",
+            telemetryFlag: "Session Finale"
+          }
+        ]
+      : []
+  );
 
   const [alerts, setAlerts] = useState<VenueAlert[]>([
     {
@@ -692,12 +722,14 @@ function RunSheetContent() {
     const storageVotedOptionKey = `awayday_voted_opt_${slug}`;
     const storageRsvpKey = `awayday_rsvp_${slug}`;
 
+    let loadedFromCache = false;
     // Load offline dead-zone cache (`awayday_cache_${slug}`) & broadcast state immediately
     try {
       const rawOfflineCache = window.localStorage.getItem(storageCacheKey);
       if (rawOfflineCache) {
         const parsedCache = JSON.parse(rawOfflineCache);
         if (parsedCache && typeof parsedCache === "object") {
+          loadedFromCache = true;
           if (parsedCache.tournament && typeof parsedCache.tournament === "object") {
             setTournament((prev) => ({
               ...prev,
@@ -708,7 +740,7 @@ function RunSheetContent() {
               },
             }));
           }
-          if (Array.isArray(parsedCache.games) && parsedCache.games.length > 0) {
+          if (Array.isArray(parsedCache.games)) {
             setGames(parsedCache.games);
           }
           if (Array.isArray(parsedCache.alerts) && parsedCache.alerts.length > 0) {
@@ -734,7 +766,7 @@ function RunSheetContent() {
       const savedGames = window.localStorage.getItem(storageGamesKey);
       if (savedGames) {
         const parsed = JSON.parse(savedGames);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           setGames(parsed);
         }
       }
@@ -768,12 +800,34 @@ function RunSheetContent() {
       try {
         const { data, error } = await supabase
           .from("team_trips")
-          .select("active_meal_mode")
+          .select("active_meal_mode, team_name, hotel_name, hotel_address, tournaments(name)")
           .eq("share_slug", slug)
           .maybeSingle();
 
-        if (!error && data?.active_meal_mode) {
-          setManualMealMode(data.active_meal_mode as "lunch" | "dinner" | "auto");
+        if (!error && data) {
+          if (data.active_meal_mode) {
+            setManualMealMode(data.active_meal_mode as "lunch" | "dinner" | "auto");
+          }
+          if (!loadedFromCache && !isDemoSlug) {
+            const dbTournamentName = Array.isArray((data as any).tournaments)
+              ? (data as any).tournaments[0]?.name
+              : (data as any).tournaments?.name;
+            const inferredCity = data.hotel_address
+              ? data.hotel_address.split(",").slice(-2).join(",").trim() || data.hotel_address
+              : undefined;
+            setTournament((prev) => ({
+              ...prev,
+              name: dbTournamentName || prev.name,
+              teamName: data.team_name || prev.teamName,
+              city: inferredCity || prev.city,
+              primaryHubAddress: data.hotel_address || prev.primaryHubAddress,
+              hotel: {
+                ...prev.hotel,
+                name: data.hotel_name || prev.hotel.name,
+                address: data.hotel_address || prev.hotel.address,
+              },
+            }));
+          }
         }
       } catch (err) {
         console.error("Error fetching initial meal mode:", err);
@@ -1173,34 +1227,6 @@ function RunSheetContent() {
       .filter(Boolean);
 
     if (lines.length === 0) {
-      setParsedPreviewGames([
-        {
-          id: `g-${Date.now()}-1`,
-          opponent: "Toronto Bounce U16",
-          tipOffMinutes: 570, // 9:30 AM
-          court: "Court 2",
-          venueName: tournament.primaryHub,
-          venueAddress: "1125 Colonel By Dr",
-          city: tournament.city,
-          warmupBufferMin: 30,
-          hotelTravelMin: 25,
-          status: "Upcoming",
-          jerseyColor: "Dark / Away"
-        },
-        {
-          id: `g-${Date.now()}-2`,
-          opponent: "Hamilton Huskies",
-          tipOffMinutes: 840, // 2:00 PM
-          court: "Court 1",
-          venueName: tournament.primaryHub,
-          venueAddress: "1125 Colonel By Dr",
-          city: tournament.city,
-          warmupBufferMin: 30,
-          hotelTravelMin: 25,
-          status: "Upcoming",
-          jerseyColor: "Light / Home"
-        }
-      ]);
       return;
     }
 
@@ -1228,10 +1254,10 @@ function RunSheetContent() {
         tipOffMinutes: mins,
         court,
         venueName: tournament.primaryHub,
-        venueAddress: "1125 Colonel By Dr",
+        venueAddress: tournament.primaryHubAddress || tournament.city,
         city: tournament.city,
         warmupBufferMin: 30,
-        hotelTravelMin: 25,
+        hotelTravelMin: 15,
         status: "Upcoming",
         jerseyColor: idx % 2 === 0 ? "Dark / Away" : "Light / Home"
       };
@@ -1249,6 +1275,117 @@ function RunSheetContent() {
     if (mer === "PM" && h < 12) h += 12;
     if (mer === "AM" && h === 12) h = 0;
     return h * 60 + m;
+  };
+
+  const mapExtractedGamesFromApi = (extracted: any[], data: any): Game[] => {
+    const resolvedCity = data?.city || data?.tournament?.city || tournament.city || "Brampton, ON";
+    const resolvedDates = data?.dates || data?.tournament?.dates || tournament.dates || "Dates TBD";
+    const resolvedTeamName = data?.teamName || data?.tournament?.teamName || tournament.teamName || "Ottawa Elite";
+    const isPending = Boolean(data?.schedulePending || data?.tournament?.schedulePending);
+
+    return extracted.map((eg: any, idx: number) => {
+      const isPlaceholder =
+        Boolean(eg.isPlaceholder) ||
+        isPending ||
+        /tbd|pending/i.test(String(eg.tipOff || "")) ||
+        /tbd|pending/i.test(String(eg.opponent || ""));
+      const tipMins = parseTimeStringToMinutes(eg.tipOff, 600 + idx * 180);
+      const jersey: JerseyColor =
+        eg.jerseyColor === "Dark / Black (Away)" ? "Dark / Black (Away)" : "White (Home)";
+      const isAway = jersey.toLowerCase().includes("black") || jersey.toLowerCase().includes("away");
+      const opponent = (eg.opponent || (isPlaceholder ? `Game ${idx + 1} - TBD` : `Opponent ${idx + 1}`)).trim();
+      const venueName = (eg.venueName || (isPlaceholder ? `${resolvedCity} Facility TBD` : tournament.primaryHub)).trim();
+      const venueAddress = (eg.venueAddress || resolvedCity).trim();
+
+      return {
+        id: `ai-game-${Date.now()}-${idx}`,
+        gameNumber: idx + 1,
+        dayLabel: eg.day || resolvedDates,
+        matchup: isPlaceholder
+          ? opponent
+          : `${resolvedTeamName.replace(/\s*\(.*?\)\s*/g, "")} ${isAway ? "at" : "vs"} ${opponent}`,
+        opponent,
+        tipOffMinutes: tipMins,
+        court: eg.court || (isPlaceholder ? "Court TBD" : `Court ${idx + 1}`),
+        venueName,
+        venueAddress,
+        city: resolvedCity,
+        warmupBufferMin: 30,
+        hotelTravelMin: 15,
+        status: "Upcoming",
+        jerseyColor: jersey,
+        telemetryFlag: eg.telemetryTag || (isPlaceholder ? "Tip-Off Pending" : idx === 0 ? "Home Opener" : undefined),
+        isPlaceholder,
+      };
+    });
+  };
+
+  const applyExtractedTournamentFromApi = (data: any) => {
+    if (!data) return;
+    const apiTournament = data.tournament || {};
+    const apiHotel = data.hotel || apiTournament.hotel || {};
+    const nextPending = Boolean(data.schedulePending ?? apiTournament.schedulePending);
+    setTournament((prev) => ({
+      ...prev,
+      name: data.tournamentName || apiTournament.name || prev.name,
+      teamName: data.teamName || apiTournament.teamName || prev.teamName,
+      city: data.city || apiTournament.city || prev.city,
+      dates: data.dates || apiTournament.dates || prev.dates,
+      primaryHub: apiTournament.primaryHub || prev.primaryHub,
+      primaryHubAddress:
+        apiTournament.primaryHubAddress || apiHotel.address || data.city || prev.primaryHubAddress,
+      schedulePending: nextPending,
+      lastUpdatedText: nextPending
+        ? "Pre-Schedule Logistics & Hotel Locked"
+        : `Official ${data.tournamentName || apiTournament.name || prev.name} Weekend Run-Sheet`,
+      hotel: {
+        ...prev.hotel,
+        name: apiHotel.name || prev.hotel.name,
+        address: apiHotel.address || prev.hotel.address,
+        rate: apiHotel.rate || prev.hotel.rate,
+        breakfastHours: apiHotel.breakfastHours || prev.hotel.breakfastHours,
+        checkoutTime: apiHotel.checkoutTime || prev.hotel.checkoutTime,
+      },
+    }));
+  };
+
+  const handleScheduleUpdate = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsAnalyzingScreenshots(true);
+    setIngestError(null);
+
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach((file) => {
+        formData.append("images", file);
+      });
+      formData.append("teamName", tournament.teamName);
+      formData.append("tournamentName", tournament.name);
+
+      const res = await fetch("/api/ingest-schedule", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.success) {
+        throw new Error(data?.error || "Failed to analyze uploaded schedule.");
+      }
+
+      applyExtractedTournamentFromApi(data);
+      const extracted = Array.isArray(data.games) ? data.games : [];
+      const mappedGames = mapExtractedGamesFromApi(extracted, data);
+      setGames(mappedGames);
+      await broadcastGamesSync(mappedGames);
+    } catch (err: any) {
+      console.error("Schedule upload error:", err);
+      setIngestError(err?.message || "Failed to process uploaded schedule.");
+    } finally {
+      setIsAnalyzingScreenshots(false);
+      e.target.value = "";
+    }
   };
 
   const handleAnalyzeScreenshots = async () => {
@@ -1278,40 +1415,15 @@ function RunSheetContent() {
         throw new Error(data?.error || "Failed to analyze schedule screenshots.");
       }
 
+      applyExtractedTournamentFromApi(data);
       const extracted = Array.isArray(data.games) ? data.games : [];
-      if (extracted.length === 0) {
+      if (extracted.length === 0 && !data.schedulePending) {
         setIngestError("No games were detected in the uploaded screenshot(s). Try a clearer image or use Raw Text.");
         setIsAnalyzingScreenshots(false);
         return;
       }
 
-      const mappedGames: Game[] = extracted.map((eg: any, idx: number) => {
-        const tipMins = parseTimeStringToMinutes(eg.tipOff, 600 + idx * 180);
-        const jersey: JerseyColor =
-          eg.jerseyColor === "Dark / Black (Away)" ? "Dark / Black (Away)" : "White (Home)";
-        const isAway = jersey.toLowerCase().includes("black") || jersey.toLowerCase().includes("away");
-        const opponent = (eg.opponent || `Opponent ${idx + 1}`).trim();
-        const venueName = (eg.venueName || tournament.primaryHub).trim();
-        const isNotreDame = venueName.toLowerCase().includes("notre dame");
-
-        return {
-          id: `ai-game-${Date.now()}-${idx}`,
-          dayLabel: eg.day || "Sat, Oct 24",
-          matchup: `Ottawa Elite ${isAway ? "at" : "vs"} ${opponent}`,
-          opponent,
-          tipOffMinutes: tipMins,
-          court: eg.court || `Court ${idx + 1}`,
-          venueName,
-          venueAddress: isNotreDame ? "2333 Headon Forest Dr" : "124 Dorval Dr",
-          city: isNotreDame ? "Burlington, ON L7M 3X6" : "Oakville, ON L6K 2W1",
-          warmupBufferMin: 30,
-          hotelTravelMin: 15,
-          status: "Upcoming",
-          jerseyColor: jersey,
-          telemetryFlag: eg.telemetryTag || (idx === 0 ? "Home Opener" : undefined),
-        };
-      });
-
+      const mappedGames = mapExtractedGamesFromApi(extracted, data);
       setParsedPreviewGames(mappedGames);
     } catch (err: any) {
       console.error("Screenshot ingestion error:", err);
@@ -1374,11 +1486,11 @@ function RunSheetContent() {
   }, [activeTab]);
 
   // Time calculations (Sunday Game 3 -> Game 4 is the 2h 45m Lunch Window; Saturday post-Game 2 is Dinner)
-  const lunchGameStart = games[2] || games[0];
-  const lunchGameNext = games[3] || games[1] || games[0];
-  const game1EndMinutes = lunchGameStart.tipOffMinutes + 60; // ~11:45 AM Sunday
-  const game2WarmupMinutes = lunchGameNext.tipOffMinutes; // 2:30 PM Sunday (2h 45m window)
-  const game2EndMinutes = (games[1] || games[0]).tipOffMinutes + 75; // ~7:30 PM Saturday after 6:15 PM game
+  const lunchGameStart = games[2] || games[0] || { tipOffMinutes: 645 };
+  const lunchGameNext = games[3] || games[1] || games[0] || { tipOffMinutes: 870 };
+  const game1EndMinutes = (lunchGameStart.tipOffMinutes ?? 645) + 60; // ~11:45 AM Sunday
+  const game2WarmupMinutes = lunchGameNext.tipOffMinutes ?? 870; // 2:30 PM Sunday (2h 45m window)
+  const game2EndMinutes = ((games[1] || games[0])?.tipOffMinutes ?? 1095) + 75; // ~7:30 PM Saturday after 6:15 PM game
 
   // Evening block reference: 9:30 PM (1290 mins) wind-down / hotel return
   const eveningEndMinutes = Math.max(1290, game2EndMinutes + 120);
@@ -1396,7 +1508,7 @@ function RunSheetContent() {
   const windowRemainingMins = totalWindowMinutes % 60;
 
   // Vote closing time: for lunch it's midday; for dinner it locks before Game 2 starts
-  const voteClosingMinutes = isLunch ? (game1EndMinutes - 30) : ((games[1] || games[0]).tipOffMinutes - 30);
+  const voteClosingMinutes = isLunch ? (game1EndMinutes - 30) : (((games[1] || games[0])?.tipOffMinutes ?? 1095) - 30);
 
   // Evaluate Poll Lock & Lock-Soon state from Live Clock or Manager Poll Time-Travel Toggle
   const liveClockDate = new Date(nowMs);
@@ -1765,7 +1877,7 @@ function RunSheetContent() {
   const firstEventDayLabel = firstGame?.dayLabel || "Sat, Oct 24";
   const corridorPlan = computeTravelCorridor(
     departureOrigin,
-    "Oakville, ON",
+    tournament.city || "Away",
     tournament.hotel.name,
     firstEventArrivalMins,
     firstEventDayLabel,
@@ -1773,7 +1885,7 @@ function RunSheetContent() {
       direction: corridorDirection,
       teamHomeBase,
       finalGameTipOffMinutes: finalGame?.tipOffMinutes ?? 870,
-      finalGameDayLabel: finalGame?.dayLabel || "Sun, Oct 25",
+      finalGameDayLabel: finalGame?.dayLabel || tournament.dates || "Sun, Oct 25",
       finalGameVenue: finalGame?.venueName || tournament.hotel.name,
     }
   );
@@ -1966,6 +2078,84 @@ function RunSheetContent() {
 
         {/* Active Hero Game Card, Unified Hub Tips & Following Game Preview */}
         {(() => {
+          const isSchedulePending =
+            Boolean(tournament.schedulePending) ||
+            games.length === 0 ||
+            games.every((g) => g.isPlaceholder || /tbd|pending/i.test(g.opponent));
+
+          if (isSchedulePending) {
+            const hotelMapsQuery = [tournament.hotel.name, tournament.hotel.address]
+              .filter(Boolean)
+              .join(", ");
+            return (
+              <>
+                <div className="bg-white border-2 border-dashed border-[#C2A26F]/60 rounded-2xl p-6 text-center mb-3">
+                  <span className="text-2xl">⏳</span>
+                  <h3 className="font-serif font-black text-lg text-[#0B192C] mt-2">
+                    Schedule &amp; Bracket Pending
+                  </h3>
+                  <p className="text-xs text-[#5A6E7C] max-w-xs mx-auto mt-1">
+                    {tournament.name || "Tournament"} organizers have not released tip-offs yet. Hotel &amp; logistics are locked below.
+                  </p>
+                  {isAdmin && (
+                    <label className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#0F2942] text-white text-xs font-bold cursor-pointer hover:bg-[#1A3D5D]">
+                      <span>{isAnalyzingScreenshots ? "⏳ Analyzing Schedule..." : "📄 Upload Schedule When Released"}</span>
+                      <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleScheduleUpdate} />
+                    </label>
+                  )}
+                </div>
+
+                {/* Prominent Locked Hotel Base Camp Card with Direct Google Maps Deep-Link */}
+                <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3 space-y-3">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5">
+                        <Hotel className="w-3 h-3 text-[#C2A26F]" aria-hidden="true" /> Locked Team Hotel
+                      </span>
+                      <h3 className="text-base font-extrabold text-[#0B192C] mt-1.5 leading-snug">
+                        {tournament.hotel.name}
+                      </h3>
+                      <p className="text-xs font-medium text-[#5C6B7B] mt-0.5">
+                        {tournament.hotel.address}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-xl bg-[#F7F6F2] border border-[#DCE1E7] p-2.5">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-[#5C6B7B]">
+                        Breakfast
+                      </span>
+                      <span className="font-bold text-[#0B192C] mt-0.5 block">
+                        {tournament.hotel.breakfastHours || "6:30 AM - 9:30 AM"}
+                      </span>
+                    </div>
+                    <div className="rounded-xl bg-[#F7F6F2] border border-[#DCE1E7] p-2.5">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-[#5C6B7B]">
+                        Room Block
+                      </span>
+                      <span className="font-bold text-[#0B192C] mt-0.5 block truncate">
+                        {tournament.hotel.rate || "Team Group Block"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <a
+                    href={getMapsUrl(hotelMapsQuery || tournament.city)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
+                  >
+                    <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                    </svg>
+                    <span>Open Hotel in Google Maps</span>
+                  </a>
+                </section>
+              </>
+            );
+          }
+
           const nextGameIndex = games.findIndex((g) => !isGameElapsedByClock(g, nowMs));
           const nextGame = nextGameIndex >= 0 ? games[nextGameIndex] : undefined;
           if (!nextGame) {
@@ -2488,6 +2678,10 @@ function RunSheetContent() {
           </div>
 
           {games.map((game, index) => {
+            const isPlaceholderGame =
+              Boolean(game.isPlaceholder) ||
+              Boolean(tournament.schedulePending) ||
+              /tbd|pending/i.test(game.opponent);
             const bufferMins = game.warmupBufferMin || 30;
             const arrivalMinutes = getArrivalCallMinutes(game.tipOffMinutes, bufferMins);
             const departMinutes = arrivalMinutes - game.hotelTravelMin;
@@ -2547,7 +2741,7 @@ function RunSheetContent() {
                           {game.status}
                         </span>
                       )}
-                      {game.jerseyColor && (
+                      {game.jerseyColor && !isPlaceholderGame && (
                         <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
                           {isAwayCard ? "Away" : "Home"} • {cardJerseyShort}
                         </span>
@@ -2582,7 +2776,9 @@ function RunSheetContent() {
                       <path d="M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v9c0 .55.45 1 1 1h1.5c.55 0 1-.45 1-1v-1h11v1c0 .55.45 1 1 1H20c.55 0 1-.45 1-1v-9l-2.08-5.99zM6.5 6h11l1.04 3H5.46l1.04-3zM7.5 16c-.83 0-1.5-.67-1.5-1.5S6.67 13 7.5 13s1.5.67 1.5 1.5S8.33 16 7.5 16zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
                     </svg>
                     <span className="text-xs font-semibold text-slate-600">Depart</span>
-                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">{formatTime(departMinutes)}</span>
+                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                      {isPlaceholderGame ? "TBD" : formatTime(departMinutes)}
+                    </span>
                   </div>
                   <div className="flex-1 px-1 flex flex-col items-center">
                     <svg
@@ -2593,7 +2789,9 @@ function RunSheetContent() {
                       <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 7.12 11.45 7.42 11.71.34.3.82.3 1.16 0C12.88 21.45 20 15.25 20 10c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
                     </svg>
                     <span className="text-xs font-semibold text-slate-600">Arrive</span>
-                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">{formatTime(arrivalMinutes)}</span>
+                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                      {isPlaceholderGame ? "TBD" : formatTime(arrivalMinutes)}
+                    </span>
                     <span className="text-[11px] font-medium text-slate-500 mt-0.5">({bufferMins} min buffer)</span>
                   </div>
                   <div className="flex-1 px-1 flex flex-col items-center">
@@ -2620,7 +2818,9 @@ function RunSheetContent() {
                       <circle cx="20" cy="38" r="8" />
                     </svg>
                     <span className="text-xs font-semibold text-slate-600">Tip-Off</span>
-                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">{formatTime(game.tipOffMinutes)}</span>
+                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
+                      {isPlaceholderGame ? "Pending" : formatTime(game.tipOffMinutes)}
+                    </span>
                   </div>
                 </div>
 
