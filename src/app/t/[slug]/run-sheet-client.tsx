@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, Suspense } from "react";
+import React, { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import { useSearchParams, useParams, useRouter, usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 import {
@@ -239,6 +239,7 @@ interface TournamentInfo {
   lastUpdatedText: string;
   contactInfo?: string;
   schedulePending?: boolean;
+  is_archived?: boolean;
   hotel: {
     name: string;
     address: string;
@@ -248,13 +249,36 @@ interface TournamentInfo {
   };
 }
 
+interface VaultTournament {
+  slug: string;
+  name: string;
+  city: string;
+  dates: string;
+  is_archived: boolean;
+  created_at: string;
+}
+
 function RunSheetContent() {
   const searchParams = useSearchParams();
   const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
   const slug = (params?.slug as string) || "test-team";
-  const isAdmin = searchParams.get("admin") === "true";
+  const [isAdmin, setIsAdmin] = useState<boolean>(() => {
+    if (searchParams.get("admin") === "false") return false;
+    if (searchParams.get("admin") === "true" || slug === "test-team") return true;
+    if (typeof window !== "undefined") {
+      try {
+        return (
+          window.localStorage.getItem("awayday_admin") === "true" ||
+          window.localStorage.getItem(`awayday_is_admin_${slug}`) === "true"
+        );
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  });
   const [isManagerToolsOpen, setIsManagerToolsOpen] = useState<boolean>(false);
   const [showPassModal, setShowPassModal] = useState<boolean>(false);
   const [passCopied, setPassCopied] = useState<boolean>(false);
@@ -262,22 +286,55 @@ function RunSheetContent() {
   const [syncStatus, setSyncStatus] = useState<"connecting" | "live" | "degraded" | "offline">("connecting");
   const realtimeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
 
-  // Step 1: Strict query-param admin guard & legacy localStorage cleanup
+  // Step 1: Always permit admin on seed slug (`/t/test-team`), ?admin=true, or stored admin tokens
   useEffect(() => {
-    try {
-      if (searchParams.get("admin") === "false" || !isAdmin) {
+    const adminParam = searchParams.get("admin");
+    if (adminParam === "false") {
+      setIsAdmin(false);
+      setIsManagerToolsOpen(false);
+      try {
         window.localStorage.removeItem("awayday_admin");
         if (slug) {
           window.localStorage.removeItem(`awayday_is_admin_${slug}`);
         }
+      } catch {
+        // Ignore storage errors
+      }
+      return;
+    }
+
+    if (adminParam === "true") {
+      setIsAdmin(true);
+      try {
+        window.localStorage.setItem("awayday_admin", "true");
+        if (slug) {
+          window.localStorage.setItem(`awayday_is_admin_${slug}`, "true");
+        }
+      } catch {
+        // Ignore storage errors
+      }
+      return;
+    }
+
+    if (slug === "test-team") {
+      setIsAdmin(true);
+      return;
+    }
+
+    try {
+      const hasToken =
+        window.localStorage.getItem("awayday_admin") === "true" ||
+        window.localStorage.getItem(`awayday_is_admin_${slug}`) === "true";
+      if (hasToken) {
+        setIsAdmin(true);
+      } else {
+        setIsAdmin(false);
+        setIsManagerToolsOpen(false);
       }
     } catch {
       // Ignore storage errors
     }
-    if (!isAdmin) {
-      setIsManagerToolsOpen(false);
-    }
-  }, [slug, isAdmin, searchParams]);
+  }, [slug, searchParams]);
 
   const handleExitAdmin = () => {
     try {
@@ -286,6 +343,7 @@ function RunSheetContent() {
     } catch {
       // Ignore storage errors
     }
+    setIsAdmin(false);
     setIsManagerToolsOpen(false);
     router.replace(pathname || `/t/${slug}`);
   };
@@ -1031,6 +1089,147 @@ function RunSheetContent() {
       return prev;
     });
   }, [tournament.city, tournament.hotel.address]);
+
+  const [vaultTournaments, setVaultTournaments] = useState<VaultTournament[]>([]);
+
+  const refreshVaultTournaments = useCallback(
+    async (forceCurrentArchived?: boolean) => {
+      const bySlug = new Map<string, VaultTournament>();
+      let archivedMap: Record<string, boolean> = {};
+
+      if (typeof window !== "undefined") {
+        try {
+          const rawArchived = window.localStorage.getItem("awayday_archived_slugs");
+          if (rawArchived) {
+            archivedMap = JSON.parse(rawArchived) || {};
+          }
+        } catch {
+          // Ignore storage parse errors
+        }
+      }
+
+      try {
+        const res = await fetch("/api/tournaments", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          const list: VaultTournament[] = Array.isArray(data)
+            ? data
+            : Array.isArray(data?.tournaments)
+              ? data.tournaments
+              : [];
+          for (const item of list) {
+            if (!item?.slug) continue;
+            bySlug.set(item.slug, {
+              slug: item.slug,
+              name: item.name || "Tournament Weekend",
+              city: item.city || "Brampton, ON",
+              dates: item.dates || "Nov 21–22, 2026",
+              is_archived: Boolean(item.is_archived || archivedMap[item.slug]),
+              created_at: item.created_at || new Date().toISOString(),
+            });
+          }
+        }
+      } catch {
+        // Ignore network errors and fall back to local cache + seeds
+      }
+
+      if (typeof window !== "undefined") {
+        try {
+          for (let i = 0; i < window.localStorage.length; i++) {
+            const key = window.localStorage.key(i);
+            if (!key || !key.startsWith("awayday_cache_")) continue;
+            const cachedSlug = key.replace(/^awayday_cache_/, "").trim();
+            if (!cachedSlug) continue;
+            const rawVal = window.localStorage.getItem(key);
+            if (!rawVal) continue;
+            const parsed = JSON.parse(rawVal);
+            const ct = parsed?.tournament;
+            if (!ct) continue;
+            const existing = bySlug.get(cachedSlug);
+            bySlug.set(cachedSlug, {
+              slug: cachedSlug,
+              name: ct.name || existing?.name || "CYBL Session",
+              city: ct.city || existing?.city || "Brampton, ON",
+              dates: ct.dates || existing?.dates || "Nov 21–22, 2026",
+              is_archived: Boolean(
+                ct.is_archived ?? archivedMap[cachedSlug] ?? existing?.is_archived ?? false
+              ),
+              created_at:
+                existing?.created_at ||
+                (parsed?.updatedAt ? new Date(parsed.updatedAt).toISOString() : new Date().toISOString()),
+            });
+          }
+        } catch {
+          // Ignore storage scan errors
+        }
+      }
+
+      if (slug) {
+        const currentExisting = bySlug.get(slug);
+        bySlug.set(slug, {
+          slug,
+          name: tournament.name || currentExisting?.name || "CYBL Session",
+          city: tournament.city || currentExisting?.city || "Brampton, ON",
+          dates: tournament.dates || currentExisting?.dates || "Nov 21–22, 2026",
+          is_archived:
+            forceCurrentArchived !== undefined
+              ? forceCurrentArchived
+              : Boolean(
+                  tournament.is_archived ??
+                    archivedMap[slug] ??
+                    currentExisting?.is_archived ??
+                    false
+                ),
+          created_at: currentExisting?.created_at || new Date().toISOString(),
+        });
+      }
+
+      const sorted = Array.from(bySlug.values()).sort(
+        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+      );
+      setVaultTournaments(sorted);
+    },
+    [slug, tournament.name, tournament.city, tournament.dates, tournament.is_archived]
+  );
+
+  useEffect(() => {
+    refreshVaultTournaments();
+  }, [refreshVaultTournaments, isManagerToolsOpen, isIngestModalOpen]);
+
+  const handleArchiveTournament = async () => {
+    try {
+      await fetch(`/api/tournaments/${slug}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ is_archived: true }),
+      });
+    } catch (e) {
+      console.error("Archive failed", e);
+    }
+
+    setTournament((prev) => ({ ...prev, is_archived: true }));
+
+    try {
+      const rawArchived = window.localStorage.getItem("awayday_archived_slugs");
+      const archivedMap = rawArchived ? JSON.parse(rawArchived) : {};
+      archivedMap[slug] = true;
+      window.localStorage.setItem("awayday_archived_slugs", JSON.stringify(archivedMap));
+
+      const rawCache = window.localStorage.getItem(`awayday_cache_${slug}`);
+      if (rawCache) {
+        const parsed = JSON.parse(rawCache);
+        parsed.tournament = { ...(parsed.tournament || {}), is_archived: true };
+        window.localStorage.setItem(`awayday_cache_${slug}`, JSON.stringify(parsed));
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    await refreshVaultTournaments(true);
+  };
+
+  const activeVaultTournaments = vaultTournaments.filter((t) => !t.is_archived);
+  const archivedVaultTournaments = vaultTournaments.filter((t) => t.is_archived);
 
   // Persist current tournament payload under awayday_cache_${slug} for offline gym dead-zones
   useEffect(() => {
@@ -2104,10 +2303,106 @@ function RunSheetContent() {
                 </div>
               </div>
 
+              <div className="pt-4 mt-4 border-t border-slate-200 space-y-3">
+                <div className="space-y-1.5">
+                  <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                    Active Tournaments ({activeVaultTournaments.length})
+                  </div>
+                  <div className="space-y-1.5">
+                    {activeVaultTournaments.map((t) => {
+                      const tri = getCityTriCode(t.city);
+                      const isCurrent = t.slug === slug;
+                      return (
+                        <a
+                          key={t.slug}
+                          href={`/t/${t.slug}?admin=true`}
+                          className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs transition-all ${
+                            isCurrent
+                              ? "border-[#0B192C] bg-[#F7F6F2] font-bold text-[#0B192C]"
+                              : "border-slate-200 bg-white hover:bg-slate-50 text-[#1D2935]"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-[#0B192C] text-[#F9F7F1] text-[10px] font-black tracking-wider">
+                              {tri.code}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-[#0B192C] truncate">{t.name}</span>
+                                {isCurrent && (
+                                  <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 shrink-0">
+                                    Current
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-slate-500 font-medium block truncate">
+                                {t.dates} • {tri.full}
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {archivedVaultTournaments.length > 0 && (
+                  <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                    <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                      Past / Archived AwayDays ({archivedVaultTournaments.length})
+                    </div>
+                    <div className="space-y-1.5">
+                      {archivedVaultTournaments.map((t) => {
+                        const tri = getCityTriCode(t.city);
+                        const isCurrent = t.slug === slug;
+                        return (
+                          <a
+                            key={t.slug}
+                            href={`/t/${t.slug}?admin=true`}
+                            className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100/70 text-xs text-slate-600 transition-all"
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-slate-200 text-slate-700 text-[10px] font-black tracking-wider">
+                                {tri.code}
+                              </span>
+                              <div className="min-w-0">
+                                <div className="flex items-center gap-1.5">
+                                  <span className="font-bold text-slate-700 truncate">{t.name}</span>
+                                  {isCurrent && (
+                                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 shrink-0">
+                                      Current
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-[11px] text-slate-400 font-medium block truncate">
+                                  {t.dates} • {tri.full}
+                                </span>
+                              </div>
+                            </div>
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                          </a>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <div className="pt-4 mt-4 border-t border-slate-200 space-y-2.5">
                 <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
                   Tournament Status &amp; Data
                 </div>
+
+                {/* Archive Action */}
+                <button
+                  type="button"
+                  onClick={handleArchiveTournament}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer"
+                >
+                  <span>🗄️ Archive This Tournament</span>
+                  <span className="text-[10px] text-slate-400">Move to past events</span>
+                </button>
 
                 {/* Delete Action */}
                 <button
@@ -4771,10 +5066,102 @@ function RunSheetContent() {
               )}
             </div>
 
+            <div className="pt-4 mt-4 border-t border-slate-200 space-y-3">
+              <div className="space-y-1.5">
+                <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                  Active Tournaments ({activeVaultTournaments.length})
+                </div>
+                <div className="space-y-1.5">
+                  {activeVaultTournaments.map((t) => {
+                    const tri = getCityTriCode(t.city);
+                    const isCurrent = t.slug === slug;
+                    return (
+                      <a
+                        key={t.slug}
+                        href={`/t/${t.slug}?admin=true`}
+                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs text-slate-800 transition-all"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-[#0B192C] text-[#F9F7F1] text-[10px] font-black tracking-wider">
+                            {tri.code}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-bold text-[#0B192C] truncate">{t.name}</span>
+                              {isCurrent && (
+                                <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 shrink-0">
+                                  Current
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[11px] text-slate-500 font-medium block truncate">
+                              {t.dates} • {tri.full}
+                            </span>
+                          </div>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                      </a>
+                    );
+                  })}
+                </div>
+              </div>
+
+              {archivedVaultTournaments.length > 0 && (
+                <div className="space-y-1.5 pt-2 border-t border-slate-800">
+                  <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                    Past / Archived AwayDays ({archivedVaultTournaments.length})
+                  </div>
+                  <div className="space-y-1.5">
+                    {archivedVaultTournaments.map((t) => {
+                      const tri = getCityTriCode(t.city);
+                      const isCurrent = t.slug === slug;
+                      return (
+                        <a
+                          key={t.slug}
+                          href={`/t/${t.slug}?admin=true`}
+                          className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs text-slate-600 transition-all"
+                        >
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-slate-200 text-slate-700 text-[10px] font-black tracking-wider">
+                              {tri.code}
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-bold text-slate-700 truncate">{t.name}</span>
+                                {isCurrent && (
+                                  <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 shrink-0">
+                                    Current
+                                  </span>
+                                )}
+                              </div>
+                              <span className="text-[11px] text-slate-400 font-medium block truncate">
+                                {t.dates} • {tri.full}
+                              </span>
+                            </div>
+                          </div>
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        </a>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <div className="pt-4 mt-4 border-t border-slate-200 space-y-2.5">
               <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
                 Tournament Status &amp; Data
               </div>
+
+              {/* Archive Action */}
+              <button
+                type="button"
+                onClick={handleArchiveTournament}
+                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer"
+              >
+                <span>🗄️ Archive This Tournament</span>
+                <span className="text-[10px] text-slate-400">Move to past events</span>
+              </button>
 
               {/* Delete Action */}
               <button
