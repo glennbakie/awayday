@@ -258,12 +258,20 @@ interface VaultTournament {
   created_at: string;
 }
 
-function RunSheetContent() {
+function RunSheetContent({
+  initialSlug,
+  seedTournament,
+}: {
+  initialSlug?: string;
+  seedTournament?: Partial<TournamentInfo>;
+} = {}) {
   const searchParams = useSearchParams();
   const params = useParams();
   const router = useRouter();
   const pathname = usePathname();
-  const slug = (params?.slug as string) || "test-team";
+  const rawSlug = initialSlug || (params?.slug as string) || "test-team";
+  const cleanSlug = rawSlug.replace(/[\])}[{(]/g, "").trim() || "test-team";
+  const slug = cleanSlug;
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     if (searchParams.get("admin") === "false") return false;
     if (searchParams.get("admin") === "true" || slug === "test-team") return true;
@@ -415,22 +423,22 @@ function RunSheetContent() {
   const [tournament, setTournament] = useState<TournamentInfo>(() =>
     isDemoSlug
       ? {
-          name: "NPH Session #1 - Oakville",
-          division: "Grade 11 Tier 2",
-          leagueName: "Grade 11 Tier 2 • NPH Showcase",
-          teamName: "Ottawa Elite (U16)",
-          dates: "Oct 24 - 25, 2026",
-          city: "Oakville / Burlington, ON",
-          primaryHub: "St. Thomas Aquinas & Notre Dame",
-          primaryHubAddress: "124 Dorval Dr, Oakville, ON L6K 2W1",
-          lastUpdatedText: "Official NPH Session #1 Weekend Run-Sheet",
-          schedulePending: false,
+          name: seedTournament?.name || "NPH Session #1 - Oakville",
+          division: seedTournament?.division || "Grade 11 Tier 2",
+          leagueName: seedTournament?.leagueName || "Grade 11 Tier 2 • NPH Showcase",
+          teamName: seedTournament?.teamName || "Ottawa Elite (U16)",
+          dates: seedTournament?.dates || "Oct 24 - 25, 2026",
+          city: seedTournament?.city || "Oakville / Burlington, ON",
+          primaryHub: seedTournament?.primaryHub || "St. Thomas Aquinas & Notre Dame",
+          primaryHubAddress: seedTournament?.primaryHubAddress || "124 Dorval Dr, Oakville, ON L6K 2W1",
+          lastUpdatedText: seedTournament?.lastUpdatedText || "Official NPH Session #1 Weekend Run-Sheet",
+          schedulePending: seedTournament?.schedulePending ?? false,
           hotel: {
-            name: "Fairfield Inn Toronto Oakville",
-            address: "2937 Sherwood Heights Dr, Oakville, ON L6J 7L3",
-            rate: "$169 / night (Ottawa Elite Room Block)",
-            breakfastHours: "6:30 AM - 9:30 AM (Included)",
-            checkoutTime: "12:00 PM"
+            name: seedTournament?.hotel?.name || "Fairfield Inn Toronto Oakville",
+            address: seedTournament?.hotel?.address || "2937 Sherwood Heights Dr, Oakville, ON L6J 7L3",
+            rate: seedTournament?.hotel?.rate || "$169 / night (Ottawa Elite Room Block)",
+            breakfastHours: seedTournament?.hotel?.breakfastHours || "6:30 AM - 9:30 AM (Included)",
+            checkoutTime: seedTournament?.hotel?.checkoutTime || "12:00 PM"
           }
         }
       : {
