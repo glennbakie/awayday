@@ -303,6 +303,12 @@ function RunSheetContent({
     }
   }, [searchParams]);
 
+  useEffect(() => {
+    if (!isManagerToolsOpen) {
+      setSelectedVaultTournament(null);
+    }
+  }, [isManagerToolsOpen]);
+
   // Step 1: Always permit admin on seed slug (`/t/test-team`), ?admin=true, or stored admin tokens
   useEffect(() => {
     const adminParam = searchParams.get("admin");
@@ -1251,9 +1257,21 @@ function RunSheetContent({
       // Ignore storage errors
     }
 
-    setSelectedVaultTournament((prev) =>
-      prev && prev.slug === targetSlug ? { ...prev, is_archived: nextArchived } : prev
+    setVaultTournaments((prev) =>
+      prev.map((v) => (v.slug === targetSlug ? { ...v, is_archived: nextArchived } : v))
     );
+    setSelectedVaultTournament(null);
+
+    if (nextArchived && targetSlug === slug) {
+      const nextActive = vaultTournaments.find(
+        (v) => !v.is_archived && v.slug !== targetSlug
+      );
+      if (nextActive) {
+        window.location.href = `/t/${nextActive.slug}?admin=true&openTools=true`;
+        return;
+      }
+    }
+
     await refreshVaultTournaments(targetSlug === slug ? nextArchived : undefined);
   };
 
@@ -2473,12 +2491,24 @@ function RunSheetContent({
                       </p>
                     </div>
 
-                    <a
-                      href={`/t/${selectedVaultTournament.slug}?admin=true`}
-                      className="w-full py-2.5 px-3 rounded-xl bg-[#0B192C] hover:bg-[#132843] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all"
-                    >
-                      <span>↗ Open Run-Sheet</span>
-                    </a>
+                    {selectedVaultTournament.slug !== slug ? (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          if (selectedVaultTournament.is_archived) {
+                            await handleArchiveTournament(selectedVaultTournament.slug, false);
+                          }
+                          window.location.href = `/t/${selectedVaultTournament.slug}?admin=true&openTools=true`;
+                        }}
+                        className="w-full py-2.5 px-3 rounded-xl bg-[#0B192C] hover:bg-[#132843] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <span>⭐ Make Current &amp; Open Sheet</span>
+                      </button>
+                    ) : (
+                      <div className="w-full py-2 px-3 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-700 font-black text-xs flex items-center justify-center">
+                        Currently Viewing
+                      </div>
+                    )}
 
                     <div className="grid grid-cols-2 gap-2">
                       <button
@@ -2519,7 +2549,10 @@ function RunSheetContent({
                             <button
                               key={t.slug}
                               type="button"
-                              onClick={() => setSelectedVaultTournament(t)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setSelectedVaultTournament(t);
+                              }}
                               className={`w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs transition-all cursor-pointer ${
                                 isCurrent
                                   ? "border-[#0B192C] bg-[#F7F6F2] font-bold text-[#0B192C]"
@@ -2564,7 +2597,10 @@ function RunSheetContent({
                               <button
                                 key={t.slug}
                                 type="button"
-                                onClick={() => setSelectedVaultTournament(t)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedVaultTournament(t);
+                                }}
                                 className="w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100/70 text-xs text-slate-600 transition-all cursor-pointer"
                               >
                                 <div className="flex items-center gap-2.5 min-w-0">
