@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
 export async function PATCH(
@@ -58,8 +59,18 @@ export async function DELETE(
 
     if (slug) {
       try {
+        const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+        const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
+        const serviceOrAnonKey =
+          process.env.SUPABASE_SERVICE_ROLE_KEY ||
+          process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+          "";
+        const adminSupabase = createClient(supabaseUrl, serviceOrAnonKey, {
+          auth: { persistSession: false },
+        });
+
         // Look up any associated team_trips row for this share_slug
-        const { data: tripRow } = await supabase
+        const { data: tripRow } = await adminSupabase
           .from("team_trips")
           .select("id, tournament_id")
           .eq("share_slug", slug)
@@ -67,16 +78,16 @@ export async function DELETE(
 
         // Remove any game / hotel / trip records linked to this slug or trip id
         if (tripRow?.id) {
-          await supabase.from("games").delete().eq("trip_id", tripRow.id);
-          await supabase.from("hotels").delete().eq("trip_id", tripRow.id);
+          await adminSupabase.from("games").delete().eq("trip_id", tripRow.id);
+          await adminSupabase.from("hotels").delete().eq("trip_id", tripRow.id);
         }
 
-        await supabase.from("games").delete().eq("share_slug", slug);
-        await supabase.from("team_trips").delete().eq("share_slug", slug);
-        await supabase.from("tournaments").delete().eq("slug", slug);
+        await adminSupabase.from("games").delete().eq("share_slug", slug);
+        await adminSupabase.from("team_trips").delete().eq("share_slug", slug);
+        await adminSupabase.from("tournaments").delete().eq("slug", slug);
 
         if (tripRow?.tournament_id) {
-          await supabase
+          await adminSupabase
             .from("tournaments")
             .delete()
             .eq("id", tripRow.tournament_id);

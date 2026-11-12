@@ -287,12 +287,21 @@ function RunSheetContent({
     }
     return false;
   });
-  const [isManagerToolsOpen, setIsManagerToolsOpen] = useState<boolean>(false);
+  const [isManagerToolsOpen, setIsManagerToolsOpen] = useState<boolean>(
+    () => searchParams.get("openTools") === "true"
+  );
+  const [selectedVaultTournament, setSelectedVaultTournament] = useState<VaultTournament | null>(null);
   const [showPassModal, setShowPassModal] = useState<boolean>(false);
   const [passCopied, setPassCopied] = useState<boolean>(false);
   const passDialogRef = useRef<HTMLDialogElement | null>(null);
   const [syncStatus, setSyncStatus] = useState<"connecting" | "live" | "degraded" | "offline">("connecting");
   const realtimeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
+
+  useEffect(() => {
+    if (searchParams.get("openTools") === "true") {
+      setIsManagerToolsOpen(true);
+    }
+  }, [searchParams]);
 
   // Step 1: Always permit admin on seed slug (`/t/test-team`), ?admin=true, or stored admin tokens
   useEffect(() => {
@@ -1204,36 +1213,88 @@ function RunSheetContent({
     refreshVaultTournaments();
   }, [refreshVaultTournaments, isManagerToolsOpen, isIngestModalOpen]);
 
-  const handleArchiveTournament = async () => {
+  const handleArchiveTournament = async (
+    targetSlug: string = slug,
+    nextArchived: boolean = true
+  ) => {
     try {
-      await fetch(`/api/tournaments/${slug}`, {
+      await fetch(`/api/tournaments/${targetSlug}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ is_archived: true }),
+        body: JSON.stringify({ is_archived: nextArchived }),
       });
     } catch (e) {
       console.error("Archive failed", e);
     }
 
-    setTournament((prev) => ({ ...prev, is_archived: true }));
+    if (targetSlug === slug) {
+      setTournament((prev) => ({ ...prev, is_archived: nextArchived }));
+    }
 
     try {
       const rawArchived = window.localStorage.getItem("awayday_archived_slugs");
       const archivedMap = rawArchived ? JSON.parse(rawArchived) : {};
-      archivedMap[slug] = true;
+      if (nextArchived) {
+        archivedMap[targetSlug] = true;
+      } else {
+        delete archivedMap[targetSlug];
+      }
       window.localStorage.setItem("awayday_archived_slugs", JSON.stringify(archivedMap));
 
-      const rawCache = window.localStorage.getItem(`awayday_cache_${slug}`);
+      const rawCache = window.localStorage.getItem(`awayday_cache_${targetSlug}`);
       if (rawCache) {
         const parsed = JSON.parse(rawCache);
-        parsed.tournament = { ...(parsed.tournament || {}), is_archived: true };
-        window.localStorage.setItem(`awayday_cache_${slug}`, JSON.stringify(parsed));
+        parsed.tournament = { ...(parsed.tournament || {}), is_archived: nextArchived };
+        window.localStorage.setItem(`awayday_cache_${targetSlug}`, JSON.stringify(parsed));
       }
     } catch {
       // Ignore storage errors
     }
 
-    await refreshVaultTournaments(true);
+    setSelectedVaultTournament((prev) =>
+      prev && prev.slug === targetSlug ? { ...prev, is_archived: nextArchived } : prev
+    );
+    await refreshVaultTournaments(targetSlug === slug ? nextArchived : undefined);
+  };
+
+  const handleDeleteVaultTournament = async (target: VaultTournament) => {
+    const targetSlug = target.slug;
+    if (!window.confirm(`Permanently delete "${target.name || targetSlug}"? This cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      await fetch(`/api/tournaments/${targetSlug}`, { method: "DELETE" });
+    } catch (e) {
+      console.error("Delete failed", e);
+    }
+
+    try {
+      window.localStorage.removeItem(`awayday_cache_${targetSlug}`);
+      window.localStorage.removeItem(`awayday_poll_options_v2_${targetSlug}`);
+      window.localStorage.removeItem(`awayday_games_sprint1_${targetSlug}`);
+      window.localStorage.removeItem(`awayday_voted_opt_${targetSlug}`);
+      window.localStorage.removeItem(`awayday_rsvp_${targetSlug}`);
+      window.localStorage.removeItem(`awayday_meal_mode_${targetSlug}`);
+      const rawArchived = window.localStorage.getItem("awayday_archived_slugs");
+      if (rawArchived) {
+        const archivedMap = JSON.parse(rawArchived) || {};
+        if (archivedMap && typeof archivedMap === "object" && targetSlug in archivedMap) {
+          delete archivedMap[targetSlug];
+          window.localStorage.setItem("awayday_archived_slugs", JSON.stringify(archivedMap));
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    if (targetSlug === slug) {
+      window.location.href = "/t/test-team?admin=true&openTools=true";
+      return;
+    }
+
+    setSelectedVaultTournament(null);
+    await refreshVaultTournaments();
   };
 
   const activeVaultTournaments = vaultTournaments.filter((t) => !t.is_archived);
@@ -2388,88 +2449,150 @@ function RunSheetContent({
               </div>
 
               <div className="pt-4 mt-4 border-t border-slate-200 space-y-3">
-                <div className="space-y-1.5">
-                  <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                    Active Tournaments ({activeVaultTournaments.length})
-                  </div>
-                  <div className="space-y-1.5">
-                    {activeVaultTournaments.map((t) => {
-                      const tri = getCityTriCode(t.city);
-                      const isCurrent = t.slug === slug;
-                      return (
-                        <a
-                          key={t.slug}
-                          href={`/t/${t.slug}?admin=true`}
-                          className={`flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs transition-all ${
-                            isCurrent
-                              ? "border-[#0B192C] bg-[#F7F6F2] font-bold text-[#0B192C]"
-                              : "border-slate-200 bg-white hover:bg-slate-50 text-[#1D2935]"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2.5 min-w-0">
-                            <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-[#0B192C] text-[#F9F7F1] text-[10px] font-black tracking-wider">
-                              {tri.code}
-                            </span>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-1.5">
-                                <span className="font-bold text-[#0B192C] truncate">{t.name}</span>
-                                {isCurrent && (
-                                  <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 shrink-0">
-                                    Current
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-[11px] text-slate-500 font-medium block truncate">
-                                {t.dates} • {tri.full}
-                              </span>
-                            </div>
-                          </div>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        </a>
-                      );
-                    })}
-                  </div>
-                </div>
+                {selectedVaultTournament ? (
+                  <div className="rounded-2xl border border-[#DCE1E7] bg-[#F7F6F2] p-3.5 space-y-3">
+                    <button
+                      type="button"
+                      onClick={() => setSelectedVaultTournament(null)}
+                      className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F2942] hover:text-[#0B192C] cursor-pointer"
+                    >
+                      <span>← Back to Vault</span>
+                    </button>
 
-                {archivedVaultTournaments.length > 0 && (
-                  <div className="space-y-1.5 pt-2 border-t border-slate-100">
-                    <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                      Past / Archived AwayDays ({archivedVaultTournaments.length})
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-[#0B192C] text-[#F9F7F1] text-[10px] font-black tracking-wider">
+                          {getCityTriCode(selectedVaultTournament.city).code}
+                        </span>
+                        <h4 className="text-sm font-black text-[#0B192C] truncate">
+                          {selectedVaultTournament.name}
+                        </h4>
+                      </div>
+                      <p className="text-xs font-medium text-[#5C6B7B]">
+                        {selectedVaultTournament.city} • {selectedVaultTournament.dates}
+                      </p>
                     </div>
-                    <div className="space-y-1.5">
-                      {archivedVaultTournaments.map((t) => {
-                        const tri = getCityTriCode(t.city);
-                        const isCurrent = t.slug === slug;
-                        return (
-                          <a
-                            key={t.slug}
-                            href={`/t/${t.slug}?admin=true`}
-                            className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100/70 text-xs text-slate-600 transition-all"
-                          >
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-slate-200 text-slate-700 text-[10px] font-black tracking-wider">
-                                {tri.code}
-                              </span>
-                              <div className="min-w-0">
-                                <div className="flex items-center gap-1.5">
-                                  <span className="font-bold text-slate-700 truncate">{t.name}</span>
-                                  {isCurrent && (
-                                    <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 shrink-0">
-                                      Current
-                                    </span>
-                                  )}
-                                </div>
-                                <span className="text-[11px] text-slate-400 font-medium block truncate">
-                                  {t.dates} • {tri.full}
-                                </span>
-                              </div>
-                            </div>
-                            <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                          </a>
-                        );
-                      })}
+
+                    <a
+                      href={`/t/${selectedVaultTournament.slug}?admin=true`}
+                      className="w-full py-2.5 px-3 rounded-xl bg-[#0B192C] hover:bg-[#132843] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all"
+                    >
+                      <span>↗ Open Run-Sheet</span>
+                    </a>
+
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleArchiveTournament(
+                            selectedVaultTournament.slug,
+                            !selectedVaultTournament.is_archived
+                          )
+                        }
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <span>
+                          {selectedVaultTournament.is_archived ? "📤 Unarchive" : "🗄️ Archive"}
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteVaultTournament(selectedVaultTournament)}
+                        className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-100/70 text-xs font-bold text-red-600 active:scale-[0.98] transition-all cursor-pointer"
+                      >
+                        <span>🗑️ Delete</span>
+                      </button>
                     </div>
                   </div>
+                ) : (
+                  <>
+                    <div className="space-y-1.5">
+                      <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                        Active Tournaments ({activeVaultTournaments.length})
+                      </div>
+                      <div className="space-y-1.5">
+                        {activeVaultTournaments.map((t) => {
+                          const tri = getCityTriCode(t.city);
+                          const isCurrent = t.slug === slug;
+                          return (
+                            <button
+                              key={t.slug}
+                              type="button"
+                              onClick={() => setSelectedVaultTournament(t)}
+                              className={`w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs transition-all cursor-pointer ${
+                                isCurrent
+                                  ? "border-[#0B192C] bg-[#F7F6F2] font-bold text-[#0B192C]"
+                                  : "border-slate-200 bg-white hover:bg-slate-50 text-[#1D2935]"
+                              }`}
+                            >
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-[#0B192C] text-[#F9F7F1] text-[10px] font-black tracking-wider">
+                                  {tri.code}
+                                </span>
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-1.5">
+                                    <span className="font-bold text-[#0B192C] truncate">{t.name}</span>
+                                    {isCurrent && (
+                                      <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 shrink-0">
+                                        Current
+                                      </span>
+                                    )}
+                                  </div>
+                                  <span className="text-[11px] text-slate-500 font-medium block truncate">
+                                    {t.dates} • {tri.full}
+                                  </span>
+                                </div>
+                              </div>
+                              <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    {archivedVaultTournaments.length > 0 && (
+                      <div className="space-y-1.5 pt-2 border-t border-slate-100">
+                        <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                          Past / Archived AwayDays ({archivedVaultTournaments.length})
+                        </div>
+                        <div className="space-y-1.5">
+                          {archivedVaultTournaments.map((t) => {
+                            const tri = getCityTriCode(t.city);
+                            const isCurrent = t.slug === slug;
+                            return (
+                              <button
+                                key={t.slug}
+                                type="button"
+                                onClick={() => setSelectedVaultTournament(t)}
+                                className="w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100/70 text-xs text-slate-600 transition-all cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2.5 min-w-0">
+                                  <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-slate-200 text-slate-700 text-[10px] font-black tracking-wider">
+                                    {tri.code}
+                                  </span>
+                                  <div className="min-w-0">
+                                    <div className="flex items-center gap-1.5">
+                                      <span className="font-bold text-slate-700 truncate">{t.name}</span>
+                                      {isCurrent && (
+                                        <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 shrink-0">
+                                          Current
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[11px] text-slate-400 font-medium block truncate">
+                                      {t.dates} • {tri.full}
+                                    </span>
+                                  </div>
+                                </div>
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>
@@ -4432,50 +4555,6 @@ function RunSheetContent({
             </div>
           )}
         </div>
-
-        {isAdmin && (
-          <div className="mt-8 pt-6 border-t border-slate-200/80 space-y-3">
-            <div className="flex items-center justify-between px-1">
-              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                Manager Controls • {tournament.name || slug}
-              </span>
-              <span className="text-[10px] font-mono text-slate-400">Admin Only</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={handleArchiveTournament}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
-              >
-                <span>🗄️ Archive Sheet</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={async () => {
-                  if (window.confirm(`Permanently delete "${tournament.name || slug}"? This cannot be undone.`)) {
-                    try {
-                      await fetch(`/api/tournaments/${slug}`, { method: "DELETE" });
-                    } catch (e) {
-                      console.error("Delete failed", e);
-                    }
-                    localStorage.removeItem(`awayday_cache_${slug}`);
-                    localStorage.removeItem(`awayday_poll_options_v2_${slug}`);
-                    localStorage.removeItem(`awayday_games_sprint1_${slug}`);
-                    localStorage.removeItem(`awayday_voted_opt_${slug}`);
-                    localStorage.removeItem(`awayday_rsvp_${slug}`);
-                    localStorage.removeItem(`awayday_meal_mode_${slug}`);
-                    window.location.href = "/claim";
-                  }
-                }}
-                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-100/70 text-xs font-bold text-red-600 active:scale-[0.98] transition-all cursor-pointer"
-              >
-                <span>🗑️ Delete Sheet</span>
-              </button>
-            </div>
-          </div>
-        )}
       </main>
 
       {/* Light editorial bottom navigation bar */}
