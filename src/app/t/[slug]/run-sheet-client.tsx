@@ -2472,47 +2472,6 @@ function RunSheetContent({
                   </div>
                 )}
               </div>
-
-              <div className="pt-4 mt-4 border-t border-slate-200 space-y-2.5">
-                <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                  Tournament Status &amp; Data
-                </div>
-
-                {/* Archive Action */}
-                <button
-                  type="button"
-                  onClick={handleArchiveTournament}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <span>🗄️ Archive This Tournament</span>
-                  <span className="text-[10px] text-slate-400">Move to past events</span>
-                </button>
-
-                {/* Delete Action */}
-                <button
-                  type="button"
-                  onClick={async () => {
-                    if (window.confirm("Permanently delete this run-sheet? This cannot be undone.")) {
-                      try {
-                        await fetch(`/api/tournaments/${slug}`, { method: "DELETE" });
-                      } catch (e) {
-                        console.error("Delete failed", e);
-                      }
-                      localStorage.removeItem(`awayday_cache_${slug}`);
-                      localStorage.removeItem(`awayday_poll_options_v2_${slug}`);
-                      localStorage.removeItem(`awayday_games_sprint1_${slug}`);
-                      localStorage.removeItem(`awayday_voted_opt_${slug}`);
-                      localStorage.removeItem(`awayday_rsvp_${slug}`);
-                      localStorage.removeItem(`awayday_meal_mode_${slug}`);
-                      window.location.href = "/claim";
-                    }
-                  }}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-red-200 bg-red-50/60 text-xs font-bold text-red-600 hover:bg-red-100/60 active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <span>🗑️ Delete Run-Sheet</span>
-                  <span className="text-[10px] text-red-400">Scrub tournament data</span>
-                </button>
-              </div>
             </div>
           )}
         </section>
@@ -4473,6 +4432,50 @@ function RunSheetContent({
             </div>
           )}
         </div>
+
+        {isAdmin && (
+          <div className="mt-8 pt-6 border-t border-slate-200/80 space-y-3">
+            <div className="flex items-center justify-between px-1">
+              <span className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                Manager Controls • {tournament.name || slug}
+              </span>
+              <span className="text-[10px] font-mono text-slate-400">Admin Only</span>
+            </div>
+
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={handleArchiveTournament}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-slate-300 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 active:scale-[0.98] transition-all cursor-pointer"
+              >
+                <span>🗄️ Archive Sheet</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={async () => {
+                  if (window.confirm(`Permanently delete "${tournament.name || slug}"? This cannot be undone.`)) {
+                    try {
+                      await fetch(`/api/tournaments/${slug}`, { method: "DELETE" });
+                    } catch (e) {
+                      console.error("Delete failed", e);
+                    }
+                    localStorage.removeItem(`awayday_cache_${slug}`);
+                    localStorage.removeItem(`awayday_poll_options_v2_${slug}`);
+                    localStorage.removeItem(`awayday_games_sprint1_${slug}`);
+                    localStorage.removeItem(`awayday_voted_opt_${slug}`);
+                    localStorage.removeItem(`awayday_rsvp_${slug}`);
+                    localStorage.removeItem(`awayday_meal_mode_${slug}`);
+                    window.location.href = "/claim";
+                  }
+                }}
+                className="flex items-center justify-center gap-1.5 py-2.5 px-3 rounded-xl border border-red-200 bg-red-50/70 hover:bg-red-100/70 text-xs font-bold text-red-600 active:scale-[0.98] transition-all cursor-pointer"
+              >
+                <span>🗑️ Delete Sheet</span>
+              </button>
+            </div>
+          </div>
+        )}
       </main>
 
       {/* Light editorial bottom navigation bar */}
@@ -5256,47 +5259,6 @@ function RunSheetContent({
                   </div>
                 </div>
               )}
-            </div>
-
-            <div className="pt-4 mt-4 border-t border-slate-200 space-y-2.5">
-              <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                Tournament Status &amp; Data
-              </div>
-
-              {/* Archive Action */}
-              <button
-                type="button"
-                onClick={handleArchiveTournament}
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white text-xs font-bold text-slate-700 hover:bg-slate-50 active:scale-[0.98] transition-all cursor-pointer"
-              >
-                <span>🗄️ Archive This Tournament</span>
-                <span className="text-[10px] text-slate-400">Move to past events</span>
-              </button>
-
-              {/* Delete Action */}
-              <button
-                type="button"
-                onClick={async () => {
-                  if (window.confirm("Permanently delete this run-sheet? This cannot be undone.")) {
-                    try {
-                      await fetch(`/api/tournaments/${slug}`, { method: "DELETE" });
-                    } catch (e) {
-                      console.error("Delete failed", e);
-                    }
-                    localStorage.removeItem(`awayday_cache_${slug}`);
-                    localStorage.removeItem(`awayday_poll_options_v2_${slug}`);
-                    localStorage.removeItem(`awayday_games_sprint1_${slug}`);
-                    localStorage.removeItem(`awayday_voted_opt_${slug}`);
-                    localStorage.removeItem(`awayday_rsvp_${slug}`);
-                    localStorage.removeItem(`awayday_meal_mode_${slug}`);
-                    window.location.href = "/claim";
-                  }
-                }}
-                className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl border border-red-200 bg-red-50/60 text-xs font-bold text-red-600 hover:bg-red-100/60 active:scale-[0.98] transition-all cursor-pointer"
-              >
-                <span>🗑️ Delete Run-Sheet</span>
-                <span className="text-[10px] text-red-400">Scrub tournament data</span>
-              </button>
             </div>
           </div>
         </div>
