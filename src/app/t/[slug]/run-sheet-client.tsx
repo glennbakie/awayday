@@ -2249,68 +2249,16 @@ function RunSheetContent({
             <button
               type="button"
               onClick={() => setShowPassModal(true)}
-              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-full bg-[#C2A26F] hover:bg-[#B5945F] active:bg-[#A6834F] border-[1.5px] border-[#A88855] text-[#0B192C] text-xs font-black tracking-tight shadow-tactile-sm active:scale-[0.98] transition-all select-none cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-full bg-[#D8C7B1] hover:bg-[#CEBCA4] active:bg-[#C5B198] border-[1.5px] border-[#C5B198] text-[#0B192C] text-xs font-black tracking-tight shadow-tactile-sm active:scale-[0.98] transition-all select-none cursor-pointer"
               aria-label="Pass AwayDay to another squad"
             >
-              <svg
-                viewBox="0 0 24 24"
-                className="w-3.5 h-3.5 text-[#0B192C] fill-none stroke-current stroke-[2.4] stroke-linecap-round stroke-linejoin-round shrink-0"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-              >
-                <rect x="5" y="2" width="14" height="20" rx="3" />
-                <path d="M12 18h.01" />
-              </svg>
-              <span>Pass to another squad</span>
+              <span>⚡ Pass to another squad ⚡</span>
             </button>
           </div>
         </div>
       </header>
 
       <main className="max-w-md mx-auto w-full px-3 sm:px-4 pb-28 pt-1">
-        {isAdmin && (
-          <div className="w-full bg-[#0B192C] text-white p-4 rounded-2xl border border-[#C2A26F]/40 shadow-tactile-sm space-y-2.5 mb-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <span className="text-base">📢</span>
-                <span className="text-xs font-black uppercase tracking-wider text-[#C2A26F]">
-                  Share Run-Sheet with Squad
-                </span>
-              </div>
-              <span className="text-[10px] text-slate-400 font-mono">Team Link (Read-Only)</span>
-            </div>
-            <p className="text-xs text-slate-300">
-              Send this clean link to parents and players. It strips all manager controls.
-            </p>
-            <div className="grid grid-cols-2 gap-2 pt-1">
-              <button
-                type="button"
-                onClick={handleShareToSquad}
-                className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-[#C2A26F] hover:bg-[#B5945F] text-[#0B192C] text-xs font-black transition-all cursor-pointer"
-              >
-                <span>📤 Share Sheet</span>
-              </button>
-              <button
-                type="button"
-                onClick={handleCopyBroadcast}
-                className="flex items-center justify-center gap-1.5 py-2 px-3 rounded-xl bg-white/10 hover:bg-white/15 text-white border border-white/20 text-xs font-bold transition-all cursor-pointer"
-              >
-                <span>📋 Copy Text</span>
-              </button>
-            </div>
-            {broadcastCopyToast && (
-              <div
-                role="status"
-                aria-live="polite"
-                className="rounded-lg bg-emerald-500/20 border border-emerald-400/40 px-3 py-1.5 text-[11px] font-bold text-emerald-200 text-center animate-in fade-in duration-150"
-              >
-                ✓ {broadcastCopyToast}
-              </div>
-            )}
-          </div>
-        )}
-        
         {activeTab === "schedule" && (
           <div key="schedule" className="animate-in fade-in-50 duration-200 ease-out">
         {/* Tournament Header Card ("YOUR NEXT AWAY DAY") */}
@@ -2370,28 +2318,44 @@ function RunSheetContent({
 
           {isAdmin && isManagerToolsOpen && (
             <div className="mt-3 pt-2.5 border-t border-[#DCE1E7] space-y-3">
-              {/* Quick Squad Share Actions */}
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={handleShareToSquad}
-                  className="py-2 px-3 rounded-xl bg-[#0B192C] hover:bg-[#132843] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <span>📤</span> Share Sheet
-                </button>
-                <button
-                  type="button"
-                  onClick={handleCopyBroadcast}
-                  className="py-2 px-3 rounded-xl bg-[#F0EFE6] hover:bg-[#E5E3D7] border-[1.5px] border-[#0B192C] text-[#0B192C] font-black text-xs flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
-                >
-                  <span>📋</span> Copy Text
-                </button>
-              </div>
-              {broadcastCopyToast && (
-                <div className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 text-center">
-                  ✓ {broadcastCopyToast}
+              {/* Share Run-Sheet with Team */}
+              <div className="rounded-2xl bg-[#F7F6F2] border border-[#DCE1E7] p-3.5 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase tracking-wider text-[#0B192C]">
+                    📢 Share Run-Sheet with Team
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-mono">Read-Only</span>
                 </div>
-              )}
+                <p className="text-xs text-[#5A6E7C]">
+                  Send this clean, read-only link to parents and players.
+                </p>
+                <div className="grid grid-cols-2 gap-2 pt-0.5">
+                  <button
+                    type="button"
+                    onClick={handleShareToSquad}
+                    className="py-2 px-3 rounded-xl bg-[#0B192C] hover:bg-[#132843] text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
+                  >
+                    <span>📤 Share with Team</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCopyBroadcast}
+                    className="py-2 px-3 rounded-xl bg-[#F0EFE6] hover:bg-[#E5E3D7] border-[1.5px] border-[#0B192C] text-[#0B192C] font-black text-xs flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
+                  >
+                    <span>📋 Copy Team Text</span>
+                  </button>
+                </div>
+                {broadcastCopyToast && (
+                  <div className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 text-center">
+                    ✓ {broadcastCopyToast}
+                  </div>
+                )}
+              </div>
+
+              <label className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0F2942] text-white text-xs font-bold cursor-pointer hover:bg-[#1A3D5D] transition-colors">
+                <span>{isAnalyzingScreenshots ? "⏳ Analyzing Schedule..." : "📄 Upload Schedule When Released"}</span>
+                <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleScheduleUpdate} />
+              </label>
 
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -2561,13 +2525,6 @@ function RunSheetContent({
             games.every((g) => g.isPlaceholder || /tbd|pending/i.test(g.opponent));
 
           if (isSchedulePending) {
-            const orgName =
-              (tournament.name || "CYBL")
-                .replace(/\s+Session.*$/i, "")
-                .replace(/\s+Tournament.*$/i, "")
-                .replace(/\s+Weekend.*$/i, "")
-                .trim() || "CYBL";
-            const cityShort = (tournament.city || "Brampton").split(",")[0].split("/")[0].trim() || "Brampton";
             const hotelMapsDirectUrl = getGoogleMapsSearchUrl(
               tournament.hotel.address || "150 Westcreek Blvd, Brampton, ON"
             );
@@ -2579,14 +2536,8 @@ function RunSheetContent({
                     Schedule &amp; Bracket Pending
                   </h3>
                   <p className="text-xs text-[#5A6E7C] max-w-xs mx-auto mt-1">
-                    {orgName} organizers have not released tip-offs yet. Hotel and travel routes to {cityShort} are locked below and in the Travel/Fuel tabs.
+                    {tournament.name || "Tournament"} organizers have not released tip-offs yet. Hotel details and travel routes are locked below.
                   </p>
-                  {isAdmin && (
-                    <label className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[#0F2942] text-white text-xs font-bold cursor-pointer hover:bg-[#1A3D5D]">
-                      <span>{isAnalyzingScreenshots ? "⏳ Analyzing Schedule..." : "📄 Upload Schedule When Released"}</span>
-                      <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleScheduleUpdate} />
-                    </label>
-                  )}
                 </div>
 
                 {/* Prominent Locked Hotel Base Camp Card with Direct Google Maps Deep-Link */}
@@ -4501,6 +4452,27 @@ function RunSheetContent({
           </div>
           );
         })()}
+
+        {/* Bottom Utility Strip: Share with Teammate (read-only /t/[slug] link) */}
+        <div className="mt-4 flex flex-col items-center gap-1.5">
+          <button
+            type="button"
+            onClick={handleShareToSquad}
+            className="inline-flex items-center justify-center gap-1.5 py-2 px-4 rounded-full bg-white hover:bg-[#F7F6F2] border border-[#DCE1E7] text-[#0B192C] text-xs font-bold shadow-2xs active:scale-[0.98] transition-all cursor-pointer"
+            aria-label="Share this run-sheet with a teammate"
+          >
+            <span>📤 Share with Teammate</span>
+          </button>
+          {broadcastCopyToast && !isManagerToolsOpen && (
+            <div
+              role="status"
+              aria-live="polite"
+              className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 rounded-lg px-2.5 py-1.5 text-center"
+            >
+              ✓ {broadcastCopyToast}
+            </div>
+          )}
+        </div>
       </main>
 
       {/* Light editorial bottom navigation bar */}
@@ -4917,21 +4889,21 @@ function RunSheetContent({
               </button>
             </div>
 
-            {/* Quick Squad Share Actions */}
+            {/* Quick Team Share Actions */}
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={handleShareToSquad}
                 className="py-2 px-3 rounded-xl bg-[#0B192C] hover:bg-[#132843] border border-slate-700 text-white font-black text-xs flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-all cursor-pointer"
               >
-                <span>📤</span> Share Sheet
+                <span>📤 Share with Team</span>
               </button>
               <button
                 type="button"
                 onClick={handleCopyBroadcast}
                 className="py-2 px-3 rounded-xl bg-[#F0EFE6] hover:bg-[#E5E3D7] border-[1.5px] border-[#0B192C] text-[#0B192C] font-black text-xs flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all cursor-pointer"
               >
-                <span>📋</span> Copy Text
+                <span>📋 Copy Team Text</span>
               </button>
             </div>
 
