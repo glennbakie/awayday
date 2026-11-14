@@ -25,10 +25,23 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "AwayDay | Weekend Operations Engine",
-  description: "Sideline operations and tournament run-sheet for youth sports.",
+  metadataBase: new URL("https://awayday-omega.vercel.app"),
+  title: "AwayDay | Your Team's Travel Planner",
+  description: "Games, gyms, hotels, and team plans in one live link. No app download required.",
+  openGraph: {
+    title: "AwayDay | Your Team's Travel Planner",
+    description: "Games, gyms, hotels, and team plans in one live link. No app download required.",
+    images: ["/awayday-icon.png"],
+  },
+  twitter: {
+    card: "summary",
+    title: "AwayDay | Your Team's Travel Planner",
+    description: "Games, gyms, hotels, and team plans in one live link. No app download required.",
+    images: ["/awayday-icon.png"],
+  },
   icons: {
-    apple: "/apple-touch-icon.png",
+    icon: "/awayday-icon.png",
+    apple: "/awayday-icon.png",
   },
   appleWebApp: {
     capable: true,

@@ -4576,6 +4576,17 @@ function RunSheetContent({
             </div>
           )}
         </div>
+
+        {/* Subtle Branded Footer */}
+        <footer className="mt-6 pb-8 flex justify-center">
+          <a
+            href={`/claim?ref=${encodeURIComponent(teamReferralSlug || "awayday")}`}
+            className="inline-flex items-center gap-2 text-xs font-semibold text-[#5C6B7B] opacity-75 hover:opacity-100 transition-opacity"
+          >
+            <img src="/awayday-icon.png" alt="AwayDay" className="w-5 h-5 rounded-md" />
+            <span>AwayDay • Your Team&apos;s Travel Planner</span>
+          </a>
+        </footer>
       </main>
 
       {/* Light editorial bottom navigation bar */}

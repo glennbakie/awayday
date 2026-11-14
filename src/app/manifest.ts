@@ -2,9 +2,9 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'AwayDay | Team Operations',
+    name: "AwayDay | Your Team's Travel Planner",
     short_name: 'AwayDay',
-    description: 'Tournament weekend operations engine and run-sheet.',
+    description: 'Games, gyms, hotels, and team plans in one live link. No app download required.',
     start_url: '/t/test-team',
     display: 'standalone',
     background_color: '#090D16',
