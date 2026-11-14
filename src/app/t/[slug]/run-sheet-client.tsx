@@ -359,18 +359,6 @@ function RunSheetContent({
     }
   }, [slug, searchParams]);
 
-  const handleExitAdmin = () => {
-    try {
-      window.localStorage.removeItem("awayday_admin");
-      window.localStorage.removeItem(`awayday_is_admin_${slug}`);
-    } catch {
-      // Ignore storage errors
-    }
-    setIsAdmin(false);
-    setIsManagerToolsOpen(false);
-    router.replace(pathname || `/t/${slug}`);
-  };
-
   // Step 2: Any-City Travel Corridor Engine Origin & Direction State + Persistence
   const isDemoSlug = slug === "test-team";
   const teamHomeBase = "Ottawa, ON";
@@ -1736,7 +1724,7 @@ function RunSheetContent({
       setParsedPreviewGames(mappedGames);
     } catch (err: any) {
       console.error("Screenshot ingestion error:", err);
-      setIngestError(err?.message || "Failed to analyze screenshots with AI.");
+      setIngestError(err?.message || "Failed to analyze schedule screenshots.");
     } finally {
       setIsAnalyzingScreenshots(false);
     }
@@ -2451,17 +2439,6 @@ function RunSheetContent({
                   >
                     <span className="sm:hidden">+ Run Sheet</span>
                     <span className="hidden sm:inline">+ Update Run Sheet</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsManagerToolsOpen(false);
-                      handleExitAdmin();
-                    }}
-                    title="Exit Admin Mode"
-                    className="bg-white hover:bg-slate-50 text-slate-700 border border-[#DCE1E7] text-xs font-medium px-2.5 py-1 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer"
-                  >
-                    <Lock className="w-3 h-3 text-[#D59B42]" aria-hidden="true" /> Exit Admin
                   </button>
                 </div>
               </div>
@@ -4992,10 +4969,10 @@ function RunSheetContent({
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div>
                 <span className="bg-amber-500 text-slate-950 text-[10px] font-mono font-bold px-2 py-0.5 rounded tracking-widest uppercase">
-                  MANAGER SUITE • GEMINI 2.5 FLASH VISION
+                  MANAGER SUITE • SCHEDULE IMPORT
                 </span>
                 <h3 className="text-base font-black text-white mt-1.5">
-                  Update Run Sheet (AI OCR / Import)
+                  Update Run Sheet
                 </h3>
               </div>
               <button
@@ -5155,7 +5132,7 @@ function RunSheetContent({
                         Extracting game times, gyms, and jersey assignments...
                       </span>
                       <span className="text-[11px] text-slate-300 font-mono">
-                        Gemini 2.5 Flash Vision is parsing your schedule screenshot(s)
+                        Parsing your schedule screenshot(s)...
                       </span>
                     </div>
                   </div>
@@ -5279,7 +5256,7 @@ function RunSheetContent({
                     </>
                   ) : (
                     <>
-                      <Sparkles className="w-3.5 h-3.5" /> Analyze Screenshots with AI
+                      ⚡ EXTRACT SCHEDULE
                     </>
                   )}
                 </button>
