@@ -2212,7 +2212,15 @@ function RunSheetContent({
             dotClass: "bg-emerald-500 animate-pulse",
           };
 
-  const shareUrl = `https://awayday-omega.vercel.app/claim?ref=${encodeURIComponent(slug || "test-team")}`;
+  const teamReferralSlug =
+    (tournament.teamName || "")
+      .trim()
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "") ||
+    slug ||
+    "test-team";
+  const shareUrl = `https://awayday-omega.vercel.app/claim?ref=${encodeURIComponent(teamReferralSlug)}`;
   const shareText = `Hey! Saw another team using this mobile run-sheet called AwayDay—it tracks arrival buffers, court delays, and food spots between games so parents stay on time. They gave us a free pass for our next two tournaments: ${shareUrl}`;
 
   const [broadcastCopyToast, setBroadcastCopyToast] = useState<string | null>(null);
@@ -5443,7 +5451,7 @@ function RunSheetContent({
               </button>
 
               <a
-                href={`/claim?ref=${encodeURIComponent(slug || "test-team")}`}
+                href={`/claim?ref=${encodeURIComponent(teamReferralSlug)}`}
                 className="min-h-[44px] rounded-xl bg-white hover:bg-slate-50 border border-[#DCE1E7] text-[#0F2942] text-xs font-bold px-3 py-2 flex items-center justify-center transition-colors"
               >
                 Preview Claim Page →

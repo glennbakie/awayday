@@ -38,11 +38,33 @@ function formatSlug(rawTeamName: string): string {
   return cleaned || "ottawa-elite-u16";
 }
 
+function formatReferralTeamName(rawRef: string): string {
+  const cleaned = rawRef.trim();
+  if (!cleaned || /^(test-team|awayday)$/i.test(cleaned)) {
+    return "AwayDay";
+  }
+  const lower = cleaned.toLowerCase();
+  if (lower.includes("ottawa-elite") || lower.includes("ottawa elite")) {
+    return "Ottawa Elite";
+  }
+  const stripped = cleaned.replace(/^(cybl|oba|aau|eybl|hgsl)-[a-z0-9]+-/i, "");
+  const words = stripped
+    .replace(/[-_]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (words.length === 0) return "AwayDay";
+  return words
+    .map((w) => (/^u\d{1,2}$/i.test(w) ? w.toUpperCase() : w.charAt(0).toUpperCase() + w.slice(1).toLowerCase()))
+    .join(" ");
+}
+
 function ClaimPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const rawRef = (searchParams.get("ref") || "").trim();
   const ref = rawRef || "AwayDay";
+  const formattedTeamName = formatReferralTeamName(rawRef);
 
   const [files, setFiles] = useState<File[]>([]);
   const [isParsing, setIsParsing] = useState(false);
@@ -360,7 +382,7 @@ function ClaimPageContent() {
         {/* 1. Header Card */}
         <section className="bg-white rounded-[26px] p-5 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm space-y-2.5">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F7F6F2] border border-[#D1D5DB] text-[#0B192C] text-xs font-black tracking-tight">
-            From the {ref || "AwayDay"} family
+            From the {formattedTeamName} Fam
           </span>
 
           <h1 className="text-2xl font-black text-[#0B192C] tracking-tight leading-tight">
