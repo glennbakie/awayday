@@ -2636,7 +2636,7 @@ function RunSheetContent({
                       setIngestError(null);
                       setIsIngestModalOpen(true);
                     }}
-                    className="bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] border border-[#DCE1E7] text-xs font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-semibold shadow-sm border border-emerald-500 transition-colors text-xs px-3 py-1.5 rounded-full cursor-pointer"
                   >
                     + Create New Run Sheet
                   </button>
@@ -3747,7 +3747,7 @@ function RunSheetContent({
                 {isLunch ? "Lunch Downtime Window" : "Dinner Downtime Window"}
               </span>
               <span className="inline-flex items-center rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 tabular-nums">
-                {windowHours}h {windowRemainingMins}m Window
+                {isSchedulePendingState ? "TBD" : `${windowHours}h ${windowRemainingMins}m Window`}
               </span>
             </div>
             
@@ -3755,7 +3755,9 @@ function RunSheetContent({
               <div>
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Available Downtime</p>
                 <p className="text-base font-black text-[#0B192C] tracking-tight mt-0.5 tabular-nums">
-                  {formatTime(activeWindowStart)} – {formatTime(activeWindowEnd)}
+                  {isSchedulePendingState
+                    ? "Schedule Pending"
+                    : `${formatTime(activeWindowStart)} – ${formatTime(activeWindowEnd)}`}
                 </p>
               </div>
               <div className="text-right">
@@ -3763,9 +3765,11 @@ function RunSheetContent({
                   {isLunch ? "Game 2 Arrival" : "Evening Wind-Down"}
                 </p>
                 <p className="text-sm font-black text-[#0B192C] mt-0.5 tabular-nums">
-                  {isLunch 
-                    ? `Be at gym by ${formatTime(activeWindowEnd)}`
-                    : `Back at hotel by ${formatTime(activeWindowEnd)}`}
+                  {isSchedulePendingState
+                    ? "Updates once tip-offs drop"
+                    : isLunch
+                      ? `Be at gym by ${formatTime(activeWindowEnd)}`
+                      : `Back at hotel by ${formatTime(activeWindowEnd)}`}
                 </p>
               </div>
             </div>
