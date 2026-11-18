@@ -464,7 +464,7 @@ function ClaimPageContent() {
           </h1>
 
           <p className="text-xs sm:text-sm font-semibold text-[#5C6B7B] leading-relaxed">
-            Built for the coaches, managers, and drivers on the highway every weekend. No credit card, no app store downloads.
+            Built for the coaches, managers, and families hitting the road for away tournaments. No credit card, no app store downloads.
           </p>
         </section>
 
