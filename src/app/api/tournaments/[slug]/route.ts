@@ -69,11 +69,20 @@ export async function DELETE(
           auth: { persistSession: false },
         });
 
-        // Look up any associated team_trips row for this share_slug
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(slug);
+
+        // Look up any associated team_trips row for this share_slug (or id)
         const { data: tripRow } = await adminSupabase
           .from("team_trips")
           .select("id, tournament_id")
           .eq("share_slug", slug)
+          .maybeSingle();
+
+        // Look up any associated tournaments row by slug or id
+        const { data: tourneyBySlug } = await adminSupabase
+          .from("tournaments")
+          .select("id")
+          .eq("slug", slug)
           .maybeSingle();
 
         // Remove any game / hotel / trip records linked to this slug or trip id
@@ -86,11 +95,27 @@ export async function DELETE(
         await adminSupabase.from("team_trips").delete().eq("share_slug", slug);
         await adminSupabase.from("tournaments").delete().eq("slug", slug);
 
+        if (isUuid) {
+          await adminSupabase.from("team_trips").delete().eq("id", slug);
+          await adminSupabase.from("tournaments").delete().eq("id", slug);
+        }
+
         if (tripRow?.tournament_id) {
           await adminSupabase
             .from("tournaments")
             .delete()
             .eq("id", tripRow.tournament_id);
+        }
+
+        if (tourneyBySlug?.id) {
+          await adminSupabase
+            .from("team_trips")
+            .delete()
+            .eq("tournament_id", tourneyBySlug.id);
+          await adminSupabase
+            .from("tournaments")
+            .delete()
+            .eq("id", tourneyBySlug.id);
         }
       } catch (dbErr) {
         console.warn("Supabase delete warning (non-fatal):", dbErr);

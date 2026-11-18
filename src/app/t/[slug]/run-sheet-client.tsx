@@ -250,12 +250,47 @@ interface TournamentInfo {
 }
 
 interface VaultTournament {
+  id?: string;
   slug: string;
   name: string;
   city: string;
   dates: string;
   is_archived: boolean;
   created_at: string;
+}
+
+function getDeletedSlugsSet(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = window.localStorage.getItem("awayday_deleted_slugs");
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? new Set(parsed.map((s) => String(s))) : new Set();
+  } catch {
+    return new Set();
+  }
+}
+
+function hasStoredAdminSlug(targetSlug: string): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    if (
+      window.localStorage.getItem("awayday_admin") === "true" ||
+      window.localStorage.getItem(`awayday_is_admin_${targetSlug}`) === "true"
+    ) {
+      return true;
+    }
+    const rawAdminSlugs = window.localStorage.getItem("awayday_admin_slugs");
+    if (rawAdminSlugs) {
+      const parsed = JSON.parse(rawAdminSlugs);
+      if (Array.isArray(parsed) && parsed.includes(targetSlug)) {
+        return true;
+      }
+    }
+  } catch {
+    return false;
+  }
+  return false;
 }
 
 function RunSheetContent({
@@ -275,17 +310,7 @@ function RunSheetContent({
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     if (searchParams.get("admin") === "false") return false;
     if (searchParams.get("admin") === "true" || slug === "test-team") return true;
-    if (typeof window !== "undefined") {
-      try {
-        return (
-          window.localStorage.getItem("awayday_admin") === "true" ||
-          window.localStorage.getItem(`awayday_is_admin_${slug}`) === "true"
-        );
-      } catch {
-        return false;
-      }
-    }
-    return false;
+    return hasStoredAdminSlug(slug);
   });
   const [isManagerToolsOpen, setIsManagerToolsOpen] = useState<boolean>(
     () => searchParams.get("openTools") === "true"
@@ -345,9 +370,7 @@ function RunSheetContent({
     }
 
     try {
-      const hasToken =
-        window.localStorage.getItem("awayday_admin") === "true" ||
-        window.localStorage.getItem(`awayday_is_admin_${slug}`) === "true";
+      const hasToken = hasStoredAdminSlug(slug);
       if (hasToken) {
         setIsAdmin(true);
       } else {
@@ -687,6 +710,10 @@ function RunSheetContent({
   const [editWarmupBuffer, setEditWarmupBuffer] = useState<number>(30);
 
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
+  const [ingestModalMode, setIngestModalMode] = useState<"update" | "create">("update");
+  const [newSheetName, setNewSheetName] = useState("");
+  const [pendingCreateMeta, setPendingCreateMeta] = useState<any>(null);
+  const [isCreatingSheet, setIsCreatingSheet] = useState(false);
   const [ingestMode, setIngestMode] = useState<"screenshots" | "text">("screenshots");
   const [ingestImages, setIngestImages] = useState<Array<{ id: string; file: File; previewUrl: string }>>([]);
   const [isAnalyzingScreenshots, setIsAnalyzingScreenshots] = useState(false);
@@ -1106,6 +1133,7 @@ function RunSheetContent({
   const refreshVaultTournaments = useCallback(
     async (forceCurrentArchived?: boolean) => {
       const bySlug = new Map<string, VaultTournament>();
+      const deletedSlugs = getDeletedSlugsSet();
       let archivedMap: Record<string, boolean> = {};
 
       if (typeof window !== "undefined") {
@@ -1130,7 +1158,11 @@ function RunSheetContent({
               : [];
           for (const item of list) {
             if (!item?.slug) continue;
+            if (deletedSlugs.has(item.slug) || (item.id && deletedSlugs.has(item.id))) {
+              continue;
+            }
             bySlug.set(item.slug, {
+              id: item.id,
               slug: item.slug,
               name: item.name || "Tournament Weekend",
               city: item.city || "Brampton, ON",
@@ -1150,7 +1182,7 @@ function RunSheetContent({
             const key = window.localStorage.key(i);
             if (!key || !key.startsWith("awayday_cache_")) continue;
             const cachedSlug = key.replace(/^awayday_cache_/, "").trim();
-            if (!cachedSlug) continue;
+            if (!cachedSlug || deletedSlugs.has(cachedSlug)) continue;
             const rawVal = window.localStorage.getItem(key);
             if (!rawVal) continue;
             const parsed = JSON.parse(rawVal);
@@ -1158,6 +1190,7 @@ function RunSheetContent({
             if (!ct) continue;
             const existing = bySlug.get(cachedSlug);
             bySlug.set(cachedSlug, {
+              id: existing?.id,
               slug: cachedSlug,
               name: ct.name || existing?.name || "CYBL Session",
               city: ct.city || existing?.city || "Brampton, ON",
@@ -1175,9 +1208,10 @@ function RunSheetContent({
         }
       }
 
-      if (slug) {
+      if (slug && !deletedSlugs.has(slug)) {
         const currentExisting = bySlug.get(slug);
         bySlug.set(slug, {
+          id: currentExisting?.id,
           slug,
           name: tournament.name || currentExisting?.name || "CYBL Session",
           city: tournament.city || currentExisting?.city || "Brampton, ON",
@@ -1195,9 +1229,9 @@ function RunSheetContent({
         });
       }
 
-      const sorted = Array.from(bySlug.values()).sort(
-        (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
-      );
+      const sorted = Array.from(bySlug.values())
+        .filter((t) => !deletedSlugs.has(t.slug) && !(t.id && deletedSlugs.has(t.id)))
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       setVaultTournaments(sorted);
     },
     [slug, tournament.name, tournament.city, tournament.dates, tournament.is_archived]
@@ -1269,16 +1303,18 @@ function RunSheetContent({
       return;
     }
 
-    try {
-      await fetch(`/api/tournaments/${targetSlug}`, { method: "DELETE" });
-    } catch (e) {
-      console.error("Delete failed", e);
+    const deletedSet = getDeletedSlugsSet();
+    deletedSet.add(targetSlug);
+    if (target.id) {
+      deletedSet.add(target.id);
     }
 
     try {
+      window.localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
       window.localStorage.removeItem(`awayday_cache_${targetSlug}`);
       window.localStorage.removeItem(`awayday_poll_options_v2_${targetSlug}`);
       window.localStorage.removeItem(`awayday_games_sprint1_${targetSlug}`);
+      window.localStorage.removeItem(`awayday_games_nph1_${targetSlug}`);
       window.localStorage.removeItem(`awayday_voted_opt_${targetSlug}`);
       window.localStorage.removeItem(`awayday_rsvp_${targetSlug}`);
       window.localStorage.removeItem(`awayday_meal_mode_${targetSlug}`);
@@ -1294,8 +1330,27 @@ function RunSheetContent({
       // Ignore storage errors
     }
 
+    try {
+      await fetch(`/api/tournaments/${encodeURIComponent(targetSlug)}`, { method: "DELETE" });
+      if (target.id && target.id !== targetSlug) {
+        await fetch(`/api/tournaments/${encodeURIComponent(target.id)}`, { method: "DELETE" });
+      }
+    } catch (e) {
+      console.error("Delete failed", e);
+    }
+
+    const remainingTournaments = vaultTournaments.filter(
+      (t) => t.slug !== targetSlug && !deletedSet.has(t.slug) && !(t.id && deletedSet.has(t.id))
+    );
+    setVaultTournaments(remainingTournaments);
+
     if (targetSlug === slug) {
-      window.location.href = "/t/test-team?admin=true&openTools=true";
+      const nextActive = remainingTournaments.find((t) => !t.is_archived) || remainingTournaments[0];
+      if (nextActive) {
+        window.location.href = `/t/${nextActive.slug}?admin=true&openTools=true`;
+      } else {
+        window.location.href = "/claim?ref=ottawa-elite";
+      }
       return;
     }
 
@@ -1303,12 +1358,16 @@ function RunSheetContent({
     await refreshVaultTournaments();
   };
 
-  const activeVaultTournaments = vaultTournaments.filter((t) => !t.is_archived);
-  const archivedVaultTournaments = vaultTournaments.filter((t) => t.is_archived);
+  const deletedSlugsOnRender = getDeletedSlugsSet();
+  const visibleVaultTournaments = vaultTournaments.filter(
+    (t) => !deletedSlugsOnRender.has(t.slug) && !(t.id && deletedSlugsOnRender.has(t.id))
+  );
+  const activeVaultTournaments = visibleVaultTournaments.filter((t) => !t.is_archived);
+  const archivedVaultTournaments = visibleVaultTournaments.filter((t) => t.is_archived);
 
   // Persist current tournament payload under awayday_cache_${slug} for offline gym dead-zones
   useEffect(() => {
-    if (!slug || !hasLoadedCacheRef.current) return;
+    if (!slug || !hasLoadedCacheRef.current || getDeletedSlugsSet().has(slug)) return;
     try {
       const payload = {
         tournament,
@@ -1524,8 +1583,16 @@ function RunSheetContent({
       .filter(Boolean);
 
     if (lines.length === 0) {
+      setIngestError("Please paste schedule text before parsing.");
       return;
     }
+
+    setIngestError(null);
+    const customLabel = newSheetName.trim();
+    const targetHub = ingestModalMode === "create"
+      ? customLabel || "Tournament Venue"
+      : tournament.primaryHub;
+    const targetCity = ingestModalMode === "create" ? "Brampton, ON" : tournament.city;
 
     const parsed: Game[] = lines.map((line, idx) => {
       const timeMatch = line.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
@@ -1550,15 +1617,24 @@ function RunSheetContent({
         opponent,
         tipOffMinutes: mins,
         court,
-        venueName: tournament.primaryHub,
-        venueAddress: tournament.primaryHubAddress || tournament.city,
-        city: tournament.city,
+        venueName: targetHub,
+        venueAddress: ingestModalMode === "create" ? targetCity : (tournament.primaryHubAddress || tournament.city),
+        city: targetCity,
         warmupBufferMin: 30,
         hotelTravelMin: 15,
         status: "Upcoming",
         jerseyColor: idx % 2 === 0 ? "Dark / Away" : "Light / Home"
       };
     });
+
+    if (ingestModalMode === "create") {
+      setPendingCreateMeta({
+        tournamentName: customLabel || "New Tournament Run Sheet",
+        teamName: customLabel || "My Team",
+        city: targetCity,
+        dates: "Nov 21–22, 2026",
+      });
+    }
 
     setParsedPreviewGames(parsed);
   };
@@ -1699,8 +1775,15 @@ function RunSheetContent({
       ingestImages.forEach((item) => {
         formData.append("images", item.file);
       });
-      formData.append("teamName", tournament.teamName);
-      formData.append("tournamentName", tournament.name);
+      if (ingestModalMode === "create") {
+        if (newSheetName.trim()) {
+          formData.append("tournamentName", newSheetName.trim());
+          formData.append("teamName", newSheetName.trim());
+        }
+      } else {
+        formData.append("teamName", tournament.teamName);
+        formData.append("tournamentName", tournament.name);
+      }
 
       const res = await fetch("/api/ingest-schedule", {
         method: "POST",
@@ -1712,7 +1795,11 @@ function RunSheetContent({
         throw new Error(data?.error || "Failed to analyze schedule screenshots.");
       }
 
-      applyExtractedTournamentFromApi(data);
+      if (ingestModalMode === "create") {
+        setPendingCreateMeta(data);
+      } else {
+        applyExtractedTournamentFromApi(data);
+      }
       const extracted = Array.isArray(data.games) ? data.games : [];
       if (extracted.length === 0 && !data.schedulePending) {
         setIngestError("No games were detected in the uploaded screenshot(s). Try a clearer image or use Raw Text.");
@@ -1750,6 +1837,100 @@ function RunSheetContent({
 
   const handleApplyIngestedSchedule = async () => {
     if (!parsedPreviewGames || parsedPreviewGames.length === 0) return;
+
+    if (ingestModalMode === "create") {
+      setIsCreatingSheet(true);
+      setIngestError(null);
+      try {
+        const meta = pendingCreateMeta || {};
+        const apiTourney = meta.tournament || {};
+        const apiHotel = meta.hotel || apiTourney.hotel || {};
+        const customName = newSheetName.trim();
+        const resolvedName = customName || meta.tournamentName || apiTourney.name || "Tournament Run Sheet";
+        const resolvedTeam = customName || meta.teamName || apiTourney.teamName || "My Team";
+        const resolvedCity = meta.city || apiTourney.city || "Brampton, ON";
+        const resolvedDates = meta.dates || apiTourney.dates || "Nov 21–22, 2026";
+        const resolvedHotel = {
+          name: apiHotel.name || "Team Hotel",
+          address: apiHotel.address || resolvedCity,
+          rate: apiHotel.rate || `Team Room Block (${resolvedTeam})`,
+          breakfastHours: apiHotel.breakfastHours || "6:30 AM - 9:30 AM (Included)",
+          checkoutTime: apiHotel.checkoutTime || "12:00 PM",
+        };
+
+        const createRes = await fetch("/api/tournaments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            slug: meta.slug && meta.slug !== slug ? meta.slug : undefined,
+            name: resolvedName,
+            teamName: resolvedTeam,
+            city: resolvedCity,
+            dates: resolvedDates,
+            hotel: resolvedHotel,
+            games: parsedPreviewGames,
+            schedulePending: Boolean(meta.schedulePending),
+          }),
+        });
+        const createData = await createRes.json().catch(() => ({}));
+        if (!createRes.ok || createData?.success === false) {
+          throw new Error(createData?.error || "Failed to create new run sheet in Supabase.");
+        }
+
+        const newSlug = (createData?.slug || "").trim();
+        if (!newSlug) {
+          throw new Error("Server did not return a slug for the new run sheet.");
+        }
+
+        const newTournamentPayload = {
+          name: resolvedName,
+          division: "Varsity / Club Division",
+          leagueName: resolvedName,
+          teamName: resolvedTeam,
+          dates: resolvedDates,
+          city: resolvedCity,
+          schedulePending: Boolean(meta.schedulePending),
+          primaryHub: parsedPreviewGames[0]?.venueName || resolvedHotel.name,
+          primaryHubAddress: parsedPreviewGames[0]?.venueAddress || resolvedHotel.address,
+          lastUpdatedText: "Official Team Weekend Run-Sheet",
+          hotel: resolvedHotel,
+        };
+
+        try {
+          const serializedGames = JSON.stringify(parsedPreviewGames);
+          window.localStorage.setItem(`awayday_games_sprint1_${newSlug}`, serializedGames);
+          window.localStorage.setItem(`awayday_games_nph1_${newSlug}`, serializedGames);
+          window.localStorage.setItem(
+            `awayday_cache_${newSlug}`,
+            JSON.stringify({
+              tournament: newTournamentPayload,
+              games: parsedPreviewGames,
+              updatedAt: Date.now(),
+            })
+          );
+          window.localStorage.setItem(`awayday_is_admin_${newSlug}`, "true");
+          const rawAdminSlugs = window.localStorage.getItem("awayday_admin_slugs");
+          const adminSlugs: string[] = rawAdminSlugs ? JSON.parse(rawAdminSlugs) : [];
+          if (Array.isArray(adminSlugs) && !adminSlugs.includes(newSlug)) {
+            adminSlugs.push(newSlug);
+            window.localStorage.setItem("awayday_admin_slugs", JSON.stringify(adminSlugs));
+          } else if (!Array.isArray(adminSlugs)) {
+            window.localStorage.setItem("awayday_admin_slugs", JSON.stringify([newSlug]));
+          }
+        } catch {
+          // Ignore storage errors
+        }
+
+        window.location.href = `/t/${newSlug}?admin=true`;
+        return;
+      } catch (err: any) {
+        setIngestError(err?.message || "Failed to create new run sheet.");
+        return;
+      } finally {
+        setIsCreatingSheet(false);
+      }
+    }
+
     setGames(parsedPreviewGames);
     await broadcastGamesSync(parsedPreviewGames);
     setParsedPreviewGames(null);
@@ -2427,10 +2608,18 @@ function RunSheetContent({
                 )}
               </div>
 
-              <label className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0F2942] text-white text-xs font-bold cursor-pointer hover:bg-[#1A3D5D] transition-colors">
+              <button
+                type="button"
+                onClick={() => {
+                  setIngestModalMode("update");
+                  setParsedPreviewGames(null);
+                  setIngestError(null);
+                  setIsIngestModalOpen(true);
+                }}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0F2942] text-white text-xs font-bold cursor-pointer hover:bg-[#1A3D5D] transition-colors"
+              >
                 <span>{isAnalyzingScreenshots ? "⏳ Analyzing Schedule..." : "📄 Upload Schedule When Released"}</span>
-                <input type="file" accept="image/*,.pdf" className="hidden" onChange={handleScheduleUpdate} />
-              </label>
+              </button>
 
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
@@ -2440,13 +2629,16 @@ function RunSheetContent({
                   <button
                     type="button"
                     onClick={() => {
+                      setIngestModalMode("create");
+                      setNewSheetName("");
+                      setPendingCreateMeta(null);
                       setParsedPreviewGames(null);
+                      setIngestError(null);
                       setIsIngestModalOpen(true);
                     }}
                     className="bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] border border-[#DCE1E7] text-xs font-bold px-2.5 py-1 rounded-lg transition-colors cursor-pointer"
                   >
-                    <span className="sm:hidden">+ Run Sheet</span>
-                    <span className="hidden sm:inline">+ Update Run Sheet</span>
+                    + Create New Run Sheet
                   </button>
                 </div>
               </div>
@@ -4991,7 +5183,7 @@ function RunSheetContent({
                   MANAGER SUITE • SCHEDULE IMPORT
                 </span>
                 <h3 className="text-base font-black text-white mt-1.5">
-                  Update Run Sheet
+                  {ingestModalMode === "create" ? "Create New Run Sheet" : "Update Run Sheet"}
                 </h3>
               </div>
               <button
@@ -5002,6 +5194,25 @@ function RunSheetContent({
                 <X className="w-5 h-5" />
               </button>
             </div>
+
+            {ingestModalMode === "create" && (
+              <div>
+                <label
+                  htmlFor="new-sheet-name-input"
+                  className="block text-slate-400 font-mono text-[10px] uppercase tracking-wider mb-1.5"
+                >
+                  Tournament / Team Name (Optional)
+                </label>
+                <input
+                  id="new-sheet-name-input"
+                  type="text"
+                  value={newSheetName}
+                  onChange={(e) => setNewSheetName(e.target.value)}
+                  placeholder="e.g., NPH Showcase — Ottawa Elite U16"
+                  className="w-full bg-slate-900 border border-slate-700 text-white rounded-xl px-3 py-2 text-xs font-bold placeholder:text-slate-500 focus:border-amber-500 focus:outline-none"
+                />
+              </div>
+            )}
 
             {/* Quick Team Share Actions */}
             <div className="grid grid-cols-2 gap-2">
@@ -5156,12 +5367,6 @@ function RunSheetContent({
                     </div>
                   </div>
                 )}
-
-                {ingestError && (
-                  <div className="bg-red-950/50 border border-red-500/40 rounded-xl p-3 text-xs text-red-200 font-medium">
-                    {ingestError}
-                  </div>
-                )}
               </div>
             ) : (
               <div>
@@ -5177,6 +5382,12 @@ function RunSheetContent({
               </div>
             )}
 
+            {ingestError && (
+              <div className="bg-red-950/50 border border-red-500/40 rounded-xl p-3 text-xs text-red-200 font-medium">
+                {ingestError}
+              </div>
+            )}
+
             {/* Parse & Preview Drawer with Inline Editing */}
             {parsedPreviewGames && parsedPreviewGames.length > 0 && (
               <div className="bg-slate-900/95 border border-slate-800 rounded-xl p-3.5 space-y-3 max-h-64 overflow-y-auto">
@@ -5186,10 +5397,15 @@ function RunSheetContent({
                   </span>
                   <button
                     type="button"
+                    disabled={isCreatingSheet}
                     onClick={handleApplyIngestedSchedule}
-                    className="text-[11px] font-mono font-bold bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95"
+                    className="text-[11px] font-mono font-bold bg-emerald-500 hover:bg-emerald-400 disabled:opacity-60 text-slate-950 px-3 py-1.5 rounded-lg transition-all cursor-pointer shadow-sm active:scale-95"
                   >
-                    Apply to Run Sheet
+                    {ingestModalMode === "create"
+                      ? isCreatingSheet
+                        ? "Creating..."
+                        : "Create Run Sheet"
+                      : "Apply to Run Sheet"}
                   </button>
                 </div>
 

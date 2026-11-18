@@ -67,9 +67,12 @@ function ClaimPageContent() {
   const formattedTeamName = formatReferralTeamName(rawRef);
 
   const [files, setFiles] = useState<File[]>([]);
+  const [inputMode, setInputMode] = useState<"upload" | "text">("upload");
+  const [rawText, setRawText] = useState("");
   const [isParsing, setIsParsing] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [parseError, setParseError] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const [extractedGames, setExtractedGames] = useState<ExtractedClaimGame[] | null>(null);
   const [extractedMeta, setExtractedMeta] = useState<{
     slug?: string;
@@ -178,16 +181,51 @@ function ClaimPageContent() {
     e.preventDefault();
     setIsSubmitting(true);
     setParseError(null);
+    setError(null);
 
-    const rawTypedTeam = teamName.trim();
-    const isGenericTeamInput = !rawTypedTeam || /^(test\s*team(\s*\d+)?|team\s*\d+|my\s*team)$/i.test(rawTypedTeam);
+    try {
+      const rawTypedTeam = teamName.trim();
+      const isGenericTeamInput = !rawTypedTeam || /^(test\s*team(\s*\d+)?|team\s*\d+|my\s*team)$/i.test(rawTypedTeam);
 
-    let currentGames = extractedGames;
-    let currentMeta = extractedMeta;
+      let currentGames = extractedGames;
+      let currentMeta = extractedMeta;
 
-    if ((!currentGames || currentGames.length === 0) && files.length > 0) {
-      const result = await runScheduleExtraction(files, isGenericTeamInput ? "Ottawa Elite U16" : rawTypedTeam);
-      if (result) {
+      if (inputMode === "text" && rawText.trim()) {
+        setIsParsing(true);
+        try {
+          const formData = new FormData();
+          formData.append("text", rawText.trim());
+          if (!isGenericTeamInput) {
+            formData.append("teamName", rawTypedTeam);
+          }
+          const res = await fetch("/api/ingest-schedule", {
+            method: "POST",
+            body: formData,
+          });
+          const data = await res.json();
+          if (!res.ok || !data?.success) {
+            throw new Error(data?.error || "Could not parse schedule text.");
+          }
+          currentGames = Array.isArray(data.games) ? data.games : [];
+          currentMeta = {
+            slug: data.slug,
+            schedulePending: Boolean(data.schedulePending),
+            tournamentName: data.tournamentName,
+            teamName: data.teamName,
+            city: data.city,
+            dates: data.dates,
+            hotel: data.hotel,
+          };
+          setExtractedGames(currentGames);
+          setExtractedMeta(currentMeta);
+        } finally {
+          setIsParsing(false);
+        }
+      } else if ((!currentGames || currentGames.length === 0) && files.length > 0) {
+        const result = await runScheduleExtraction(files, isGenericTeamInput ? "" : rawTypedTeam);
+        if (!result) {
+          throw new Error("Could not extract schedule from the uploaded file. Please try again or paste raw text.");
+        }
         currentGames = result.games;
         currentMeta = {
           slug: result.slug,
@@ -199,11 +237,10 @@ function ClaimPageContent() {
           hotel: result.hotel,
         };
       }
-    }
 
-    const resolvedTeamName = !isGenericTeamInput
-      ? rawTypedTeam
-      : currentMeta.teamName || "Ottawa Elite U16";
+      const resolvedTeamName = !isGenericTeamInput
+        ? rawTypedTeam
+        : currentMeta.teamName?.trim() || "My Team";
 
     const isPending = Boolean(
       currentMeta.schedulePending ||
@@ -337,23 +374,58 @@ function ClaimPageContent() {
       },
     };
 
-    try {
-      const serializedGames = JSON.stringify(mappedGames);
-      window.localStorage.setItem(`awayday_games_sprint1_${slug}`, serializedGames);
-      window.localStorage.setItem(`awayday_games_nph1_${slug}`, serializedGames);
-      window.localStorage.setItem(
-        `awayday_cache_${slug}`,
-        JSON.stringify({
-          tournament: tournamentPayload,
+      const createRes = await fetch("/api/tournaments", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          slug,
+          name: tournamentPayload.name,
+          teamName: tournamentPayload.teamName,
+          city: tournamentPayload.city,
+          dates: tournamentPayload.dates,
+          hotel: tournamentPayload.hotel,
           games: mappedGames,
-          updatedAt: Date.now(),
-        })
-      );
-    } catch {
-      // Ignore storage access errors
-    }
+          contactInfo: tournamentPayload.contactInfo,
+          schedulePending: tournamentPayload.schedulePending,
+        }),
+      });
+      const createData = await createRes.json().catch(() => ({}));
+      if (!createRes.ok || createData?.success === false) {
+        throw new Error(createData?.error || "Failed to save tournament run sheet to database.");
+      }
+      const newSlug = (createData?.slug || slug).trim();
 
-    router.push(`/t/${slug}?admin=true`);
+      try {
+        const serializedGames = JSON.stringify(mappedGames);
+        window.localStorage.setItem(`awayday_games_sprint1_${newSlug}`, serializedGames);
+        window.localStorage.setItem(`awayday_games_nph1_${newSlug}`, serializedGames);
+        window.localStorage.setItem(
+          `awayday_cache_${newSlug}`,
+          JSON.stringify({
+            tournament: tournamentPayload,
+            games: mappedGames,
+            updatedAt: Date.now(),
+          })
+        );
+        window.localStorage.setItem(`awayday_is_admin_${newSlug}`, "true");
+        const rawAdminSlugs = window.localStorage.getItem("awayday_admin_slugs");
+        const adminSlugs: string[] = rawAdminSlugs ? JSON.parse(rawAdminSlugs) : [];
+        if (Array.isArray(adminSlugs) && !adminSlugs.includes(newSlug)) {
+          adminSlugs.push(newSlug);
+          window.localStorage.setItem("awayday_admin_slugs", JSON.stringify(adminSlugs));
+        } else if (!Array.isArray(adminSlugs)) {
+          window.localStorage.setItem("awayday_admin_slugs", JSON.stringify([newSlug]));
+        }
+      } catch {
+        // Ignore storage access errors
+      }
+
+      router.push(`/t/${newSlug}?admin=true`);
+    } catch (err: any) {
+      setError(err?.message || "Failed to build run sheet. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const claimUrl = `https://awayday-omega.vercel.app/claim?ref=${encodeURIComponent(ref)}`;
@@ -402,9 +474,43 @@ function ClaimPageContent() {
                 Set Up Your Weekend Run-Sheet
               </h2>
               <p className="text-xs font-semibold text-[#5C6B7B] mt-1 leading-relaxed">
-                Upload your tournament schedule, bracket screenshot, or PDF. We&apos;ll extract your games, courts, and locations automatically.
+                Upload your tournament schedule, bracket screenshot, PDF, or paste raw schedule text. We&apos;ll extract your games, courts, and locations automatically.
               </p>
             </div>
+
+            <div className="grid grid-cols-2 gap-1.5 bg-[#F7F6F2] p-1 rounded-xl border border-[#DCE1E7]">
+              <button
+                type="button"
+                onClick={() => {
+                  setInputMode("upload");
+                  setError(null);
+                }}
+                className={`py-2 px-3 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                  inputMode === "upload"
+                    ? "bg-[#0F2942] text-white shadow-xs"
+                    : "text-[#5C6B7B] hover:text-[#0B192C]"
+                }`}
+              >
+                Screenshot / PDF
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setInputMode("text");
+                  setError(null);
+                }}
+                className={`py-2 px-3 rounded-lg text-xs font-black transition-all cursor-pointer ${
+                  inputMode === "text"
+                    ? "bg-[#0F2942] text-white shadow-xs"
+                    : "text-[#5C6B7B] hover:text-[#0B192C]"
+                }`}
+              >
+                Raw Text
+              </button>
+            </div>
+
+            {inputMode === "upload" ? (
+              <>
 
             <input
               ref={fileInputRef}
@@ -470,6 +576,25 @@ function ClaimPageContent() {
                 >
                   <X className="w-3.5 h-3.5" aria-hidden="true" />
                 </button>
+              </div>
+            )}
+              </>
+            ) : (
+              <div>
+                <label
+                  htmlFor="claim-raw-text"
+                  className="block text-[11px] font-black uppercase tracking-wider text-[#0B192C] mb-1.5"
+                >
+                  Paste Schedule, Hotel, or Coach Message
+                </label>
+                <textarea
+                  id="claim-raw-text"
+                  value={rawText}
+                  onChange={(e) => setRawText(e.target.value)}
+                  placeholder={"10:30 AM | vs London Ramblers | Rim Park — Court 3\n4:00 PM | vs Burlington Force | Rim Park — Court 1"}
+                  rows={5}
+                  className="w-full rounded-xl bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] px-3.5 py-2.5 text-xs font-mono text-[#0B192C] placeholder:text-slate-400 focus:border-[#0F2942] focus:bg-white focus:outline-none transition-colors"
+                />
               </div>
             )}
 
@@ -562,13 +687,12 @@ function ClaimPageContent() {
                 htmlFor="claim-team-name"
                 className="block text-xs font-black uppercase tracking-wider text-[#0B192C] mb-1.5"
               >
-                Team Name
+                Team Name <span className="text-[#5C6B7B] font-semibold normal-case">(Optional)</span>
               </label>
               <input
                 id="claim-team-name"
                 type="text"
-                required
-                placeholder="e.g., Ottawa Elite U16"
+                placeholder="e.g., Ottawa Elite U16 (defaults from schedule or My Team)"
                 value={teamName}
                 onChange={(e) => setTeamName(e.target.value)}
                 autoComplete="organization"
@@ -581,12 +705,11 @@ function ClaimPageContent() {
                 htmlFor="claim-contact-info"
                 className="block text-xs font-black uppercase tracking-wider text-[#0B192C] mb-1.5"
               >
-                Contact Email or Phone
+                Contact Email or Phone <span className="text-[#5C6B7B] font-semibold normal-case">(Optional)</span>
               </label>
               <input
                 id="claim-contact-info"
                 type="text"
-                required
                 placeholder="manager@club.ca or (613) 555-0199"
                 value={contactInfo}
                 onChange={(e) => setContactInfo(e.target.value)}
@@ -594,6 +717,26 @@ function ClaimPageContent() {
                 className="w-full min-h-[44px] rounded-xl bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] px-3.5 py-2.5 text-sm font-bold text-[#0B192C] placeholder:text-slate-400 focus:border-[#0F2942] focus:bg-white focus:outline-none transition-colors"
               />
             </div>
+
+            {(isSubmitting || isParsing) && (
+              <div
+                role="status"
+                aria-live="polite"
+                className="bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] rounded-xl p-3 flex items-center gap-2.5 text-xs font-bold text-[#0B192C]"
+              >
+                <Loader2 className="w-4 h-4 text-[#0F2942] animate-spin shrink-0" aria-hidden="true" />
+                <span>Creating your AwayDay run-sheet...</span>
+              </div>
+            )}
+
+            {error && (
+              <div
+                role="alert"
+                className="bg-red-50 border border-red-300 rounded-xl p-3 text-xs font-bold text-red-800"
+              >
+                {error}
+              </div>
+            )}
 
             <button
               type="submit"
@@ -603,7 +746,7 @@ function ClaimPageContent() {
               {isSubmitting || isParsing ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" aria-hidden="true" />
-                  <span>Reading game schedule, courts, and locations...</span>
+                  <span>Building Team Run-Sheet...</span>
                 </>
               ) : (
                 <span>Build Team Run-Sheet →</span>
