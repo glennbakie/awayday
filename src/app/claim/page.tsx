@@ -458,7 +458,9 @@ function ClaimPageContent() {
           </span>
 
           <h1 className="text-2xl font-black text-[#0B192C] tracking-tight leading-tight">
-            Your first two away tournaments are on us.
+            {formattedTeamName !== "AwayDay"
+              ? `Free for ${formattedTeamName} teams this season.`
+              : "Your team's weekend travel, sorted."}
           </h1>
 
           <p className="text-xs sm:text-sm font-semibold text-[#5C6B7B] leading-relaxed">
@@ -476,6 +478,42 @@ function ClaimPageContent() {
               <p className="text-xs font-semibold text-[#5C6B7B] mt-1 leading-relaxed">
                 Upload your tournament schedule, bracket screenshot, PDF, or paste raw schedule text. We&apos;ll extract your games, courts, and locations automatically.
               </p>
+            </div>
+
+            <div>
+              <label
+                htmlFor="claim-team-name"
+                className="block text-xs font-black uppercase tracking-wider text-[#0B192C] mb-1.5"
+              >
+                Team Name <span className="text-[#5C6B7B] font-semibold normal-case">(Optional)</span>
+              </label>
+              <input
+                id="claim-team-name"
+                type="text"
+                placeholder="e.g., Ottawa Elite U16"
+                value={teamName}
+                onChange={(e) => setTeamName(e.target.value)}
+                autoComplete="organization"
+                className="w-full min-h-[44px] rounded-xl bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] px-3.5 py-2.5 text-sm font-bold text-[#0B192C] placeholder:text-slate-400 focus:border-[#0F2942] focus:bg-white focus:outline-none transition-colors"
+              />
+            </div>
+
+            <div>
+              <label
+                htmlFor="claim-contact-info"
+                className="block text-xs font-black uppercase tracking-wider text-[#0B192C] mb-1.5"
+              >
+                Contact Email or Phone <span className="text-[#5C6B7B] font-semibold normal-case">(Optional)</span>
+              </label>
+              <input
+                id="claim-contact-info"
+                type="text"
+                placeholder="manager@club.ca or (613) 555-0199"
+                value={contactInfo}
+                onChange={(e) => setContactInfo(e.target.value)}
+                autoComplete="email"
+                className="w-full min-h-[44px] rounded-xl bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] px-3.5 py-2.5 text-sm font-bold text-[#0B192C] placeholder:text-slate-400 focus:border-[#0F2942] focus:bg-white focus:outline-none transition-colors"
+              />
             </div>
 
             <div className="grid grid-cols-2 gap-1.5 bg-[#F7F6F2] p-1 rounded-xl border border-[#DCE1E7]">
@@ -678,46 +716,6 @@ function ClaimPageContent() {
                 </div>
               </div>
             )}
-          </section>
-
-          {/* 3. Minimal Team Details & Submit */}
-          <section className="bg-white rounded-[26px] p-5 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm space-y-3.5">
-            <div>
-              <label
-                htmlFor="claim-team-name"
-                className="block text-xs font-black uppercase tracking-wider text-[#0B192C] mb-1.5"
-              >
-                Team Name <span className="text-[#5C6B7B] font-semibold normal-case">(Optional)</span>
-              </label>
-              <input
-                id="claim-team-name"
-                type="text"
-                placeholder="e.g., Ottawa Elite U16 (defaults from schedule or My Team)"
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-                autoComplete="organization"
-                className="w-full min-h-[44px] rounded-xl bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] px-3.5 py-2.5 text-sm font-bold text-[#0B192C] placeholder:text-slate-400 focus:border-[#0F2942] focus:bg-white focus:outline-none transition-colors"
-              />
-            </div>
-
-            <div>
-              <label
-                htmlFor="claim-contact-info"
-                className="block text-xs font-black uppercase tracking-wider text-[#0B192C] mb-1.5"
-              >
-                Contact Email or Phone <span className="text-[#5C6B7B] font-semibold normal-case">(Optional)</span>
-              </label>
-              <input
-                id="claim-contact-info"
-                type="text"
-                placeholder="manager@club.ca or (613) 555-0199"
-                value={contactInfo}
-                onChange={(e) => setContactInfo(e.target.value)}
-                autoComplete="email"
-                className="w-full min-h-[44px] rounded-xl bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] px-3.5 py-2.5 text-sm font-bold text-[#0B192C] placeholder:text-slate-400 focus:border-[#0F2942] focus:bg-white focus:outline-none transition-colors"
-              />
-            </div>
-
             {(isSubmitting || isParsing) && (
               <div
                 role="status"
@@ -741,7 +739,7 @@ function ClaimPageContent() {
             <button
               type="submit"
               disabled={isParsing || isSubmitting}
-              className="min-h-[48px] bg-[#0F2942] hover:bg-[#1A365D] disabled:opacity-60 text-white font-bold text-sm rounded-xl w-full flex items-center justify-center gap-2 shadow-xs active:scale-[0.99] transition-all cursor-pointer"
+              className="min-h-[48px] bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white font-semibold shadow-sm border border-emerald-500 transition-colors text-sm rounded-xl w-full flex items-center justify-center gap-2 active:scale-[0.99] cursor-pointer"
             >
               {isSubmitting || isParsing ? (
                 <>
