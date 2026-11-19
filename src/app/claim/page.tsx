@@ -4,7 +4,12 @@ import React, { useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Upload, CheckCircle2, FileText, Loader2, X, CalendarDays, MapPin } from "lucide-react";
-import { mergeAndDedupeGames, compressImageForVision } from "@/lib/parse-schedule";
+import {
+  mergeAndDedupeGames,
+  compressImageForVision,
+  sortGamesChronologically,
+  resolveVenueCity,
+} from "@/lib/parse-schedule";
 
 interface ExtractedClaimGame {
   day: string;
@@ -329,34 +334,42 @@ function ClaimPageContent() {
 
     const mappedGames =
       !isPending && currentGames && currentGames.length > 0
-        ? currentGames.map((eg, idx) => {
-            const tipOffMinutes = parseTimeStringToMinutes(eg.tipOff, 585 + idx * 180);
-            const jerseyColor =
-              eg.jerseyColor === "Dark / Black (Away)" ? "Dark / Black (Away)" : "White (Home)";
-            const isAway = jerseyColor.toLowerCase().includes("away");
-            const opponent = (eg.opponent || `Opponent ${idx + 1}`).trim();
-            const venueName = (eg.venueName || "Main Tournament Centre").trim();
-            const venueAddress = (eg.venueAddress || resolvedCity).trim();
+        ? sortGamesChronologically(
+            currentGames.map((eg, idx) => {
+              const tipOffMinutes = parseTimeStringToMinutes(eg.tipOff, 585 + idx * 180);
+              const jerseyColor =
+                eg.jerseyColor === "Dark / Black (Away)" ? "Dark / Black (Away)" : "White (Home)";
+              const isAway = jerseyColor.toLowerCase().includes("away");
+              const opponent = (eg.opponent || `Opponent ${idx + 1}`).trim();
+              const venueName = (eg.venueName || "Main Tournament Centre").trim();
+              const venueAddress = (eg.venueAddress || resolvedCity).trim();
+              const gameCity = resolveVenueCity(venueName, venueAddress, resolvedCity);
 
-            return {
-              id: `claim-g-${Date.now()}-${idx}`,
-              gameNumber: idx + 1,
-              dayLabel: eg.day || currentMeta.dates || "Day 1",
-              matchup: `${resolvedTeamName} ${isAway ? "at" : "vs"} ${opponent}`,
-              opponent,
-              tipOffMinutes,
-              court: eg.court || `Court ${idx + 1}`,
-              venueName,
-              venueAddress,
-              city: resolvedCity,
-              warmupBufferMin: 30,
-              hotelTravelMin: 15,
-              status: "Upcoming" as const,
-              jerseyColor,
-              telemetryFlag: eg.telemetryTag || (idx === 0 ? "Home Opener" : undefined),
-              isPlaceholder: false,
-            };
-          })
+              return {
+                id: `claim-g-${Date.now()}-${idx}`,
+                gameNumber: idx + 1,
+                dayLabel: eg.day || currentMeta.dates || "Day 1",
+                dateStr: eg.dateStr,
+                matchup: `${resolvedTeamName} ${isAway ? "at" : "vs"} ${opponent}`,
+                opponent,
+                tipOffMinutes,
+                court: eg.court || `Court ${idx + 1}`,
+                venueName,
+                venueAddress,
+                city: gameCity,
+                warmupBufferMin: 30,
+                hotelTravelMin: 15,
+                status: "Upcoming" as const,
+                jerseyColor,
+                telemetryFlag: eg.telemetryTag || undefined,
+                isPlaceholder: false,
+              };
+            })
+          ).map((g, idx) => ({
+            ...g,
+            gameNumber: idx + 1,
+            telemetryFlag: g.telemetryFlag || (idx === 0 ? "Home Opener" : undefined),
+          }))
         : [
             {
               id: `pending-g-${Date.now()}-1`,

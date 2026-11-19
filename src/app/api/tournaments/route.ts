@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { sortGamesChronologically, resolveVenueCity } from "@/lib/parse-schedule";
 
 export interface TournamentVaultItem {
   id?: string;
@@ -247,7 +248,8 @@ export async function POST(req: NextRequest) {
       ? ensureUniqueSuffixedSlug(requestedSlug)
       : buildSlugFromParts(`${rawName}-${teamName}`);
     let shareSlug = slug;
-    const incomingGames: any[] = Array.isArray(body?.games) ? body.games : [];
+    const rawIncomingGames: any[] = Array.isArray(body?.games) ? body.games : [];
+    const incomingGames: any[] = sortGamesChronologically(rawIncomingGames);
     const hasRealGames =
       incomingGames.length > 0 &&
       incomingGames.some(
@@ -356,6 +358,7 @@ export async function POST(req: NextRequest) {
         const opponent = String(g.opponent || `Opponent ${idx + 1}`).trim();
         const venueName = String(g.venueName || g.venue || hotelName || "Tournament Venue").trim();
         const venueAddress = String(g.venueAddress || hotelAddress || city).trim();
+        const gameCity = resolveVenueCity(venueName, venueAddress, String(g.city || city).trim());
         const court = String(g.court || `Court ${idx + 1}`).trim();
         const jerseyColor = String(g.jerseyColor || g.uniform || "White (Home)").trim();
         const tipOffMinutes =
@@ -370,7 +373,7 @@ export async function POST(req: NextRequest) {
             ...(tripId ? { trip_id: tripId } : {}),
             ...(tournamentId ? { tournament_id: tournamentId } : {}),
             share_slug: shareSlug,
-            game_number: g.gameNumber ?? idx + 1,
+            game_number: idx + 1,
             day_label: String(g.dayLabel || g.day || dates).trim(),
             matchup: String(g.matchup || `${teamName} vs ${opponent}`).trim(),
             opponent,
@@ -378,7 +381,7 @@ export async function POST(req: NextRequest) {
             court,
             venue_name: venueName,
             venue_address: venueAddress,
-            city: String(g.city || city).trim(),
+            city: gameCity,
             warmup_buffer_min: g.warmupBufferMin ?? 30,
             hotel_travel_min: g.hotelTravelMin ?? 15,
             status: String(g.status || "Upcoming").trim(),

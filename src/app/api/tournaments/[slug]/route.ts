@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
+import { sortGamesChronologically, resolveVenueCity } from "@/lib/parse-schedule";
 
 export async function GET(
   _req: NextRequest,
@@ -106,35 +107,40 @@ export async function GET(
 
     const teamLabel = tripRow?.team_name || resolvedTourney?.team_name || "My Team";
     const cityLabel = resolvedTourney?.city || "Brampton, ON";
-    const normalizedGames = rawGameRows.map((row: any, idx: number) => {
-      const opponent = row.opponent || `Opponent ${idx + 1}`;
-      const jerseyColor = row.jersey_color || row.jerseyColor || row.uniform || "White (Home)";
-      const isAway = /black|away/i.test(String(jerseyColor));
-      const tipOffMinutes =
-        typeof row.tipoff_minutes === "number"
-          ? row.tipoff_minutes
-          : typeof row.tipOffMinutes === "number"
-            ? row.tipOffMinutes
-            : 600 + idx * 180;
-      return {
-        id: row.id ? String(row.id) : `db-g-${idx}`,
-        gameNumber: row.game_number ?? row.gameNumber ?? idx + 1,
-        dayLabel: row.day_label || row.dayLabel || row.day || resolvedTourney?.dates || "Weekend",
-        matchup: row.matchup || `${teamLabel} ${isAway ? "at" : "vs"} ${opponent}`,
-        opponent,
-        tipOffMinutes,
-        court: row.court || `Court ${idx + 1}`,
-        venueName: row.venue_name || row.venueName || row.venue || "Tournament Venue",
-        venueAddress: row.venue_address || row.venueAddress || cityLabel,
-        city: row.city || cityLabel,
-        warmupBufferMin: row.warmup_buffer_min ?? row.warmupBufferMin ?? 30,
-        hotelTravelMin: row.hotel_travel_min ?? row.hotelTravelMin ?? 15,
-        status: row.status || "Upcoming",
-        jerseyColor,
-        telemetryFlag: row.telemetry_flag || row.telemetryFlag || undefined,
-        isPlaceholder: Boolean(row.is_placeholder ?? row.isPlaceholder),
-      };
-    });
+    const normalizedGames = sortGamesChronologically(
+      rawGameRows.map((row: any, idx: number) => {
+        const opponent = row.opponent || `Opponent ${idx + 1}`;
+        const jerseyColor = row.jersey_color || row.jerseyColor || row.uniform || "White (Home)";
+        const isAway = /black|away/i.test(String(jerseyColor));
+        const tipOffMinutes =
+          typeof row.tipoff_minutes === "number"
+            ? row.tipoff_minutes
+            : typeof row.tipOffMinutes === "number"
+              ? row.tipOffMinutes
+              : 600 + idx * 180;
+        const venueName = row.venue_name || row.venueName || row.venue || "Tournament Venue";
+        const venueAddress = row.venue_address || row.venueAddress || cityLabel;
+        const resolvedGameCity = resolveVenueCity(venueName, venueAddress, row.city || cityLabel);
+        return {
+          id: row.id ? String(row.id) : `db-g-${idx}`,
+          gameNumber: row.game_number ?? row.gameNumber ?? idx + 1,
+          dayLabel: row.day_label || row.dayLabel || row.day || resolvedTourney?.dates || "Weekend",
+          matchup: row.matchup || `${teamLabel} ${isAway ? "at" : "vs"} ${opponent}`,
+          opponent,
+          tipOffMinutes,
+          court: row.court || `Court ${idx + 1}`,
+          venueName,
+          venueAddress,
+          city: resolvedGameCity,
+          warmupBufferMin: row.warmup_buffer_min ?? row.warmupBufferMin ?? 30,
+          hotelTravelMin: row.hotel_travel_min ?? row.hotelTravelMin ?? 15,
+          status: row.status || "Upcoming",
+          jerseyColor,
+          telemetryFlag: row.telemetry_flag || row.telemetryFlag || undefined,
+          isPlaceholder: Boolean(row.is_placeholder ?? row.isPlaceholder),
+        };
+      })
+    );
 
     const hasRealGames =
       normalizedGames.length > 0 &&

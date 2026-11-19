@@ -11,7 +11,13 @@ import {
   getGoogleMapsSearchUrl,
 } from "@/lib/corridor-engine";
 import { generateQrMatrix } from "@/lib/qr-svg";
-import { mergeAndDedupeGames, dedupeAndCleanGames, compressImageForVision } from "@/lib/parse-schedule";
+import {
+  mergeAndDedupeGames,
+  dedupeAndCleanGames,
+  compressImageForVision,
+  sortGamesChronologically,
+  resolveVenueCity,
+} from "@/lib/parse-schedule";
 import { 
   Clock, 
   Navigation, 
@@ -825,7 +831,7 @@ function RunSheetContent({
             }));
           }
           if (Array.isArray(parsedCache.games)) {
-            setGames(parsedCache.games);
+            setGames(sortGamesChronologically(parsedCache.games));
           }
           if (Array.isArray(parsedCache.alerts) && parsedCache.alerts.length > 0) {
             setAlerts(parsedCache.alerts);
@@ -877,7 +883,7 @@ function RunSheetContent({
       if (savedGames) {
         const parsed = JSON.parse(savedGames);
         if (Array.isArray(parsed) && parsed.length > 0) {
-          setGames(parsed);
+          setGames(sortGamesChronologically(parsed));
           const hasRealCached = parsed.some(
             (g: any) => !g?.isPlaceholder && !/tbd|pending/i.test(String(g?.opponent || ""))
           );
@@ -945,7 +951,7 @@ function RunSheetContent({
               (g: any) => !g?.isPlaceholder && !/tbd|pending/i.test(String(g?.opponent || ""))
             );
             if (apiGames.length > 0 && (!loadedFromCache || hasRealApiGames)) {
-              setGames(apiGames);
+              setGames(sortGamesChronologically(apiGames));
             }
             if (!loadedFromCache && !isDemoSlug && (apiData.tournament || apiData.trip)) {
               const t = apiData.tournament || {};
@@ -1715,7 +1721,7 @@ function RunSheetContent({
     const resolvedTeamName = data?.teamName || data?.tournament?.teamName || tournament.teamName || "Ottawa Elite";
     const isPending = Boolean(data?.schedulePending || data?.tournament?.schedulePending);
 
-    return extracted.map((eg: any, idx: number) => {
+    const mapped = extracted.map((eg: any, idx: number) => {
       const isPlaceholder =
         Boolean(eg.isPlaceholder) ||
         isPending ||
@@ -1728,11 +1734,13 @@ function RunSheetContent({
       const opponent = (eg.opponent || (isPlaceholder ? `Game ${idx + 1} - TBD` : `Opponent ${idx + 1}`)).trim();
       const venueName = (eg.venueName || (isPlaceholder ? `${resolvedCity} Facility TBD` : tournament.primaryHub)).trim();
       const venueAddress = (eg.venueAddress || resolvedCity).trim();
+      const gameCity = resolveVenueCity(venueName, venueAddress, resolvedCity);
 
       return {
         id: `ai-game-${Date.now()}-${idx}`,
         gameNumber: idx + 1,
         dayLabel: eg.day || resolvedDates,
+        dateStr: eg.dateStr,
         matchup: isPlaceholder
           ? opponent
           : `${resolvedTeamName.replace(/\s*\(.*?\)\s*/g, "")} ${isAway ? "at" : "vs"} ${opponent}`,
@@ -1741,15 +1749,22 @@ function RunSheetContent({
         court: eg.court || (isPlaceholder ? "Court TBD" : `Court ${idx + 1}`),
         venueName,
         venueAddress,
-        city: resolvedCity,
+        city: gameCity,
         warmupBufferMin: 30,
         hotelTravelMin: 15,
-        status: "Upcoming",
+        status: "Upcoming" as GameStatus,
         jerseyColor: jersey,
-        telemetryFlag: eg.telemetryTag || (isPlaceholder ? "Tip-Off Pending" : idx === 0 ? "Home Opener" : undefined),
+        telemetryFlag: eg.telemetryTag || (isPlaceholder ? "Tip-Off Pending" : undefined),
         isPlaceholder,
       };
     });
+
+    const sorted = sortGamesChronologically(mapped);
+    return sorted.map((g, idx) => ({
+      ...g,
+      gameNumber: idx + 1,
+      telemetryFlag: g.telemetryFlag || (!g.isPlaceholder && idx === 0 ? "Home Opener" : undefined),
+    }));
   };
 
   const applyExtractedTournamentFromApi = (data: any) => {

@@ -1,16 +1,147 @@
 export interface MergeableGame {
   day?: string;
+  dayLabel?: string;
   dateStr?: string;
   tipOff?: string;
+  tipOffMinutes?: number;
   arrivalCall?: string;
   court?: string;
   venueName?: string;
   venueAddress?: string;
+  city?: string;
   opponent?: string;
   jerseyColor?: string;
   telemetryTag?: string;
+  gameNumber?: number;
   isPlaceholder?: boolean;
   [key: string]: any;
+}
+
+const MONTH_MAP: Record<string, number> = {
+  jan: 1,
+  feb: 2,
+  mar: 3,
+  apr: 4,
+  may: 5,
+  jun: 6,
+  jul: 7,
+  aug: 8,
+  sep: 9,
+  oct: 10,
+  nov: 11,
+  dec: 12,
+};
+
+export function parseSortableDateValue(dateStr?: string, day?: string): number {
+  const ds = (dateStr || "").trim();
+  const isoMatch = ds.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (isoMatch) {
+    return (
+      parseInt(isoMatch[1], 10) * 10000 +
+      parseInt(isoMatch[2], 10) * 100 +
+      parseInt(isoMatch[3], 10)
+    );
+  }
+  const combined = `${day || ""} ${ds}`.toLowerCase();
+  const mdMatch = combined.match(
+    /(jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\s+(\d{1,2})/i
+  );
+  if (mdMatch) {
+    const month = MONTH_MAP[mdMatch[1].slice(0, 3).toLowerCase()] || 11;
+    const dayNum = parseInt(mdMatch[2], 10);
+    const yearMatch = combined.match(/\b(20\d{2})\b/);
+    const year = yearMatch ? parseInt(yearMatch[1], 10) : 2026;
+    return year * 10000 + month * 100 + dayNum;
+  }
+  if (/fri/i.test(combined)) return 99990005;
+  if (/sat/i.test(combined)) return 99990006;
+  if (/sun/i.test(combined)) return 99990007;
+  if (/mon/i.test(combined)) return 99990008;
+  return Number.MAX_SAFE_INTEGER;
+}
+
+export function parseSortableTimeMinutes(tipOff?: string, tipOffMinutes?: number): number {
+  if (typeof tipOffMinutes === "number" && !Number.isNaN(tipOffMinutes)) {
+    return tipOffMinutes;
+  }
+  const raw = (tipOff || "").trim();
+  if (!raw || /tbd|pending/i.test(raw)) return Number.MAX_SAFE_INTEGER;
+  if (/noon/i.test(raw)) return 720;
+  const match = raw.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  let h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  const mer = (match[3] || "").toUpperCase();
+  if (mer === "PM" && h < 12) h += 12;
+  if (mer === "AM" && h === 12) h = 0;
+  return h * 60 + m;
+}
+
+export function sortGamesChronologically<T extends MergeableGame>(games: T[]): T[] {
+  const sorted = [...games].sort((a, b) => {
+    const dateA = parseSortableDateValue(a.dateStr, a.dayLabel || a.day);
+    const dateB = parseSortableDateValue(b.dateStr, b.dayLabel || b.day);
+    if (dateA !== dateB) return dateA - dateB;
+    const timeA = parseSortableTimeMinutes(a.tipOff, a.tipOffMinutes);
+    const timeB = parseSortableTimeMinutes(b.tipOff, b.tipOffMinutes);
+    return timeA - timeB;
+  });
+  return sorted.map((g, idx) => ({
+    ...g,
+    gameNumber: idx + 1,
+  }));
+}
+
+const KNOWN_ONTARIO_CITIES: Array<{ pattern: RegExp; city: string }> = [
+  { pattern: /\bmississauga\b|rick\s*hansen|meadowvale|port\s*credit|streetsville|erin\s*mills/i, city: "Mississauga, ON" },
+  { pattern: /\bbrampton\b|central\s*peel|heart\s*lake|sandalwood|chinguacousy|mayfield|st\.?\s*roch|fletcher'?s\s*meadow/i, city: "Brampton, ON" },
+  { pattern: /\boakville\b|st\.?\s*thomas\s*aquinas|iroquois\s*ridge|garth\s*webb|abbey\s*park/i, city: "Oakville, ON" },
+  { pattern: /\bburlington\b|corpus\s*christi|aldershot|haber\s*rec/i, city: "Burlington, ON" },
+  { pattern: /\btoronto\b|hoopdome|downsview|pan\s*am\s*cent|york\s*university/i, city: "Toronto, ON" },
+  { pattern: /\betobicoke\b/i, city: "Etobicoke, ON" },
+  { pattern: /\bnorth\s*york\b/i, city: "North York, ON" },
+  { pattern: /\bscarborough\b/i, city: "Scarborough, ON" },
+  { pattern: /\bvaughan\b|woodbridge/i, city: "Vaughan, ON" },
+  { pattern: /\bmarkham\b|bill\s*crothers|unionville/i, city: "Markham, ON" },
+  { pattern: /\brichmond\s*hill\b/i, city: "Richmond Hill, ON" },
+  { pattern: /\bwaterloo\b|rim\s*park|wilfrid\s*laurier/i, city: "Waterloo, ON" },
+  { pattern: /\bkitchener\b|activa/i, city: "Kitchener, ON" },
+  { pattern: /\bhamilton\b|mcmaster/i, city: "Hamilton, ON" },
+  { pattern: /\blondon\b/i, city: "London, ON" },
+  { pattern: /\bottawa\b|carleton\s*univ/i, city: "Ottawa, ON" },
+  { pattern: /\bguelph\b/i, city: "Guelph, ON" },
+  { pattern: /\bmilton\b/i, city: "Milton, ON" },
+  { pattern: /\bwhitby\b/i, city: "Whitby, ON" },
+  { pattern: /\boshawa\b/i, city: "Oshawa, ON" },
+  { pattern: /\bajax\b/i, city: "Ajax, ON" },
+  { pattern: /\bpickering\b/i, city: "Pickering, ON" },
+  { pattern: /\bkingston\b/i, city: "Kingston, ON" },
+  { pattern: /\bbarrie\b/i, city: "Barrie, ON" },
+];
+
+export function resolveVenueCity(
+  venueName?: string,
+  venueAddress?: string,
+  fallbackCity = "Brampton, ON"
+): string {
+  const addr = (venueAddress || "").trim();
+  const vName = (venueName || "").trim();
+
+  // 1. Check venueAddress first so explicit street/city wins
+  for (const entry of KNOWN_ONTARIO_CITIES) {
+    if (entry.pattern.test(addr)) return entry.city;
+  }
+  const explicitAddrCity = addr.match(/,\s*([A-Za-z\s]+),\s*(?:ON|QC|AB|BC|[A-Z]{2})\b/);
+  if (explicitAddrCity?.[1]) {
+    return `${explicitAddrCity[1].trim()}, ON`;
+  }
+
+  // 2. Check venueName (e.g., "Mississauga Secondary School", "Central Peel Secondary School")
+  for (const entry of KNOWN_ONTARIO_CITIES) {
+    if (entry.pattern.test(vName)) return entry.city;
+  }
+
+  return fallbackCity || "Brampton, ON";
 }
 
 export function normalizeOpponentName(raw?: string): string {
@@ -141,7 +272,8 @@ export function mergeAndDedupeGames<T extends MergeableGame>(games: T[]): T[] {
     }
   }
 
-  return orderedKeys.map((k) => byKey.get(k)!);
+  const deduped = orderedKeys.map((k) => byKey.get(k)!);
+  return sortGamesChronologically(deduped);
 }
 
 export const dedupeAndCleanGames = mergeAndDedupeGames;
