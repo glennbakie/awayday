@@ -243,6 +243,20 @@ export async function POST(req: NextRequest) {
 
     let lastGeminiError: string | null = null;
 
+    const formatFriendlyVisionError = (rawErr: string | null): string => {
+      const msg = String(rawErr || "");
+      if (/503|UNAVAILABLE|high demand/i.test(msg)) {
+        return "Our AI schedule reader is temporarily busy due to high demand. Please tap Extract Schedule again in a few seconds.";
+      }
+      if (/429|RESOURCE_EXHAUSTED|quota|rate limit/i.test(msg)) {
+        return "AI extraction rate limit reached. Please wait a few seconds and try again.";
+      }
+      if (/401|403|PERMISSION_DENIED|API key/i.test(msg)) {
+        return "AI vision service authentication failed. Please check the configured API key.";
+      }
+      return "Unable to read the uploaded schedule screenshots right now. Please try again or paste raw schedule text.";
+    };
+
     const callOpenAiFallback = async (
       batchPrompt: string,
       batchParts: Array<{ inlineData: { mimeType: string; data: string } }>
@@ -336,37 +350,62 @@ export async function POST(req: NextRequest) {
           ? `${userPrompt}\n\nBATCH INSTRUCTION: This batch contains ${batchParts.length} images. Extract EVERY SINGLE game shown in these ${batchParts.length} images without skipping or deduplicating distinct opponents/times.`
           : userPrompt;
 
-      const candidateModels = ["gemini-3-flash-preview", "gemini-3.1-flash-lite"];
+      const candidateModels = [
+        "gemini-3.1-flash-lite",
+        "gemini-flash-lite-latest",
+        "gemini-3-flash-preview",
+        "gemini-3.1-flash-lite-preview",
+        "gemini-flash-latest",
+      ];
+      let sawTransient = false;
+
+      const tryModel = async (candidateKey: string, modelName: string) => {
+        try {
+          const ai = new GoogleGenAI({ apiKey: candidateKey });
+          const response = await ai.models.generateContent({
+            model: modelName,
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: batchPrompt }, ...batchParts],
+              },
+            ],
+            config: {
+              systemInstruction,
+              maxOutputTokens: 8192,
+              responseMimeType: "application/json",
+              responseSchema,
+            },
+          });
+
+          if (response.text) {
+            return JSON.parse(response.text) as ParsedSchedulePayload;
+          }
+        } catch (innerErr: any) {
+          const errMsg = innerErr?.message || String(innerErr);
+          if (/503|429|500|UNAVAILABLE|high demand/i.test(errMsg)) {
+            sawTransient = true;
+          }
+          if (!lastGeminiError || !/PERMISSION_DENIED.*Permission denied on the service/i.test(errMsg)) {
+            lastGeminiError = errMsg;
+          }
+          console.warn(`Gemini ${modelName} attempt failed, failing over:`, errMsg.slice(0, 180));
+        }
+        return null;
+      };
+
       for (const candidateKey of candidateKeys) {
         for (const modelName of candidateModels) {
-          try {
-            const ai = new GoogleGenAI({ apiKey: candidateKey });
-            const response = await ai.models.generateContent({
-              model: modelName,
-              contents: [
-                {
-                  role: "user",
-                  parts: [{ text: batchPrompt }, ...batchParts],
-                },
-              ],
-              config: {
-                systemInstruction,
-                maxOutputTokens: 8192,
-                responseMimeType: "application/json",
-                responseSchema,
-              },
-            });
+          const result = await tryModel(candidateKey, modelName);
+          if (result) return result;
+        }
+      }
 
-            if (response.text) {
-              return JSON.parse(response.text) as ParsedSchedulePayload;
-            }
-          } catch (innerErr: any) {
-            const errMsg = innerErr?.message || String(innerErr);
-            if (!lastGeminiError || !/PERMISSION_DENIED.*Permission denied on the service/i.test(errMsg)) {
-              lastGeminiError = errMsg;
-            }
-            console.warn(`Gemini ${modelName} attempt failed, trying fallback:`, innerErr);
-          }
+      if (sawTransient && candidateKeys[0]) {
+        await new Promise((r) => setTimeout(r, 500));
+        for (const modelName of candidateModels.slice(0, 2)) {
+          const retryResult = await tryModel(candidateKeys[0], modelName);
+          if (retryResult) return retryResult;
         }
       }
 
@@ -395,7 +434,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: lastGeminiError || "Vision parser could not extract games from the uploaded screenshots. Please try again.",
+          error: formatFriendlyVisionError(lastGeminiError),
         },
         { status: 502 }
       );

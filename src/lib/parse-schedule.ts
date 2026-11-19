@@ -145,3 +145,82 @@ export function mergeAndDedupeGames<T extends MergeableGame>(games: T[]): T[] {
 }
 
 export const dedupeAndCleanGames = mergeAndDedupeGames;
+
+/**
+ * Downscales an image File on a <canvas> to max dimension 1100px (JPEG, quality 0.78)
+ * to shrink payload size by ~85% while keeping schedule text crisp.
+ * Non-image files (e.g. PDFs) are returned unchanged.
+ */
+export async function compressImageForVision(
+  file: File,
+  maxDim = 1100,
+  quality = 0.78
+): Promise<File> {
+  if (typeof document === "undefined" || typeof window === "undefined") {
+    return file;
+  }
+  const lowerName = (file.name || "").toLowerCase();
+  const isImage =
+    file.type.startsWith("image/") ||
+    /\.(png|jpe?g|webp|heic)$/i.test(lowerName);
+  if (!isImage || file.type === "application/pdf" || lowerName.endsWith(".pdf")) {
+    return file;
+  }
+
+  return new Promise<File>((resolve) => {
+    const objectUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      try {
+        let { width, height } = img;
+        if (!width || !height) {
+          URL.revokeObjectURL(objectUrl);
+          resolve(file);
+          return;
+        }
+        const longest = Math.max(width, height);
+        if (longest > maxDim) {
+          const scale = maxDim / longest;
+          width = Math.round(width * scale);
+          height = Math.round(height * scale);
+        }
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext("2d");
+        if (!ctx) {
+          URL.revokeObjectURL(objectUrl);
+          resolve(file);
+          return;
+        }
+        ctx.drawImage(img, 0, 0, width, height);
+        canvas.toBlob(
+          (blob) => {
+            URL.revokeObjectURL(objectUrl);
+            if (!blob) {
+              resolve(file);
+              return;
+            }
+            const cleanBase = (file.name || "schedule").replace(/\.[^.]+$/, "");
+            resolve(
+              new File([blob], `${cleanBase}.jpg`, {
+                type: "image/jpeg",
+                lastModified: Date.now(),
+              })
+            );
+          },
+          "image/jpeg",
+          quality
+        );
+      } catch {
+        URL.revokeObjectURL(objectUrl);
+        resolve(file);
+      }
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(objectUrl);
+      resolve(file);
+    };
+    img.src = objectUrl;
+  });
+}

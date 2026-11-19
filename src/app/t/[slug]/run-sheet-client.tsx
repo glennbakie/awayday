@@ -11,7 +11,7 @@ import {
   getGoogleMapsSearchUrl,
 } from "@/lib/corridor-engine";
 import { generateQrMatrix } from "@/lib/qr-svg";
-import { mergeAndDedupeGames, dedupeAndCleanGames } from "@/lib/parse-schedule";
+import { mergeAndDedupeGames, dedupeAndCleanGames, compressImageForVision } from "@/lib/parse-schedule";
 import { 
   Clock, 
   Navigation, 
@@ -1830,10 +1830,10 @@ function RunSheetContent({
     setIngestError(null);
 
     try {
-      const sendBatch = async (batch: Array<{ id: string; file: File; previewUrl: string }>): Promise<any[]> => {
+      const sendBatch = async (batchFiles: File[]): Promise<any[]> => {
         const formData = new FormData();
-        batch.forEach((item) => {
-          formData.append("images", item.file);
+        batchFiles.forEach((file) => {
+          formData.append("images", file);
         });
         if (ingestModalMode === "create") {
           if (newSheetName.trim()) {
@@ -1850,10 +1850,12 @@ function RunSheetContent({
           body: formData,
         });
 
-        if (!res.ok && batch.length > 1) {
-          const mid = Math.ceil(batch.length / 2);
-          const left = await sendBatch(batch.slice(0, mid));
-          const right = await sendBatch(batch.slice(mid));
+        if (!res.ok && batchFiles.length > 1) {
+          const mid = Math.ceil(batchFiles.length / 2);
+          const [left, right] = await Promise.all([
+            sendBatch(batchFiles.slice(0, mid)),
+            sendBatch(batchFiles.slice(mid)),
+          ]);
           return [...left, ...right];
         }
 
@@ -1864,11 +1866,23 @@ function RunSheetContent({
         return [data];
       };
 
-      const BATCH_SIZE = 2;
+      const compressedFiles = await Promise.all(
+        ingestImages.map((item) => compressImageForVision(item.file))
+      );
+
+      const BATCH_SIZE = 4;
+      const batches: File[][] = [];
+      for (let i = 0; i < compressedFiles.length; i += BATCH_SIZE) {
+        batches.push(compressedFiles.slice(i, i + BATCH_SIZE));
+      }
+
       const allBatchResponses: any[] = [];
-      for (let i = 0; i < ingestImages.length; i += BATCH_SIZE) {
-        const responses = await sendBatch(ingestImages.slice(i, i + BATCH_SIZE));
-        allBatchResponses.push(...responses);
+      for (let i = 0; i < batches.length; i += 2) {
+        const concurrentPair = batches.slice(i, i + 2);
+        const pairResults = await Promise.all(concurrentPair.map(sendBatch));
+        for (const r of pairResults) {
+          allBatchResponses.push(...r);
+        }
       }
 
       const allExtracted: any[] = [];

@@ -4,7 +4,7 @@ import React, { useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Upload, CheckCircle2, FileText, Loader2, X, CalendarDays, MapPin } from "lucide-react";
-import { mergeAndDedupeGames } from "@/lib/parse-schedule";
+import { mergeAndDedupeGames, compressImageForVision } from "@/lib/parse-schedule";
 
 interface ExtractedClaimGame {
   day: string;
@@ -115,8 +115,10 @@ function ClaimPageContent() {
 
         if (!res.ok && batch.length > 1) {
           const mid = Math.ceil(batch.length / 2);
-          const left = await sendBatch(batch.slice(0, mid));
-          const right = await sendBatch(batch.slice(mid));
+          const [left, right] = await Promise.all([
+            sendBatch(batch.slice(0, mid)),
+            sendBatch(batch.slice(mid)),
+          ]);
           return [...left, ...right];
         }
 
@@ -127,11 +129,23 @@ function ClaimPageContent() {
         return [data];
       };
 
-      const BATCH_SIZE = 2;
+      const compressedFiles = await Promise.all(
+        selectedFiles.map((f) => compressImageForVision(f))
+      );
+
+      const BATCH_SIZE = 4;
+      const batches: File[][] = [];
+      for (let i = 0; i < compressedFiles.length; i += BATCH_SIZE) {
+        batches.push(compressedFiles.slice(i, i + BATCH_SIZE));
+      }
+
       const allBatchResponses: any[] = [];
-      for (let i = 0; i < selectedFiles.length; i += BATCH_SIZE) {
-        const responses = await sendBatch(selectedFiles.slice(i, i + BATCH_SIZE));
-        allBatchResponses.push(...responses);
+      for (let i = 0; i < batches.length; i += 2) {
+        const concurrentPair = batches.slice(i, i + 2);
+        const pairResults = await Promise.all(concurrentPair.map(sendBatch));
+        for (const r of pairResults) {
+          allBatchResponses.push(...r);
+        }
       }
 
       const allGames: ExtractedClaimGame[] = [];
