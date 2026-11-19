@@ -241,6 +241,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let lastGeminiError: string | null = null;
     const extractBatch = async (batchParts: Array<{ inlineData: { mimeType: string; data: string } }>) => {
       for (const candidateKey of candidateKeys) {
         try {
@@ -268,7 +269,8 @@ export async function POST(req: NextRequest) {
           if (response.text) {
             return JSON.parse(response.text) as ParsedSchedulePayload;
           }
-        } catch (innerErr) {
+        } catch (innerErr: any) {
+          lastGeminiError = innerErr?.message || String(innerErr);
           console.warn("Gemini candidate key attempt failed, trying fallback:", innerErr);
         }
       }
@@ -278,6 +280,16 @@ export async function POST(req: NextRequest) {
     const batchResults = (await Promise.all(imageBatches.map(extractBatch))).filter(
       (r): r is ParsedSchedulePayload => Boolean(r)
     );
+
+    if (inlineParts.length > 0 && batchResults.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: lastGeminiError || "Vision parser could not extract games from the uploaded screenshots. Please try again.",
+        },
+        { status: 502 }
+      );
+    }
 
     if (batchResults.length > 0) {
       const rawCombinedGames: ExtractedGame[] = [];

@@ -11,7 +11,7 @@ import {
   getGoogleMapsSearchUrl,
 } from "@/lib/corridor-engine";
 import { generateQrMatrix } from "@/lib/qr-svg";
-import { mergeAndDedupeGames } from "@/lib/parse-schedule";
+import { mergeAndDedupeGames, dedupeAndCleanGames } from "@/lib/parse-schedule";
 import { 
   Clock, 
   Navigation, 
@@ -1830,12 +1830,7 @@ function RunSheetContent({
     setIngestError(null);
 
     try {
-      const BATCH_SIZE = 4;
-      const allExtracted: any[] = [];
-      let mergedData: any = null;
-
-      for (let i = 0; i < ingestImages.length; i += BATCH_SIZE) {
-        const batch = ingestImages.slice(i, i + BATCH_SIZE);
+      const sendBatch = async (batch: Array<{ id: string; file: File; previewUrl: string }>): Promise<any[]> => {
         const formData = new FormData();
         batch.forEach((item) => {
           formData.append("images", item.file);
@@ -1855,11 +1850,30 @@ function RunSheetContent({
           body: formData,
         });
 
-        const data = await res.json();
-        if (!res.ok || !data?.success) {
-          throw new Error(data?.error || "Failed to analyze schedule screenshots.");
+        if (!res.ok && batch.length > 1) {
+          const mid = Math.ceil(batch.length / 2);
+          const left = await sendBatch(batch.slice(0, mid));
+          const right = await sendBatch(batch.slice(mid));
+          return [...left, ...right];
         }
 
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || `Failed to analyze schedule screenshots (HTTP ${res.status}).`);
+        }
+        return [data];
+      };
+
+      const BATCH_SIZE = 2;
+      const allBatchResponses: any[] = [];
+      for (let i = 0; i < ingestImages.length; i += BATCH_SIZE) {
+        const responses = await sendBatch(ingestImages.slice(i, i + BATCH_SIZE));
+        allBatchResponses.push(...responses);
+      }
+
+      const allExtracted: any[] = [];
+      let mergedData: any = null;
+      for (const data of allBatchResponses) {
         if (!mergedData) {
           mergedData = { ...data };
         } else {
@@ -1870,12 +1884,12 @@ function RunSheetContent({
           mergedData.hotel = mergedData.hotel?.name ? mergedData.hotel : data.hotel;
           mergedData.schedulePending = Boolean(mergedData.schedulePending && data.schedulePending);
         }
-
-        const batchGames = Array.isArray(data.games) ? data.games : [];
-        allExtracted.push(...batchGames);
+        if (Array.isArray(data.games)) {
+          allExtracted.push(...data.games);
+        }
       }
 
-      const finalExtracted = mergeAndDedupeGames(allExtracted);
+      const finalExtracted = dedupeAndCleanGames(allExtracted);
       const realExtracted = finalExtracted.filter(
         (g) =>
           !g.isPlaceholder &&

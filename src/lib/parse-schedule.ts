@@ -143,3 +143,5 @@ export function mergeAndDedupeGames<T extends MergeableGame>(games: T[]): T[] {
 
   return orderedKeys.map((k) => byKey.get(k)!);
 }
+
+export const dedupeAndCleanGames = mergeAndDedupeGames;

@@ -108,6 +108,10 @@ export async function GET() {
   }
 }
 
+function randomSuffix4(): string {
+  return Math.random().toString(36).slice(2, 6).padEnd(4, "0");
+}
+
 function buildSlugFromParts(rawName: string): string {
   const base = rawName
     .trim()
@@ -115,8 +119,18 @@ function buildSlugFromParts(rawName: string): string {
     .replace(/[^a-z0-9]+/g, "-")
     .replace(/^-+|-+$/g, "")
     .slice(0, 48);
-  const suffix = Math.random().toString(36).slice(2, 6);
-  return `${base || "awayday-sheet"}-${suffix}`;
+  return `${base || "awayday-sheet"}-${randomSuffix4()}`;
+}
+
+function ensureUniqueSuffixedSlug(rawSlug: string): string {
+  const cleaned = rawSlug
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!cleaned) return `awayday-sheet-${randomSuffix4()}`;
+  const baseWithoutSuffix = cleaned.replace(/-[a-z0-9]{4}$/, "");
+  return `${baseWithoutSuffix}-${randomSuffix4()}`;
 }
 
 function getFallbackValueForColumn(
@@ -143,9 +157,10 @@ async function resilientUpsert(
     teamName: "Ottawa Elite",
     name: "Weekend Tournament",
   }
-): Promise<{ data: any; error: any }> {
+): Promise<{ data: any; error: any; finalSlug: string }> {
   const currentPayload: Record<string, any> = { ...payload };
   let activeConflict = onConflict;
+  let currentSlug = defaults.slug;
 
   for (let attempt = 0; attempt < 10; attempt++) {
     const query = activeConflict
@@ -154,16 +169,26 @@ async function resilientUpsert(
 
     const { data, error } = await query.select("id").maybeSingle();
     if (!error) {
-      return { data, error: null };
+      return { data, error: null, finalSlug: currentSlug };
     }
 
     const msg = String(error?.message || "");
+
+    if (/duplicate key value violates unique constraint/i.test(msg)) {
+      currentSlug = ensureUniqueSuffixedSlug(currentSlug);
+      if ("slug" in currentPayload) currentPayload.slug = currentSlug;
+      if ("share_slug" in currentPayload) currentPayload.share_slug = currentSlug;
+      continue;
+    }
 
     const notNullMatch = msg.match(/null value in column "([^"]+)"/i);
     if (notNullMatch?.[1]) {
       const requiredCol = notNullMatch[1];
       if (!(requiredCol in currentPayload) || currentPayload[requiredCol] == null) {
-        currentPayload[requiredCol] = getFallbackValueForColumn(requiredCol, defaults);
+        currentPayload[requiredCol] = getFallbackValueForColumn(requiredCol, {
+          ...defaults,
+          slug: currentSlug,
+        });
         continue;
       }
     }
@@ -176,7 +201,7 @@ async function resilientUpsert(
         activeConflict = undefined;
       }
       if (Object.keys(currentPayload).length === 0) {
-        return { data: null, error };
+        return { data: null, error, finalSlug: currentSlug };
       }
       continue;
     }
@@ -186,10 +211,14 @@ async function resilientUpsert(
       continue;
     }
 
-    return { data: null, error };
+    return { data: null, error, finalSlug: currentSlug };
   }
 
-  return { data: null, error: { message: `Failed to upsert into ${table} after 10 attempts` } };
+  return {
+    data: null,
+    error: { message: `Failed to upsert into ${table} after 10 attempts` },
+    finalSlug: currentSlug,
+  };
 }
 
 export async function POST(req: NextRequest) {
@@ -214,8 +243,10 @@ export async function POST(req: NextRequest) {
     const hotelName = (body?.hotel?.name || "Team Hotel").trim();
     const hotelAddress = (body?.hotel?.address || city).trim();
     const requestedSlug = (body?.slug || "").trim();
-    const slug = requestedSlug || buildSlugFromParts(`${rawName}-${teamName}`);
-    const shareSlug = (body?.shareSlug || body?.share_slug || slug).trim() || slug;
+    let slug = requestedSlug
+      ? ensureUniqueSuffixedSlug(requestedSlug)
+      : buildSlugFromParts(`${rawName}-${teamName}`);
+    let shareSlug = slug;
     const incomingGames: any[] = Array.isArray(body?.games) ? body.games : [];
     const hasRealGames =
       incomingGames.length > 0 &&
@@ -243,7 +274,7 @@ export async function POST(req: NextRequest) {
     let lastErrorMessage: string | null = null;
 
     // 1. Insert/upsert into `tournaments` with automatic schema-cache & NOT NULL column fallback
-    const { data: tourneyRow, error: tourneyErr } = await resilientUpsert(
+    const { data: tourneyRow, error: tourneyErr, finalSlug } = await resilientUpsert(
       dbClient,
       "tournaments",
       {
@@ -262,6 +293,8 @@ export async function POST(req: NextRequest) {
       "slug",
       schemaDefaults
     );
+    slug = finalSlug;
+    shareSlug = finalSlug;
 
     if (!tourneyErr && tourneyRow?.id) {
       tournamentId = tourneyRow.id;
@@ -270,13 +303,15 @@ export async function POST(req: NextRequest) {
         lastErrorMessage = tourneyErr.message;
       }
       // Fallback to minimal `tournaments` payload (`name`, `team_name`, `share_slug`)
-      const { data: minRow, error: minErr } = await resilientUpsert(
+      const { data: minRow, error: minErr, finalSlug: minFinalSlug } = await resilientUpsert(
         dbClient,
         "tournaments",
         { name: rawName, team_name: teamName, share_slug: shareSlug },
         "name",
-        schemaDefaults
+        { ...schemaDefaults, slug }
       );
+      slug = minFinalSlug;
+      shareSlug = minFinalSlug;
 
       if (minErr) {
         lastErrorMessage = minErr.message;

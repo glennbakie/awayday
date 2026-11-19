@@ -101,12 +101,7 @@ function ClaimPageContent() {
     setParseError(null);
 
     try {
-      const BATCH_SIZE = 4;
-      const allGames: ExtractedClaimGame[] = [];
-      let mergedMeta: any = null;
-
-      for (let i = 0; i < selectedFiles.length; i += BATCH_SIZE) {
-        const batch = selectedFiles.slice(i, i + BATCH_SIZE);
+      const sendBatch = async (batch: File[]): Promise<any[]> => {
         const formData = new FormData();
         batch.forEach((f) => formData.append("images", f));
         if (targetTeam.trim()) {
@@ -118,11 +113,30 @@ function ClaimPageContent() {
           body: formData,
         });
 
-        const data = await res.json();
-        if (!res.ok || !data?.success) {
-          throw new Error(data?.error || "Could not read schedule file. Please try another screenshot or PDF.");
+        if (!res.ok && batch.length > 1) {
+          const mid = Math.ceil(batch.length / 2);
+          const left = await sendBatch(batch.slice(0, mid));
+          const right = await sendBatch(batch.slice(mid));
+          return [...left, ...right];
         }
 
+        const data = await res.json().catch(() => null);
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || `Could not read schedule file (HTTP ${res.status}).`);
+        }
+        return [data];
+      };
+
+      const BATCH_SIZE = 2;
+      const allBatchResponses: any[] = [];
+      for (let i = 0; i < selectedFiles.length; i += BATCH_SIZE) {
+        const responses = await sendBatch(selectedFiles.slice(i, i + BATCH_SIZE));
+        allBatchResponses.push(...responses);
+      }
+
+      const allGames: ExtractedClaimGame[] = [];
+      let mergedMeta: any = null;
+      for (const data of allBatchResponses) {
         if (!mergedMeta) {
           mergedMeta = { ...data };
         } else {
@@ -133,9 +147,9 @@ function ClaimPageContent() {
           mergedMeta.hotel = mergedMeta.hotel?.name ? mergedMeta.hotel : data.hotel;
           mergedMeta.schedulePending = Boolean(mergedMeta.schedulePending && data.schedulePending);
         }
-
-        const batchGames: ExtractedClaimGame[] = Array.isArray(data.games) ? data.games : [];
-        allGames.push(...batchGames);
+        if (Array.isArray(data.games)) {
+          allGames.push(...data.games);
+        }
       }
 
       const gamesList = mergeAndDedupeGames(allGames);
