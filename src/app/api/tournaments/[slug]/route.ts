@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { sortGamesChronologically, resolveVenueCity } from "@/lib/parse-schedule";
+import {
+  sortGamesChronologically,
+  resolveVenueCity,
+  buildIsoTipOffTimestamp,
+  parseTipOffTimestamp,
+} from "@/lib/parse-schedule";
 
 export async function GET(
   _req: NextRequest,
@@ -14,16 +19,16 @@ export async function GET(
       return NextResponse.json({ error: "Missing slug" }, { status: 400 });
     }
 
-    // 1. Try looking up tournament by `slug` or `share_slug`
+    // 1. Try looking up tournament by `share_slug` or `slug`
     let tournamentRow: any = null;
-    const { data: orRow, error: orErr } = await supabase
+    const { data: shareRow, error: shareErr } = await supabase
       .from("tournaments")
       .select("*")
-      .or(`slug.eq.${slug},share_slug.eq.${slug}`)
+      .eq("share_slug", slug)
       .maybeSingle();
 
-    if (!orErr && orRow) {
-      tournamentRow = orRow;
+    if (!shareErr && shareRow) {
+      tournamentRow = shareRow;
     } else {
       const { data: slugRow } = await supabase
         .from("tournaments")
@@ -106,25 +111,35 @@ export async function GET(
     }
 
     const teamLabel = tripRow?.team_name || resolvedTourney?.team_name || "My Team";
-    const cityLabel = resolvedTourney?.city || "Brampton, ON";
+    const cityLabel = resolvedTourney?.city || resolvedTourney?.hotel_address || "Brampton, ON";
     const normalizedGames = sortGamesChronologically(
       rawGameRows.map((row: any, idx: number) => {
         const opponent = row.opponent || `Opponent ${idx + 1}`;
         const jerseyColor = row.jersey_color || row.jerseyColor || row.uniform || "White (Home)";
         const isAway = /black|away/i.test(String(jerseyColor));
+        const parsedTs = parseTipOffTimestamp(row.tip_off);
         const tipOffMinutes =
           typeof row.tipoff_minutes === "number"
             ? row.tipoff_minutes
             : typeof row.tipOffMinutes === "number"
               ? row.tipOffMinutes
-              : 600 + idx * 180;
+              : typeof parsedTs.tipOffMinutes === "number"
+                ? parsedTs.tipOffMinutes
+                : 600 + idx * 180;
         const venueName = row.venue_name || row.venueName || row.venue || "Tournament Venue";
         const venueAddress = row.venue_address || row.venueAddress || cityLabel;
         const resolvedGameCity = resolveVenueCity(venueName, venueAddress, row.city || cityLabel);
         return {
           id: row.id ? String(row.id) : `db-g-${idx}`,
           gameNumber: row.game_number ?? row.gameNumber ?? idx + 1,
-          dayLabel: row.day_label || row.dayLabel || row.day || resolvedTourney?.dates || "Weekend",
+          dayLabel:
+            row.day_label ||
+            row.dayLabel ||
+            row.day ||
+            parsedTs.dayLabel ||
+            resolvedTourney?.dates ||
+            "Weekend",
+          dateStr: row.date_str || row.dateStr || parsedTs.dateStr,
           matchup: row.matchup || `${teamLabel} ${isAway ? "at" : "vs"} ${opponent}`,
           opponent,
           tipOffMinutes,
@@ -232,8 +247,8 @@ export async function PATCH(
 
       const { data: tourneyRow } = await dbClient
         .from("tournaments")
-        .select("id, city, dates")
-        .or(`slug.eq.${slug},share_slug.eq.${slug}`)
+        .select("*")
+        .eq("share_slug", slug)
         .maybeSingle();
 
       const tournamentId = tripRow?.tournament_id || tourneyRow?.id;
@@ -250,33 +265,39 @@ export async function PATCH(
         }
       }
 
-      // Replace games rows for this slug
-      try {
-        await dbClient.from("games").delete().eq("share_slug", slug);
-      } catch {
-        // Ignore if share_slug column does not exist
+      // Replace games rows for this tournament
+      if (tournamentId) {
+        try {
+          await dbClient.from("games").delete().eq("tournament_id", tournamentId);
+        } catch {
+          // Ignore delete errors
+        }
       }
 
-      const teamLabel = tripRow?.team_name || "My Team";
-      const cityLabel = tourneyRow?.city || "Brampton, ON";
+      const teamLabel = tripRow?.team_name || tourneyRow?.team_name || "My Team";
+      const cityLabel = tourneyRow?.city || tourneyRow?.hotel_address || "Brampton, ON";
       for (let idx = 0; idx < sortedGames.length; idx++) {
         const g = sortedGames[idx] || {};
         const opponent = String(g.opponent || `Opponent ${idx + 1}`).trim();
         const venueName = String(g.venueName || "Tournament Venue").trim();
         const venueAddress = String(g.venueAddress || cityLabel).trim();
         const gameCity = resolveVenueCity(venueName, venueAddress, g.city || cityLabel);
+        const tipOffMinutes =
+          typeof g.tipOffMinutes === "number" && !Number.isNaN(g.tipOffMinutes)
+            ? g.tipOffMinutes
+            : 600 + idx * 180;
+        const dayLabel = String(g.dayLabel || g.day || tourneyRow?.dates || "Weekend").trim();
+        const tipOffIso = buildIsoTipOffTimestamp(g.dateStr, dayLabel, tipOffMinutes);
         const gamePayload: Record<string, any> = {
           ...(tripRow?.id ? { trip_id: tripRow.id } : {}),
           ...(tournamentId ? { tournament_id: tournamentId } : {}),
           share_slug: slug,
           game_number: idx + 1,
-          day_label: String(g.dayLabel || g.day || tourneyRow?.dates || "Weekend").trim(),
+          day_label: dayLabel,
           matchup: String(g.matchup || `${teamLabel} vs ${opponent}`).trim(),
           opponent,
-          tipoff_minutes:
-            typeof g.tipOffMinutes === "number" && !Number.isNaN(g.tipOffMinutes)
-              ? g.tipOffMinutes
-              : 600 + idx * 180,
+          tip_off: tipOffIso,
+          tipoff_minutes: tipOffMinutes,
           court: String(g.court || `Court ${idx + 1}`).trim(),
           venue_name: venueName,
           venue_address: venueAddress,

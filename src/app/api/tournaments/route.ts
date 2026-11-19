@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
-import { sortGamesChronologically, resolveVenueCity } from "@/lib/parse-schedule";
+import {
+  sortGamesChronologically,
+  resolveVenueCity,
+  buildIsoTipOffTimestamp,
+} from "@/lib/parse-schedule";
 
 export interface TournamentVaultItem {
   id?: string;
@@ -60,13 +64,18 @@ export async function GET() {
             (row.start_date && row.end_date
               ? `${row.start_date} – ${row.end_date}`
               : row.start_date || "Nov 21–22, 2026");
+          const inferredTourneyCity =
+            row.city ||
+            (row.hotel_address
+              ? row.hotel_address.split(",").slice(-2).join(",").trim() || row.hotel_address
+              : "Brampton, ON");
           bySlug.set(slugVal, {
             id: row.id ? String(row.id) : undefined,
             slug: slugVal,
             share_slug: (row.share_slug || slugVal).trim(),
             name: row.name || "Tournament Weekend",
             team_name: row.team_name || undefined,
-            city: row.city || "Brampton, ON",
+            city: inferredTourneyCity,
             dates: fallbackDates,
             start_date: row.start_date || undefined,
             end_date: row.end_date || undefined,
@@ -335,11 +344,15 @@ export async function POST(req: NextRequest) {
         dates,
         start_date: startDate,
         end_date: endDate,
+        hotel_name: hotelName,
+        hotel_address: hotelAddress,
+        hotel_breakfast_hours: body?.hotel?.breakfastHours || "6:30 AM - 9:30 AM (Included)",
+        hotel_checkout_time: body?.hotel?.checkoutTime || "12:00 PM",
         schedule_pending: isSchedulePending,
         schedule_json: incomingGames,
         is_archived: false,
       },
-      "slug",
+      "share_slug",
       schemaDefaults
     );
     slug = finalSlug;
@@ -394,10 +407,12 @@ export async function POST(req: NextRequest) {
 
     // 3. Persist parsed games into `games` table (when provided)
     if (incomingGames.length > 0 && (tournamentId || tripId)) {
-      try {
-        await dbClient.from("games").delete().eq("share_slug", shareSlug);
-      } catch {
-        // Ignore if share_slug column does not exist on games
+      if (tournamentId) {
+        try {
+          await dbClient.from("games").delete().eq("tournament_id", tournamentId);
+        } catch {
+          // Ignore delete errors
+        }
       }
 
       for (let idx = 0; idx < incomingGames.length; idx++) {
@@ -412,6 +427,8 @@ export async function POST(req: NextRequest) {
           typeof g.tipOffMinutes === "number" && !Number.isNaN(g.tipOffMinutes)
             ? g.tipOffMinutes
             : 600 + idx * 180;
+        const dayLabel = String(g.dayLabel || g.day || dates).trim();
+        const tipOffIso = buildIsoTipOffTimestamp(g.dateStr, dayLabel, tipOffMinutes);
 
         await resilientUpsert(
           dbClient,
@@ -421,9 +438,10 @@ export async function POST(req: NextRequest) {
             ...(tournamentId ? { tournament_id: tournamentId } : {}),
             share_slug: shareSlug,
             game_number: idx + 1,
-            day_label: String(g.dayLabel || g.day || dates).trim(),
+            day_label: dayLabel,
             matchup: String(g.matchup || `${teamName} vs ${opponent}`).trim(),
             opponent,
+            tip_off: tipOffIso,
             tipoff_minutes: tipOffMinutes,
             court,
             venue_name: venueName,

@@ -435,6 +435,65 @@ export function applyPartialTextPatchToGames<T extends MergeableGame>(
   ];
 }
 
+export function buildIsoTipOffTimestamp(
+  dateStr?: string,
+  dayLabel?: string,
+  tipOffMinutes = 600
+): string {
+  const sortableDate = parseSortableDateValue(dateStr, dayLabel);
+  let year = 2026;
+  let month = 11;
+  let day = 21;
+  if (sortableDate > 19000000 && sortableDate < 90000000) {
+    year = Math.floor(sortableDate / 10000);
+    month = Math.floor((sortableDate % 10000) / 100);
+    day = sortableDate % 100;
+  }
+  const safeMins = Number.isFinite(tipOffMinutes) ? Math.max(0, Math.min(1439, tipOffMinutes)) : 600;
+  const hh = Math.floor(safeMins / 60);
+  const mm = safeMins % 60;
+  const pad = (n: number) => String(n).padStart(2, "0");
+  // Store with -05:00 (EST) offset so local Eastern time round-trips accurately
+  return `${year}-${pad(month)}-${pad(day)}T${pad(hh)}:${pad(mm)}:00-05:00`;
+}
+
+export function parseTipOffTimestamp(isoStr?: string): {
+  tipOffMinutes?: number;
+  dateStr?: string;
+  dayLabel?: string;
+} {
+  if (!isoStr) return {};
+  const d = new Date(isoStr);
+  if (Number.isNaN(d.getTime())) return {};
+  // Format in America/Toronto so EST/EDT tip-off hours match what was stored
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Toronto",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(d);
+  const get = (type: string) => parts.find((p) => p.type === type)?.value || "";
+  const y = get("year");
+  const m = get("month");
+  const day = get("day");
+  const hr = parseInt(get("hour"), 10) % 24;
+  const min = parseInt(get("minute"), 10);
+  const dayLabel = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Toronto",
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+  }).format(d);
+  return {
+    tipOffMinutes: hr * 60 + min,
+    dateStr: `${y}-${m}-${day}`,
+    dayLabel,
+  };
+}
+
 /**
  * Downscales an image File on a <canvas> to max dimension 1100px (JPEG, quality 0.78)
  * to shrink payload size by ~85% while keeping schedule text crisp.

@@ -1425,9 +1425,15 @@ function RunSheetContent({
   };
 
   const deletedSlugsOnRender = getDeletedSlugsSet();
-  const visibleVaultTournaments = vaultTournaments.filter(
-    (t) => !deletedSlugsOnRender.has(t.slug) && !(t.id && deletedSlugsOnRender.has(t.id))
-  );
+  const seenVaultSlugs = new Set<string>();
+  const visibleVaultTournaments = vaultTournaments.filter((t) => {
+    if (!t?.slug || deletedSlugsOnRender.has(t.slug) || (t.id && deletedSlugsOnRender.has(t.id))) {
+      return false;
+    }
+    if (seenVaultSlugs.has(t.slug)) return false;
+    seenVaultSlugs.add(t.slug);
+    return true;
+  });
   const activeVaultTournaments = visibleVaultTournaments.filter((t) => !t.is_archived);
   const archivedVaultTournaments = visibleVaultTournaments.filter((t) => t.is_archived);
 
@@ -2992,7 +2998,12 @@ function RunSheetContent({
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
-                                setSelectedVaultTournament(t);
+                                if (t.slug !== slug) {
+                                  window.localStorage.setItem("awayday_active_slug", t.slug);
+                                  router.push(`/t/${t.slug}?admin=true`);
+                                } else {
+                                  setSelectedVaultTournament(t);
+                                }
                               }}
                               className={`w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs transition-all cursor-pointer ${
                                 isCurrent
