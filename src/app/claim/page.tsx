@@ -427,6 +427,7 @@ function ClaimPageContent() {
 
       try {
         const serializedGames = JSON.stringify(mappedGames);
+        window.localStorage.setItem(`awayday_games_${newSlug}`, serializedGames);
         window.localStorage.setItem(`awayday_games_sprint1_${newSlug}`, serializedGames);
         window.localStorage.setItem(`awayday_games_nph1_${newSlug}`, serializedGames);
         window.localStorage.setItem(

@@ -871,11 +871,19 @@ function RunSheetContent({
       if (savedMeal === "lunch" || savedMeal === "dinner" || savedMeal === "auto") {
         setManualMealMode(savedMeal);
       }
-      const savedGames = window.localStorage.getItem(storageGamesKey);
+      const savedGames =
+        window.localStorage.getItem(storageGamesKey) ||
+        window.localStorage.getItem(`awayday_games_${slug}`);
       if (savedGames) {
         const parsed = JSON.parse(savedGames);
-        if (Array.isArray(parsed)) {
+        if (Array.isArray(parsed) && parsed.length > 0) {
           setGames(parsed);
+          const hasRealCached = parsed.some(
+            (g: any) => !g?.isPlaceholder && !/tbd|pending/i.test(String(g?.opponent || ""))
+          );
+          if (hasRealCached) {
+            setTournament((prev) => ({ ...prev, schedulePending: false }));
+          }
         }
       }
       const savedVotedId = window.localStorage.getItem(storageVotedOptionKey);
@@ -923,9 +931,49 @@ function RunSheetContent({
       hasLoadedCacheRef.current = true;
     }
 
-    // 1. Initial data fetch from Supabase
+    // 1. Initial data fetch from Supabase & `/api/tournaments/[slug]`
     async function fetchInitialMealMode() {
       try {
+        const apiRes = await fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
+          cache: "no-store",
+        }).catch(() => null);
+        if (apiRes && apiRes.ok) {
+          const apiData = await apiRes.json().catch(() => null);
+          if (apiData) {
+            const apiGames = Array.isArray(apiData.games) ? apiData.games : [];
+            const hasRealApiGames = apiGames.some(
+              (g: any) => !g?.isPlaceholder && !/tbd|pending/i.test(String(g?.opponent || ""))
+            );
+            if (apiGames.length > 0 && (!loadedFromCache || hasRealApiGames)) {
+              setGames(apiGames);
+            }
+            if (!loadedFromCache && !isDemoSlug && (apiData.tournament || apiData.trip)) {
+              const t = apiData.tournament || {};
+              const tr = apiData.trip || {};
+              const inferredCity = tr.hotel_address
+                ? tr.hotel_address.split(",").slice(-2).join(",").trim() || tr.hotel_address
+                : t.city;
+              setTournament((prev) => ({
+                ...prev,
+                name: t.name || prev.name,
+                teamName: tr.team_name || t.team_name || prev.teamName,
+                city: inferredCity || prev.city,
+                dates: t.dates || prev.dates,
+                schedulePending: hasRealApiGames ? false : Boolean(apiData.schedulePending ?? prev.schedulePending),
+                primaryHub: apiGames[0]?.venueName || tr.hotel_name || prev.primaryHub,
+                primaryHubAddress: apiGames[0]?.venueAddress || tr.hotel_address || prev.primaryHubAddress,
+                hotel: {
+                  ...prev.hotel,
+                  name: tr.hotel_name || prev.hotel.name,
+                  address: tr.hotel_address || prev.hotel.address,
+                },
+              }));
+            } else if (hasRealApiGames) {
+              setTournament((prev) => ({ ...prev, schedulePending: false }));
+            }
+          }
+        }
+
         const { data, error } = await supabase
           .from("team_trips")
           .select("active_meal_mode, team_name, hotel_name, hotel_address, tournaments(name)")
@@ -1925,6 +1973,9 @@ function RunSheetContent({
           throw new Error("Server did not return a slug for the new run sheet.");
         }
 
+        const hasRealNewGames = parsedPreviewGames.some(
+          (g) => !g.isPlaceholder && !/tbd|pending/i.test(String(g.opponent || ""))
+        );
         const newTournamentPayload = {
           name: resolvedName,
           division: "Varsity / Club Division",
@@ -1932,7 +1983,7 @@ function RunSheetContent({
           teamName: resolvedTeam,
           dates: resolvedDates,
           city: resolvedCity,
-          schedulePending: Boolean(meta.schedulePending),
+          schedulePending: hasRealNewGames ? false : Boolean(meta.schedulePending),
           primaryHub: parsedPreviewGames[0]?.venueName || resolvedHotel.name,
           primaryHubAddress: parsedPreviewGames[0]?.venueAddress || resolvedHotel.address,
           lastUpdatedText: "Official Team Weekend Run-Sheet",
@@ -1941,6 +1992,7 @@ function RunSheetContent({
 
         try {
           const serializedGames = JSON.stringify(parsedPreviewGames);
+          window.localStorage.setItem(`awayday_games_${newSlug}`, serializedGames);
           window.localStorage.setItem(`awayday_games_sprint1_${newSlug}`, serializedGames);
           window.localStorage.setItem(`awayday_games_nph1_${newSlug}`, serializedGames);
           window.localStorage.setItem(

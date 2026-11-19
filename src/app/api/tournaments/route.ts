@@ -216,6 +216,16 @@ export async function POST(req: NextRequest) {
     const requestedSlug = (body?.slug || "").trim();
     const slug = requestedSlug || buildSlugFromParts(`${rawName}-${teamName}`);
     const shareSlug = (body?.shareSlug || body?.share_slug || slug).trim() || slug;
+    const incomingGames: any[] = Array.isArray(body?.games) ? body.games : [];
+    const hasRealGames =
+      incomingGames.length > 0 &&
+      incomingGames.some(
+        (g) =>
+          !g?.isPlaceholder &&
+          !/tbd|pending/i.test(String(g?.tipOff || g?.startTime || "")) &&
+          !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(String(g?.opponent || ""))
+      );
+    const isSchedulePending = hasRealGames ? false : Boolean(body?.schedulePending);
     const schemaDefaults = { slug, teamName, name: rawName };
 
     const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
@@ -229,6 +239,7 @@ export async function POST(req: NextRequest) {
       : supabase;
 
     let tournamentId: string | number | undefined;
+    let tripId: string | number | undefined;
     let lastErrorMessage: string | null = null;
 
     // 1. Insert/upsert into `tournaments` with automatic schema-cache & NOT NULL column fallback
@@ -244,6 +255,8 @@ export async function POST(req: NextRequest) {
         dates,
         start_date: startDate,
         end_date: endDate,
+        schedule_pending: isSchedulePending,
+        schedule_json: incomingGames,
         is_archived: false,
       },
       "slug",
@@ -274,7 +287,7 @@ export async function POST(req: NextRequest) {
 
     // 2. Upsert `team_trips` row keyed by `share_slug`
     if (tournamentId) {
-      const { error: tripErr } = await resilientUpsert(
+      const { data: tripRow, error: tripErr } = await resilientUpsert(
         dbClient,
         "team_trips",
         {
@@ -287,8 +300,60 @@ export async function POST(req: NextRequest) {
         "share_slug",
         schemaDefaults
       );
+      if (tripRow?.id) {
+        tripId = tripRow.id;
+      }
       if (tripErr) {
         lastErrorMessage = tripErr.message;
+      }
+    }
+
+    // 3. Persist parsed games into `games` table (when provided)
+    if (incomingGames.length > 0 && (tournamentId || tripId)) {
+      try {
+        await dbClient.from("games").delete().eq("share_slug", shareSlug);
+      } catch {
+        // Ignore if share_slug column does not exist on games
+      }
+
+      for (let idx = 0; idx < incomingGames.length; idx++) {
+        const g = incomingGames[idx] || {};
+        const opponent = String(g.opponent || `Opponent ${idx + 1}`).trim();
+        const venueName = String(g.venueName || g.venue || hotelName || "Tournament Venue").trim();
+        const venueAddress = String(g.venueAddress || hotelAddress || city).trim();
+        const court = String(g.court || `Court ${idx + 1}`).trim();
+        const jerseyColor = String(g.jerseyColor || g.uniform || "White (Home)").trim();
+        const tipOffMinutes =
+          typeof g.tipOffMinutes === "number" && !Number.isNaN(g.tipOffMinutes)
+            ? g.tipOffMinutes
+            : 600 + idx * 180;
+
+        await resilientUpsert(
+          dbClient,
+          "games",
+          {
+            ...(tripId ? { trip_id: tripId } : {}),
+            ...(tournamentId ? { tournament_id: tournamentId } : {}),
+            share_slug: shareSlug,
+            game_number: g.gameNumber ?? idx + 1,
+            day_label: String(g.dayLabel || g.day || dates).trim(),
+            matchup: String(g.matchup || `${teamName} vs ${opponent}`).trim(),
+            opponent,
+            tipoff_minutes: tipOffMinutes,
+            court,
+            venue_name: venueName,
+            venue_address: venueAddress,
+            city: String(g.city || city).trim(),
+            warmup_buffer_min: g.warmupBufferMin ?? 30,
+            hotel_travel_min: g.hotelTravelMin ?? 15,
+            status: String(g.status || "Upcoming").trim(),
+            jersey_color: jerseyColor,
+            telemetry_flag: g.telemetryFlag || undefined,
+            is_placeholder: Boolean(g.isPlaceholder && !hasRealGames),
+          },
+          undefined,
+          schemaDefaults
+        );
       }
     }
 
@@ -303,6 +368,8 @@ export async function POST(req: NextRequest) {
       success: true,
       slug,
       id: tournamentId ? String(tournamentId) : undefined,
+      schedulePending: isSchedulePending,
+      gamesCount: incomingGames.length,
       tournament: {
         id: tournamentId ? String(tournamentId) : undefined,
         slug,
@@ -310,6 +377,7 @@ export async function POST(req: NextRequest) {
         teamName,
         city,
         dates,
+        schedulePending: isSchedulePending,
         is_archived: false,
       },
     });
