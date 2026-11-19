@@ -11,6 +11,7 @@ import {
   getGoogleMapsSearchUrl,
 } from "@/lib/corridor-engine";
 import { generateQrMatrix } from "@/lib/qr-svg";
+import { mergeAndDedupeGames } from "@/lib/parse-schedule";
 import { 
   Clock, 
   Navigation, 
@@ -1783,7 +1784,6 @@ function RunSheetContent({
     try {
       const BATCH_SIZE = 4;
       const allExtracted: any[] = [];
-      const seenKeys = new Set<string>();
       let mergedData: any = null;
 
       for (let i = 0; i < ingestImages.length; i += BATCH_SIZE) {
@@ -1824,25 +1824,16 @@ function RunSheetContent({
         }
 
         const batchGames = Array.isArray(data.games) ? data.games : [];
-        for (const g of batchGames) {
-          const isReal =
-            !g.isPlaceholder &&
-            !/tbd|pending/i.test(String(g.tipOff || "")) &&
-            !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(String(g.opponent || ""));
-          const key = `${String(g.dateStr || g.day || "").trim().toLowerCase()}|${String(g.tipOff || "").trim().toLowerCase()}|${String(g.opponent || "").trim().toLowerCase()}`;
-          if (isReal && seenKeys.has(key)) continue;
-          if (isReal) seenKeys.add(key);
-          allExtracted.push(g);
-        }
+        allExtracted.push(...batchGames);
       }
 
-      const realExtracted = allExtracted.filter(
+      const finalExtracted = mergeAndDedupeGames(allExtracted);
+      const realExtracted = finalExtracted.filter(
         (g) =>
           !g.isPlaceholder &&
           !/tbd|pending/i.test(String(g.tipOff || "")) &&
           !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(String(g.opponent || ""))
       );
-      const finalExtracted = realExtracted.length > 0 ? realExtracted : allExtracted;
       if (mergedData) {
         mergedData.games = finalExtracted;
         mergedData.schedulePending = realExtracted.length === 0 && Boolean(mergedData.schedulePending);

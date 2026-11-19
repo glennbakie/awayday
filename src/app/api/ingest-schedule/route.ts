@@ -5,6 +5,7 @@ import {
   computeTravelCorridor,
   getCityFuelAndFoodRecommendations,
 } from "@/lib/corridor-engine";
+import { mergeAndDedupeGames } from "@/lib/parse-schedule";
 
 export interface ExtractedGame {
   day: string;          // e.g. "Saturday, Oct 24"
@@ -114,17 +115,18 @@ export async function POST(req: NextRequest) {
       "   - Extract team name if visible in the chat header or message sign-off (e.g., 'Ottawa Elite U16' or 'Ottawa Elite').",
       "   - Extract tournament or league name if mentioned (e.g., 'CYBL', 'CYBL Session', 'NPH Showcase').",
       "   - NEVER return generic fallback defaults like 'Test Team 1' or 'Team Hotel (Away)' when actual text is readable in the image.",
-      "3. PRE-SCHEDULE / HOTEL ANNOUNCEMENT HANDLING:",
-      "   - If no specific game times or opponents exist yet (e.g., 'schedule not out yet', 'schedule TBD', or only hotel/dates/city are announced):",
-      "   - Do NOT throw an error and NEVER invent or return mock Oakville data.",
-      "   - Set schedulePending: true.",
-      "   - Return placeholder weekend cards in `games`: Game 1 ('Game 1 - TBD (Tip-Off Pending)') and Game 2 ('Game 2 - TBD') with isPlaceholder: true.",
+      "3. PRE-SCHEDULE / CHAT ANNOUNCEMENT HANDLING:",
+      "   - Chat / team announcements like 'Hello team! The CYBL schedule is out... our first game is at noon on Saturday' are for travel/hotel/metadata notes ONLY — NEVER emit a standalone game entry when the opponent is unknown/TBD and actual game cards or schedules are present.",
+      "   - ONLY if NO specific game cards/opponents exist anywhere in any attached image or text:",
+      "     - Do NOT throw an error and NEVER invent or return mock Oakville data.",
+      "     - Set schedulePending: true.",
+      "     - Return placeholder weekend cards in `games`: Game 1 ('Game 1 - TBD (Tip-Off Pending)') and Game 2 ('Game 2 - TBD') with isPlaceholder: true.",
       "4. CONFIRMED SCHEDULE HANDLING:",
       "   - If actual game times and opponents ARE present in the input, set schedulePending: false and extract each game with 30-minute arrivalCall buffer and home/away jerseyColor ('White (Home)' vs 'Dark / Black (Away)').",
-      "5. MULTI-SCREENSHOT EXHAUSTIVE EXTRACTION:",
+      "5. MULTI-SCREENSHOT EXHAUSTIVE EXTRACTION & SMART DEDUPLICATION:",
       "   - You may receive 10 to 15+ separate screenshots or PDF pages in a single request (e.g., individual game cards, scrolled schedule views, or multiple days).",
-      "   - Inspect EVERY SINGLE attached image from first to last.",
-      "   - Extract EVERY SINGLE game shown across ALL attached images into the `games` array. Never stop early, skip, truncate, or summarize games, and never deduplicate distinct games that have different opponents, dates, tip-off times, or courts.",
+      "   - Inspect EVERY SINGLE attached image from first to last and extract EVERY distinct game shown across ALL images without dropping distinct opponents, dates, or times.",
+      "   - If the exact same game (same date, tip-off time, and opponent) appears in two overlapping screenshots, emit it once with the richest venue/court/jersey details.",
     ].join("\n");
 
     const userPrompt = [
@@ -278,31 +280,15 @@ export async function POST(req: NextRequest) {
     );
 
     if (batchResults.length > 0) {
-      const mergedGames: ExtractedGame[] = [];
-      const seenGameKeys = new Set<string>();
-
+      const rawCombinedGames: ExtractedGame[] = [];
       for (const res of batchResults) {
-        const list = Array.isArray(res.games) ? res.games : [];
-        for (const g of list) {
-          const isRealGame =
-            !g.isPlaceholder &&
-            !/tbd|pending/i.test(g.tipOff || "") &&
-            !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(g.opponent || "");
-          const dateKey = (g.dateStr || g.day || "").trim().toLowerCase();
-          const timeKey = (g.tipOff || "").trim().toLowerCase();
-          const oppKey = (g.opponent || "").trim().toLowerCase();
-          const dedupeKey = `${dateKey}|${timeKey}|${oppKey}`;
-          if (isRealGame && seenGameKeys.has(dedupeKey)) {
-            continue;
-          }
-          if (isRealGame) {
-            seenGameKeys.add(dedupeKey);
-          }
-          mergedGames.push(g);
+        if (Array.isArray(res.games)) {
+          rawCombinedGames.push(...res.games);
         }
       }
 
-      const realMergedGames = mergedGames.filter(
+      const finalMergedGames = mergeAndDedupeGames(rawCombinedGames);
+      const realMergedGames = finalMergedGames.filter(
         (g) =>
           !g.isPlaceholder &&
           !/tbd|pending/i.test(g.tipOff || "") &&
@@ -325,7 +311,7 @@ export async function POST(req: NextRequest) {
         city: firstNonEmpty((r) => r.city),
         dates: firstNonEmpty((r) => r.dates),
         hotel: firstNonEmpty((r) => (r.hotel?.name ? r.hotel : undefined)) || batchResults[0].hotel,
-        games: realMergedGames.length > 0 ? realMergedGames : mergedGames,
+        games: finalMergedGames,
       };
     }
 

@@ -4,6 +4,7 @@ import React, { useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { Upload, CheckCircle2, FileText, Loader2, X, CalendarDays, MapPin } from "lucide-react";
+import { mergeAndDedupeGames } from "@/lib/parse-schedule";
 
 interface ExtractedClaimGame {
   day: string;
@@ -102,7 +103,6 @@ function ClaimPageContent() {
     try {
       const BATCH_SIZE = 4;
       const allGames: ExtractedClaimGame[] = [];
-      const seenKeys = new Set<string>();
       let mergedMeta: any = null;
 
       for (let i = 0; i < selectedFiles.length; i += BATCH_SIZE) {
@@ -135,25 +135,16 @@ function ClaimPageContent() {
         }
 
         const batchGames: ExtractedClaimGame[] = Array.isArray(data.games) ? data.games : [];
-        for (const g of batchGames) {
-          const isReal =
-            !(g as any).isPlaceholder &&
-            !/tbd|pending/i.test(String(g.tipOff || "")) &&
-            !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(String(g.opponent || ""));
-          const key = `${String(g.dateStr || g.day || "").trim().toLowerCase()}|${String(g.tipOff || "").trim().toLowerCase()}|${String(g.opponent || "").trim().toLowerCase()}`;
-          if (isReal && seenKeys.has(key)) continue;
-          if (isReal) seenKeys.add(key);
-          allGames.push(g);
-        }
+        allGames.push(...batchGames);
       }
 
-      const realGames = allGames.filter(
+      const gamesList = mergeAndDedupeGames(allGames);
+      const realGames = gamesList.filter(
         (g) =>
           !(g as any).isPlaceholder &&
           !/tbd|pending/i.test(String(g.tipOff || "")) &&
           !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(String(g.opponent || ""))
       );
-      const gamesList = realGames.length > 0 ? realGames : allGames;
       const isPending = realGames.length === 0 && Boolean(mergedMeta?.schedulePending);
 
       setExtractedGames(gamesList);
