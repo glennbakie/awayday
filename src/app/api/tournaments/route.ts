@@ -6,9 +6,14 @@ import { sortGamesChronologically, resolveVenueCity } from "@/lib/parse-schedule
 export interface TournamentVaultItem {
   id?: string;
   slug: string;
+  share_slug?: string;
   name: string;
+  team_name?: string;
   city: string;
   dates: string;
+  start_date?: string;
+  end_date?: string;
+  schedule_pending?: boolean;
   is_archived: boolean;
   created_at: string;
 }
@@ -26,63 +31,105 @@ const SEED_TOURNAMENTS: TournamentVaultItem[] = [
 
 export async function GET() {
   try {
+    const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
+    const serviceOrAnonKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      "";
+    const dbClient = supabaseUrl && serviceOrAnonKey
+      ? createClient(supabaseUrl, serviceOrAnonKey, { auth: { persistSession: false } })
+      : supabase;
+
     const bySlug = new Map<string, TournamentVaultItem>();
 
-    // 1. Try querying `tournaments` directly if schema includes slug, name, city, dates, is_archived, created_at
+    // 1. Query `tournaments` with `*` so schema differences never fail the SELECT
     try {
-      const { data: tourneyRows, error: tourneyErr } = await supabase
+      const { data: tourneyRows, error: tourneyErr } = await dbClient
         .from("tournaments")
-        .select("id, slug, name, city, dates, is_archived, created_at")
-        .order("created_at", { ascending: false });
+        .select("*")
+        .order("created_at", { ascending: false })
+        .limit(25);
 
       if (!tourneyErr && Array.isArray(tourneyRows)) {
         for (const row of tourneyRows as any[]) {
-          const slugVal = (row.slug || "").trim();
+          const slugVal = (row.slug || row.share_slug || "").trim();
           if (!slugVal) continue;
+          const fallbackDates =
+            row.dates ||
+            (row.start_date && row.end_date
+              ? `${row.start_date} – ${row.end_date}`
+              : row.start_date || "Nov 21–22, 2026");
           bySlug.set(slugVal, {
             id: row.id ? String(row.id) : undefined,
             slug: slugVal,
+            share_slug: (row.share_slug || slugVal).trim(),
             name: row.name || "Tournament Weekend",
+            team_name: row.team_name || undefined,
             city: row.city || "Brampton, ON",
-            dates: row.dates || "Nov 21–22, 2026",
+            dates: fallbackDates,
+            start_date: row.start_date || undefined,
+            end_date: row.end_date || undefined,
+            schedule_pending:
+              typeof row.schedule_pending === "boolean" ? row.schedule_pending : undefined,
             is_archived: Boolean(row.is_archived),
             created_at: row.created_at || new Date().toISOString(),
           });
         }
       }
     } catch {
-      // Ignore if columns differ on `tournaments`
+      // Ignore query errors
     }
 
     // 2. Also query `team_trips` joined with `tournaments`
     try {
-      const { data: tripRows, error: tripErr } = await supabase
+      const { data: tripRows, error: tripErr } = await dbClient
         .from("team_trips")
-        .select("share_slug, team_name, hotel_address, created_at, tournaments(name)")
-        .order("created_at", { ascending: false });
+        .select("share_slug, team_name, hotel_address, created_at, tournaments(*)")
+        .order("created_at", { ascending: false })
+        .limit(25);
 
       if (!tripErr && Array.isArray(tripRows)) {
         for (const row of tripRows as any[]) {
           const slugVal = (row.share_slug || "").trim();
-          if (!slugVal || bySlug.has(slugVal)) continue;
+          if (!slugVal) continue;
 
           const joinedTourney = Array.isArray(row.tournaments)
             ? row.tournaments[0]
             : row.tournaments;
-          const inferredCity = row.hotel_address
-            ? row.hotel_address.split(",").slice(-2).join(",").trim() || row.hotel_address
-            : slugVal === "test-team"
-              ? "Oakville / Burlington, ON"
-              : "Brampton, ON";
+          const existing = bySlug.get(slugVal);
+          const inferredCity =
+            joinedTourney?.city ||
+            (row.hotel_address
+              ? row.hotel_address.split(",").slice(-2).join(",").trim() || row.hotel_address
+              : slugVal === "test-team"
+                ? "Oakville / Burlington, ON"
+                : "Brampton, ON");
+
+          if (existing) {
+            if (!existing.team_name && row.team_name) existing.team_name = row.team_name;
+            continue;
+          }
 
           bySlug.set(slugVal, {
+            id: joinedTourney?.id ? String(joinedTourney.id) : undefined,
             slug: slugVal,
+            share_slug: slugVal,
             name:
               joinedTourney?.name ||
               (slugVal === "test-team" ? "NPH Session #1 - Oakville" : "CYBL Session"),
+            team_name: row.team_name || joinedTourney?.team_name || undefined,
             city: inferredCity,
-            dates: slugVal === "test-team" ? "Oct 24 - 25, 2026" : "Nov 21–22, 2026",
-            is_archived: false,
+            dates:
+              joinedTourney?.dates ||
+              (slugVal === "test-team" ? "Oct 24 - 25, 2026" : "Nov 21–22, 2026"),
+            start_date: joinedTourney?.start_date || undefined,
+            end_date: joinedTourney?.end_date || undefined,
+            schedule_pending:
+              typeof joinedTourney?.schedule_pending === "boolean"
+                ? joinedTourney.schedule_pending
+                : undefined,
+            is_archived: Boolean(joinedTourney?.is_archived),
             created_at: row.created_at || new Date().toISOString(),
           });
         }
