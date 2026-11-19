@@ -336,7 +336,7 @@ export async function POST(req: NextRequest) {
           ? `${userPrompt}\n\nBATCH INSTRUCTION: This batch contains ${batchParts.length} images. Extract EVERY SINGLE game shown in these ${batchParts.length} images without skipping or deduplicating distinct opponents/times.`
           : userPrompt;
 
-      const candidateModels = ["gemini-3.8-flash", "gemini-flash-latest"];
+      const candidateModels = ["gemini-3-flash-preview", "gemini-3.1-flash-lite"];
       for (const candidateKey of candidateKeys) {
         for (const modelName of candidateModels) {
           try {
