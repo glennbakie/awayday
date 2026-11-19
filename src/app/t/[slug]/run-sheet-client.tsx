@@ -723,7 +723,17 @@ function RunSheetContent({
   const ingestFileInputRef = useRef<HTMLInputElement | null>(null);
 
   const appendIngestFiles = (files: FileList | File[]) => {
-    const validFiles = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    const validFiles = Array.from(files).filter((f) => {
+      const name = (f.name || "").toLowerCase();
+      return (
+        f.type.startsWith("image/") ||
+        name.endsWith(".png") ||
+        name.endsWith(".jpg") ||
+        name.endsWith(".jpeg") ||
+        name.endsWith(".webp") ||
+        name.endsWith(".heic")
+      );
+    });
     if (validFiles.length === 0) return;
     setIngestError(null);
     const nextEntries = validFiles.map((file, idx) => ({

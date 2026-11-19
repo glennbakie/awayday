@@ -119,6 +119,50 @@ function buildSlugFromParts(rawName: string): string {
   return `${base || "awayday-sheet"}-${suffix}`;
 }
 
+async function resilientUpsert(
+  dbClient: any,
+  table: string,
+  payload: Record<string, any>,
+  onConflict?: string
+): Promise<{ data: any; error: any }> {
+  const currentPayload: Record<string, any> = { ...payload };
+  let activeConflict = onConflict;
+
+  for (let attempt = 0; attempt <= Object.keys(payload).length + 2; attempt++) {
+    const query = activeConflict
+      ? dbClient.from(table).upsert(currentPayload, { onConflict: activeConflict })
+      : dbClient.from(table).insert(currentPayload);
+
+    const { data, error } = await query.select("id").maybeSingle();
+    if (!error) {
+      return { data, error: null };
+    }
+
+    const msg = String(error?.message || "");
+    const missingMatch = msg.match(/Could not find the '([^']+)' column/i);
+    if (missingMatch?.[1] && missingMatch[1] in currentPayload) {
+      const missingCol = missingMatch[1];
+      delete currentPayload[missingCol];
+      if (activeConflict === missingCol) {
+        activeConflict = undefined;
+      }
+      if (Object.keys(currentPayload).length === 0) {
+        return { data: null, error };
+      }
+      continue;
+    }
+
+    if (activeConflict && /no unique or exclusion constraint matching the ON CONFLICT/i.test(msg)) {
+      activeConflict = undefined;
+      continue;
+    }
+
+    return { data: null, error };
+  }
+
+  return { data: null, error: { message: `Failed to upsert into ${table}` } };
+}
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -144,34 +188,33 @@ export async function POST(req: NextRequest) {
     let tournamentId: string | number | undefined;
     let lastErrorMessage: string | null = null;
 
-    // 1. Try inserting/upserting into `tournaments` with extended columns if present
-    const { data: extRow, error: extErr } = await dbClient
-      .from("tournaments")
-      .upsert(
-        {
-          slug,
-          name: rawName,
-          city,
-          dates,
-          is_archived: false,
-        },
-        { onConflict: "slug" }
-      )
-      .select("id")
-      .maybeSingle();
+    // 1. Insert/upsert into `tournaments` with automatic schema-cache column fallback
+    const { data: tourneyRow, error: tourneyErr } = await resilientUpsert(
+      dbClient,
+      "tournaments",
+      {
+        slug,
+        name: rawName,
+        city,
+        dates,
+        is_archived: false,
+      },
+      "slug"
+    );
 
-    if (!extErr && extRow?.id) {
-      tournamentId = extRow.id;
+    if (!tourneyErr && tourneyRow?.id) {
+      tournamentId = tourneyRow.id;
     } else {
-      if (extErr) {
-        lastErrorMessage = extErr.message;
+      if (tourneyErr) {
+        lastErrorMessage = tourneyErr.message;
       }
-      // Fallback to minimal `tournaments` schema (name + sport)
-      const { data: minRow, error: minErr } = await dbClient
-        .from("tournaments")
-        .upsert({ name: rawName, sport: "basketball" }, { onConflict: "name" })
-        .select("id")
-        .maybeSingle();
+      // Fallback to minimal `tournaments` payload (`name` only)
+      const { data: minRow, error: minErr } = await resilientUpsert(
+        dbClient,
+        "tournaments",
+        { name: rawName },
+        "name"
+      );
 
       if (minErr) {
         lastErrorMessage = minErr.message;
@@ -182,7 +225,9 @@ export async function POST(req: NextRequest) {
 
     // 2. Upsert `team_trips` row keyed by `share_slug`
     if (tournamentId) {
-      const { error: tripErr } = await dbClient.from("team_trips").upsert(
+      const { error: tripErr } = await resilientUpsert(
+        dbClient,
+        "team_trips",
         {
           tournament_id: tournamentId,
           team_name: teamName,
@@ -190,7 +235,7 @@ export async function POST(req: NextRequest) {
           hotel_address: hotelAddress,
           share_slug: slug,
         },
-        { onConflict: "share_slug" }
+        "share_slug"
       );
       if (tripErr) {
         lastErrorMessage = tripErr.message;

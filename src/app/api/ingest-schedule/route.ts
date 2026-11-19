@@ -121,6 +121,10 @@ export async function POST(req: NextRequest) {
       "   - Return placeholder weekend cards in `games`: Game 1 ('Game 1 - TBD (Tip-Off Pending)') and Game 2 ('Game 2 - TBD') with isPlaceholder: true.",
       "4. CONFIRMED SCHEDULE HANDLING:",
       "   - If actual game times and opponents ARE present in the input, set schedulePending: false and extract each game with 30-minute arrivalCall buffer and home/away jerseyColor ('White (Home)' vs 'Dark / Black (Away)').",
+      "5. MULTI-SCREENSHOT EXHAUSTIVE EXTRACTION:",
+      "   - You may receive 10 to 15+ separate screenshots or PDF pages in a single request (e.g., individual game cards, scrolled schedule views, or multiple days).",
+      "   - Inspect EVERY SINGLE attached image from first to last.",
+      "   - Extract EVERY SINGLE game shown across ALL attached images into the `games` array. Never stop early, skip, truncate, or summarize games, and never deduplicate distinct games that have different opponents, dates, tip-off times, or courts.",
     ].join("\n");
 
     const userPrompt = [
@@ -129,7 +133,10 @@ export async function POST(req: NextRequest) {
         : "Extract the team name from the chat header or schedule (e.g., 'Ottawa Elite U16').",
       tournamentNameInput ? `Tournament Context: ${tournamentNameInput}` : "",
       rawText ? `Additional Text / Announcement:\n${rawText}` : "",
-      "Extract all tournament metadata (tournamentName, teamName, city, dates), hotel details (name, address, rate, breakfastHours, checkoutTime), and scheduled games (or schedulePending: true with placeholder games if tip-offs are not released yet).",
+      inlineParts.length > 1
+        ? `CRITICAL: ${inlineParts.length} images are attached. Inspect ALL ${inlineParts.length} images and extract EVERY SINGLE game shown across all of them without skipping or deduplicating distinct opponents, dates, or times.`
+        : "",
+      "Extract all tournament metadata (tournamentName, teamName, city, dates), hotel details (name, address, rate, breakfastHours, checkoutTime), and every scheduled game (or schedulePending: true with placeholder games if tip-offs are not released yet).",
     ]
       .filter(Boolean)
       .join("\n");
@@ -421,7 +428,7 @@ export async function POST(req: NextRequest) {
     try {
       const { data: tourneyRow } = await supabase
         .from("tournaments")
-        .upsert({ name: resolvedTournamentName, sport: "basketball" }, { onConflict: "name" })
+        .upsert({ name: resolvedTournamentName }, { onConflict: "name" })
         .select("id")
         .maybeSingle();
 
