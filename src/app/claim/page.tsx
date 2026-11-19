@@ -100,45 +100,84 @@ function ClaimPageContent() {
     setParseError(null);
 
     try {
-      const formData = new FormData();
-      selectedFiles.forEach((f) => formData.append("images", f));
-      if (targetTeam.trim()) {
-        formData.append("teamName", targetTeam.trim());
+      const BATCH_SIZE = 4;
+      const allGames: ExtractedClaimGame[] = [];
+      const seenKeys = new Set<string>();
+      let mergedMeta: any = null;
+
+      for (let i = 0; i < selectedFiles.length; i += BATCH_SIZE) {
+        const batch = selectedFiles.slice(i, i + BATCH_SIZE);
+        const formData = new FormData();
+        batch.forEach((f) => formData.append("images", f));
+        if (targetTeam.trim()) {
+          formData.append("teamName", targetTeam.trim());
+        }
+
+        const res = await fetch("/api/ingest-schedule", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || "Could not read schedule file. Please try another screenshot or PDF.");
+        }
+
+        if (!mergedMeta) {
+          mergedMeta = { ...data };
+        } else {
+          mergedMeta.tournamentName = mergedMeta.tournamentName || data.tournamentName;
+          mergedMeta.teamName = mergedMeta.teamName || data.teamName;
+          mergedMeta.city = mergedMeta.city || data.city;
+          mergedMeta.dates = mergedMeta.dates || data.dates;
+          mergedMeta.hotel = mergedMeta.hotel?.name ? mergedMeta.hotel : data.hotel;
+          mergedMeta.schedulePending = Boolean(mergedMeta.schedulePending && data.schedulePending);
+        }
+
+        const batchGames: ExtractedClaimGame[] = Array.isArray(data.games) ? data.games : [];
+        for (const g of batchGames) {
+          const isReal =
+            !(g as any).isPlaceholder &&
+            !/tbd|pending/i.test(String(g.tipOff || "")) &&
+            !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(String(g.opponent || ""));
+          const key = `${String(g.dateStr || g.day || "").trim().toLowerCase()}|${String(g.tipOff || "").trim().toLowerCase()}|${String(g.opponent || "").trim().toLowerCase()}`;
+          if (isReal && seenKeys.has(key)) continue;
+          if (isReal) seenKeys.add(key);
+          allGames.push(g);
+        }
       }
 
-      const res = await fetch("/api/ingest-schedule", {
-        method: "POST",
-        body: formData,
-      });
+      const realGames = allGames.filter(
+        (g) =>
+          !(g as any).isPlaceholder &&
+          !/tbd|pending/i.test(String(g.tipOff || "")) &&
+          !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(String(g.opponent || ""))
+      );
+      const gamesList = realGames.length > 0 ? realGames : allGames;
+      const isPending = realGames.length === 0 && Boolean(mergedMeta?.schedulePending);
 
-      const data = await res.json();
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || "Could not read schedule file. Please try another screenshot or PDF.");
-      }
-
-      const gamesList: ExtractedClaimGame[] = Array.isArray(data.games) ? data.games : [];
       setExtractedGames(gamesList);
       setExtractedMeta({
-        slug: data.slug,
-        schedulePending: Boolean(data.schedulePending),
-        tournamentName: data.tournamentName,
-        teamName: data.teamName,
-        city: data.city,
-        dates: data.dates,
-        hotel: data.hotel,
+        slug: mergedMeta?.slug,
+        schedulePending: isPending,
+        tournamentName: mergedMeta?.tournamentName,
+        teamName: mergedMeta?.teamName,
+        city: mergedMeta?.city,
+        dates: mergedMeta?.dates,
+        hotel: mergedMeta?.hotel,
       });
-      if (data.teamName && (!targetTeam.trim() || /^(test\s*team(\s*\d+)?|team\s*\d+)$/i.test(targetTeam.trim()))) {
-        setTeamName(data.teamName);
+      if (mergedMeta?.teamName && (!targetTeam.trim() || /^(test\s*team(\s*\d+)?|team\s*\d+)$/i.test(targetTeam.trim()))) {
+        setTeamName(mergedMeta.teamName);
       }
       return {
-        slug: data.slug as string | undefined,
-        schedulePending: Boolean(data.schedulePending),
+        slug: mergedMeta?.slug as string | undefined,
+        schedulePending: isPending,
         games: gamesList,
-        tournamentName: data.tournamentName as string | undefined,
-        teamName: data.teamName as string | undefined,
-        city: data.city as string | undefined,
-        dates: data.dates as string | undefined,
-        hotel: data.hotel as
+        tournamentName: mergedMeta?.tournamentName as string | undefined,
+        teamName: mergedMeta?.teamName as string | undefined,
+        city: mergedMeta?.city as string | undefined,
+        dates: mergedMeta?.dates as string | undefined,
+        hotel: mergedMeta?.hotel as
           | {
               name?: string;
               address?: string;

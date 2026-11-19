@@ -2,6 +2,69 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 
+export async function GET(
+  _req: NextRequest,
+  context: { params: Promise<{ slug: string }> | { slug: string } }
+) {
+  try {
+    const resolvedParams = await Promise.resolve(context.params);
+    const slug = (resolvedParams?.slug || "").trim();
+    if (!slug) {
+      return NextResponse.json({ error: "Missing slug" }, { status: 400 });
+    }
+
+    // 1. Try looking up tournament by `slug` or `share_slug`
+    let tournamentRow: any = null;
+    const { data: orRow, error: orErr } = await supabase
+      .from("tournaments")
+      .select("*")
+      .or(`slug.eq.${slug},share_slug.eq.${slug}`)
+      .maybeSingle();
+
+    if (!orErr && orRow) {
+      tournamentRow = orRow;
+    } else {
+      const { data: slugRow } = await supabase
+        .from("tournaments")
+        .select("*")
+        .eq("slug", slug)
+        .maybeSingle();
+      if (slugRow) {
+        tournamentRow = slugRow;
+      }
+    }
+
+    // 2. Also look up `team_trips` by `share_slug`
+    const { data: tripRow } = await supabase
+      .from("team_trips")
+      .select("*, tournaments(*)")
+      .eq("share_slug", slug)
+      .maybeSingle();
+
+    const joinedTourney = tripRow?.tournaments
+      ? Array.isArray(tripRow.tournaments)
+        ? tripRow.tournaments[0]
+        : tripRow.tournaments
+      : null;
+
+    const resolvedTourney = tournamentRow || joinedTourney;
+    if (!resolvedTourney && !tripRow) {
+      return NextResponse.json({ error: "Tournament not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({
+      tournament: resolvedTourney,
+      trip: tripRow || null,
+    });
+  } catch (err: any) {
+    console.error("Error in GET /api/tournaments/[slug]:", err);
+    return NextResponse.json(
+      { error: err?.message || "Failed to fetch tournament" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function PATCH(
   req: Request,
   context: { params: Promise<{ slug: string }> | { slug: string } }

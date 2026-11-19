@@ -1781,43 +1781,85 @@ function RunSheetContent({
     setIngestError(null);
 
     try {
-      const formData = new FormData();
-      ingestImages.forEach((item) => {
-        formData.append("images", item.file);
-      });
-      if (ingestModalMode === "create") {
-        if (newSheetName.trim()) {
-          formData.append("tournamentName", newSheetName.trim());
-          formData.append("teamName", newSheetName.trim());
+      const BATCH_SIZE = 4;
+      const allExtracted: any[] = [];
+      const seenKeys = new Set<string>();
+      let mergedData: any = null;
+
+      for (let i = 0; i < ingestImages.length; i += BATCH_SIZE) {
+        const batch = ingestImages.slice(i, i + BATCH_SIZE);
+        const formData = new FormData();
+        batch.forEach((item) => {
+          formData.append("images", item.file);
+        });
+        if (ingestModalMode === "create") {
+          if (newSheetName.trim()) {
+            formData.append("tournamentName", newSheetName.trim());
+            formData.append("teamName", newSheetName.trim());
+          }
+        } else {
+          formData.append("teamName", tournament.teamName);
+          formData.append("tournamentName", tournament.name);
         }
-      } else {
-        formData.append("teamName", tournament.teamName);
-        formData.append("tournamentName", tournament.name);
+
+        const res = await fetch("/api/ingest-schedule", {
+          method: "POST",
+          body: formData,
+        });
+
+        const data = await res.json();
+        if (!res.ok || !data?.success) {
+          throw new Error(data?.error || "Failed to analyze schedule screenshots.");
+        }
+
+        if (!mergedData) {
+          mergedData = { ...data };
+        } else {
+          mergedData.tournamentName = mergedData.tournamentName || data.tournamentName;
+          mergedData.teamName = mergedData.teamName || data.teamName;
+          mergedData.city = mergedData.city || data.city;
+          mergedData.dates = mergedData.dates || data.dates;
+          mergedData.hotel = mergedData.hotel?.name ? mergedData.hotel : data.hotel;
+          mergedData.schedulePending = Boolean(mergedData.schedulePending && data.schedulePending);
+        }
+
+        const batchGames = Array.isArray(data.games) ? data.games : [];
+        for (const g of batchGames) {
+          const isReal =
+            !g.isPlaceholder &&
+            !/tbd|pending/i.test(String(g.tipOff || "")) &&
+            !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(String(g.opponent || ""));
+          const key = `${String(g.dateStr || g.day || "").trim().toLowerCase()}|${String(g.tipOff || "").trim().toLowerCase()}|${String(g.opponent || "").trim().toLowerCase()}`;
+          if (isReal && seenKeys.has(key)) continue;
+          if (isReal) seenKeys.add(key);
+          allExtracted.push(g);
+        }
       }
 
-      const res = await fetch("/api/ingest-schedule", {
-        method: "POST",
-        body: formData,
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data?.success) {
-        throw new Error(data?.error || "Failed to analyze schedule screenshots.");
+      const realExtracted = allExtracted.filter(
+        (g) =>
+          !g.isPlaceholder &&
+          !/tbd|pending/i.test(String(g.tipOff || "")) &&
+          !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(String(g.opponent || ""))
+      );
+      const finalExtracted = realExtracted.length > 0 ? realExtracted : allExtracted;
+      if (mergedData) {
+        mergedData.games = finalExtracted;
+        mergedData.schedulePending = realExtracted.length === 0 && Boolean(mergedData.schedulePending);
       }
 
       if (ingestModalMode === "create") {
-        setPendingCreateMeta(data);
+        setPendingCreateMeta(mergedData);
       } else {
-        applyExtractedTournamentFromApi(data);
+        applyExtractedTournamentFromApi(mergedData);
       }
-      const extracted = Array.isArray(data.games) ? data.games : [];
-      if (extracted.length === 0 && !data.schedulePending) {
+      if (finalExtracted.length === 0 && !mergedData?.schedulePending) {
         setIngestError("No games were detected in the uploaded screenshot(s). Try a clearer image or use Raw Text.");
         setIsAnalyzingScreenshots(false);
         return;
       }
 
-      const mappedGames = mapExtractedGamesFromApi(extracted, data);
+      const mappedGames = mapExtractedGamesFromApi(finalExtracted, mergedData);
       setParsedPreviewGames(mappedGames);
     } catch (err: any) {
       console.error("Screenshot ingestion error:", err);

@@ -166,95 +166,167 @@ export async function POST(req: NextRequest) {
       process.env.GOOGLE_MAPS_API_KEY,
     ].filter((k): k is string => Boolean(k && k.trim()));
 
-    for (const candidateKey of candidateKeys) {
-      if (parsed) break;
-      try {
-        const ai = new GoogleGenAI({ apiKey: candidateKey });
-        const response = await ai.models.generateContent({
-          model: "gemini-2.5-flash",
-          contents: [
-            {
-              role: "user",
-              parts: [
-                { text: userPrompt },
-                ...inlineParts,
-              ],
-            },
-          ],
-          config: {
-            systemInstruction,
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                success: { type: Type.BOOLEAN },
-                schedulePending: { type: Type.BOOLEAN },
-                tournamentName: { type: Type.STRING, nullable: true },
-                teamName: { type: Type.STRING, nullable: true },
-                city: { type: Type.STRING, nullable: true },
-                dates: { type: Type.STRING, nullable: true },
-                hotel: {
-                  type: Type.OBJECT,
-                  nullable: true,
-                  properties: {
-                    name: { type: Type.STRING, nullable: true },
-                    address: { type: Type.STRING, nullable: true },
-                    rate: { type: Type.STRING, nullable: true },
-                    breakfastHours: { type: Type.STRING, nullable: true },
-                    checkoutTime: { type: Type.STRING, nullable: true },
-                  },
-                },
-                games: {
-                  type: Type.ARRAY,
-                  items: {
-                    type: Type.OBJECT,
-                    properties: {
-                      day: { type: Type.STRING, description: 'e.g. "Sat, Nov 21" or "Saturday, Nov 21"' },
-                      dateStr: { type: Type.STRING, description: 'YYYY-MM-DD, e.g. "2026-11-21"' },
-                      tipOff: { type: Type.STRING, description: '12-hour time string, e.g. "3:45 PM", or "TBD (Tip-Off Pending)"' },
-                      arrivalCall: { type: Type.STRING, description: '30 minutes before tipOff, e.g. "3:15 PM", or "TBD"' },
-                      court: { type: Type.STRING, description: 'e.g. "Court 2" or "TBD"' },
-                      venueName: { type: Type.STRING, description: 'e.g. "Brampton Soccer Centre" or "TBD"' },
-                      venueAddress: { type: Type.STRING, nullable: true, description: 'Street address or city if shown' },
-                      opponent: { type: Type.STRING, description: 'Opponent team name, or "Game 1 - TBD (Tip-Off Pending)"' },
-                      jerseyColor: {
-                        type: Type.STRING,
-                        enum: ["White (Home)", "Dark / Black (Away)"],
-                      },
-                      telemetryTag: {
-                        type: Type.STRING,
-                        nullable: true,
-                        description: 'Optional contextual tag such as "Home Opener", "Back-to-Back", or "Tip-Off Pending"',
-                      },
-                      isPlaceholder: {
-                        type: Type.BOOLEAN,
-                        nullable: true,
-                      },
-                    },
-                    required: [
-                      "day",
-                      "dateStr",
-                      "tipOff",
-                      "arrivalCall",
-                      "court",
-                      "venueName",
-                      "opponent",
-                      "jerseyColor",
-                    ],
-                  },
-                },
-              },
-              required: ["success", "schedulePending", "games"],
-            },
+    const responseSchema = {
+      type: Type.OBJECT,
+      properties: {
+        success: { type: Type.BOOLEAN },
+        schedulePending: { type: Type.BOOLEAN },
+        tournamentName: { type: Type.STRING, nullable: true },
+        teamName: { type: Type.STRING, nullable: true },
+        city: { type: Type.STRING, nullable: true },
+        dates: { type: Type.STRING, nullable: true },
+        hotel: {
+          type: Type.OBJECT,
+          nullable: true,
+          properties: {
+            name: { type: Type.STRING, nullable: true },
+            address: { type: Type.STRING, nullable: true },
+            rate: { type: Type.STRING, nullable: true },
+            breakfastHours: { type: Type.STRING, nullable: true },
+            checkoutTime: { type: Type.STRING, nullable: true },
           },
-        });
+        },
+        games: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              day: { type: Type.STRING, description: 'e.g. "Sat, Nov 21" or "Saturday, Nov 21"' },
+              dateStr: { type: Type.STRING, description: 'YYYY-MM-DD, e.g. "2026-11-21"' },
+              tipOff: { type: Type.STRING, description: '12-hour time string, e.g. "3:45 PM", or "TBD (Tip-Off Pending)"' },
+              arrivalCall: { type: Type.STRING, description: '30 minutes before tipOff, e.g. "3:15 PM", or "TBD"' },
+              court: { type: Type.STRING, description: 'e.g. "Court 2" or "TBD"' },
+              venueName: { type: Type.STRING, description: 'e.g. "Brampton Soccer Centre" or "TBD"' },
+              venueAddress: { type: Type.STRING, nullable: true, description: 'Street address or city if shown' },
+              opponent: { type: Type.STRING, description: 'Opponent team name, or "Game 1 - TBD (Tip-Off Pending)"' },
+              jerseyColor: {
+                type: Type.STRING,
+                enum: ["White (Home)", "Dark / Black (Away)"],
+              },
+              telemetryTag: {
+                type: Type.STRING,
+                nullable: true,
+                description: 'Optional contextual tag such as "Home Opener", "Back-to-Back", or "Tip-Off Pending"',
+              },
+              isPlaceholder: {
+                type: Type.BOOLEAN,
+                nullable: true,
+              },
+            },
+            required: [
+              "day",
+              "dateStr",
+              "tipOff",
+              "arrivalCall",
+              "court",
+              "venueName",
+              "opponent",
+              "jerseyColor",
+            ],
+          },
+        },
+      },
+      required: ["success", "schedulePending", "games"],
+    };
 
-        if (response.text) {
-          parsed = JSON.parse(response.text) as ParsedSchedulePayload;
-        }
-      } catch (innerErr) {
-        console.warn("Gemini candidate key attempt failed, trying fallback:", innerErr);
+    const BATCH_SIZE = 4;
+    const imageBatches: Array<Array<{ inlineData: { mimeType: string; data: string } }>> = [];
+    if (inlineParts.length === 0) {
+      imageBatches.push([]);
+    } else {
+      for (let i = 0; i < inlineParts.length; i += BATCH_SIZE) {
+        imageBatches.push(inlineParts.slice(i, i + BATCH_SIZE));
       }
+    }
+
+    const extractBatch = async (batchParts: Array<{ inlineData: { mimeType: string; data: string } }>) => {
+      for (const candidateKey of candidateKeys) {
+        try {
+          const ai = new GoogleGenAI({ apiKey: candidateKey });
+          const batchPrompt =
+            batchParts.length > 1
+              ? `${userPrompt}\n\nBATCH INSTRUCTION: This batch contains ${batchParts.length} images. Extract EVERY SINGLE game shown in these ${batchParts.length} images without skipping or deduplicating distinct opponents/times.`
+              : userPrompt;
+          const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: [
+              {
+                role: "user",
+                parts: [{ text: batchPrompt }, ...batchParts],
+              },
+            ],
+            config: {
+              systemInstruction,
+              maxOutputTokens: 8192,
+              responseMimeType: "application/json",
+              responseSchema,
+            },
+          });
+
+          if (response.text) {
+            return JSON.parse(response.text) as ParsedSchedulePayload;
+          }
+        } catch (innerErr) {
+          console.warn("Gemini candidate key attempt failed, trying fallback:", innerErr);
+        }
+      }
+      return null;
+    };
+
+    const batchResults = (await Promise.all(imageBatches.map(extractBatch))).filter(
+      (r): r is ParsedSchedulePayload => Boolean(r)
+    );
+
+    if (batchResults.length > 0) {
+      const mergedGames: ExtractedGame[] = [];
+      const seenGameKeys = new Set<string>();
+
+      for (const res of batchResults) {
+        const list = Array.isArray(res.games) ? res.games : [];
+        for (const g of list) {
+          const isRealGame =
+            !g.isPlaceholder &&
+            !/tbd|pending/i.test(g.tipOff || "") &&
+            !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(g.opponent || "");
+          const dateKey = (g.dateStr || g.day || "").trim().toLowerCase();
+          const timeKey = (g.tipOff || "").trim().toLowerCase();
+          const oppKey = (g.opponent || "").trim().toLowerCase();
+          const dedupeKey = `${dateKey}|${timeKey}|${oppKey}`;
+          if (isRealGame && seenGameKeys.has(dedupeKey)) {
+            continue;
+          }
+          if (isRealGame) {
+            seenGameKeys.add(dedupeKey);
+          }
+          mergedGames.push(g);
+        }
+      }
+
+      const realMergedGames = mergedGames.filter(
+        (g) =>
+          !g.isPlaceholder &&
+          !/tbd|pending/i.test(g.tipOff || "") &&
+          !/game\s*\d+\s*-\s*tbd|tip-off pending/i.test(g.opponent || "")
+      );
+
+      const firstNonEmpty = <T,>(getter: (r: ParsedSchedulePayload) => T | undefined): T | undefined => {
+        for (const r of batchResults) {
+          const val = getter(r);
+          if (val !== undefined && val !== null && String(val).trim() !== "") return val;
+        }
+        return undefined;
+      };
+
+      parsed = {
+        success: true,
+        schedulePending: realMergedGames.length === 0 && batchResults.every((r) => Boolean(r.schedulePending)),
+        tournamentName: firstNonEmpty((r) => r.tournamentName),
+        teamName: firstNonEmpty((r) => r.teamName),
+        city: firstNonEmpty((r) => r.city),
+        dates: firstNonEmpty((r) => r.dates),
+        hotel: firstNonEmpty((r) => (r.hotel?.name ? r.hotel : undefined)) || batchResults[0].hotel,
+        games: realMergedGames.length > 0 ? realMergedGames : mergedGames,
+      };
     }
 
     // Regex & chat-text heuristic extraction if rawText is provided or if upstream vision key failed

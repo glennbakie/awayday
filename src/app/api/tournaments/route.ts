@@ -123,12 +123,13 @@ async function resilientUpsert(
   dbClient: any,
   table: string,
   payload: Record<string, any>,
-  onConflict?: string
+  onConflict?: string,
+  defaultSlug?: string
 ): Promise<{ data: any; error: any }> {
   const currentPayload: Record<string, any> = { ...payload };
   let activeConflict = onConflict;
 
-  for (let attempt = 0; attempt <= Object.keys(payload).length + 2; attempt++) {
+  for (let attempt = 0; attempt <= Object.keys(payload).length + 6; attempt++) {
     const query = activeConflict
       ? dbClient.from(table).upsert(currentPayload, { onConflict: activeConflict })
       : dbClient.from(table).insert(currentPayload);
@@ -150,6 +151,17 @@ async function resilientUpsert(
         return { data: null, error };
       }
       continue;
+    }
+
+    const notNullMatch = msg.match(/null value in column "([^"]+)" violates not-null constraint/i);
+    if (notNullMatch?.[1]) {
+      const requiredCol = notNullMatch[1];
+      if (!(requiredCol in currentPayload) || currentPayload[requiredCol] == null) {
+        currentPayload[requiredCol] = /slug$/i.test(requiredCol)
+          ? defaultSlug || "awayday-sheet"
+          : "";
+        continue;
+      }
     }
 
     if (activeConflict && /no unique or exclusion constraint matching the ON CONFLICT/i.test(msg)) {
@@ -188,18 +200,20 @@ export async function POST(req: NextRequest) {
     let tournamentId: string | number | undefined;
     let lastErrorMessage: string | null = null;
 
-    // 1. Insert/upsert into `tournaments` with automatic schema-cache column fallback
+    // 1. Insert/upsert into `tournaments` with automatic schema-cache & NOT NULL column fallback
     const { data: tourneyRow, error: tourneyErr } = await resilientUpsert(
       dbClient,
       "tournaments",
       {
         slug,
+        share_slug: slug,
         name: rawName,
         city,
         dates,
         is_archived: false,
       },
-      "slug"
+      "slug",
+      slug
     );
 
     if (!tourneyErr && tourneyRow?.id) {
@@ -208,12 +222,13 @@ export async function POST(req: NextRequest) {
       if (tourneyErr) {
         lastErrorMessage = tourneyErr.message;
       }
-      // Fallback to minimal `tournaments` payload (`name` only)
+      // Fallback to minimal `tournaments` payload (`name` + `share_slug`)
       const { data: minRow, error: minErr } = await resilientUpsert(
         dbClient,
         "tournaments",
-        { name: rawName },
-        "name"
+        { name: rawName, share_slug: slug },
+        "name",
+        slug
       );
 
       if (minErr) {
@@ -235,7 +250,8 @@ export async function POST(req: NextRequest) {
           hotel_address: hotelAddress,
           share_slug: slug,
         },
-        "share_slug"
+        "share_slug",
+        slug
       );
       if (tripErr) {
         lastErrorMessage = tripErr.message;
