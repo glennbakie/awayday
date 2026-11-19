@@ -64,6 +64,18 @@ export async function POST(req: NextRequest) {
     const rawTeamNameInput = (formData.get("teamName") as string | null)?.trim() || "";
     const teamName = isGenericPlaceholderTeam(rawTeamNameInput) ? "Ottawa Elite U16" : rawTeamNameInput;
     const tournamentNameInput = (formData.get("tournamentName") as string | null)?.trim() || "";
+    const existingGamesRaw = (formData.get("existingGames") as string | null)?.trim() || "";
+    let existingGamesContext: any[] = [];
+    if (existingGamesRaw) {
+      try {
+        const parsedExisting = JSON.parse(existingGamesRaw);
+        if (Array.isArray(parsedExisting)) {
+          existingGamesContext = parsedExisting;
+        }
+      } catch {
+        // Ignore malformed existingGames JSON
+      }
+    }
 
     const imageFiles = allInputs.filter((item): item is File => item instanceof File && item.size > 0);
 
@@ -129,11 +141,22 @@ export async function POST(req: NextRequest) {
       "   - If the exact same game (same date, tip-off time, and opponent) appears in two overlapping screenshots, emit it once with the richest venue/court/jersey details.",
     ].join("\n");
 
+    const existingSummary =
+      existingGamesContext.length > 0
+        ? `Existing Scheduled Games (match by Game #, date, time, or opponent if the new text/screenshots update an existing game, e.g. 'Game 1 moved to Court 3, wear White'):\n${existingGamesContext
+            .map(
+              (g: any, idx: number) =>
+                `Game ${g.gameNumber ?? idx + 1}: ${g.dayLabel || g.day || ""} | ${g.opponent || "TBD"} | ${g.court || "TBD"} | ${g.venueName || ""} | ${g.jerseyColor || ""}`
+            )
+            .join("\n")}`
+        : "";
+
     const userPrompt = [
       rawTeamNameInput && !isGenericPlaceholderTeam(rawTeamNameInput)
         ? `Target Team Context (override if chat header shows a specific team name): ${rawTeamNameInput}`
         : "Extract the team name from the chat header or schedule (e.g., 'Ottawa Elite U16').",
       tournamentNameInput ? `Tournament Context: ${tournamentNameInput}` : "",
+      existingSummary,
       rawText ? `Additional Text / Announcement:\n${rawText}` : "",
       inlineParts.length > 1
         ? `CRITICAL: ${inlineParts.length} images are attached. Inspect ALL ${inlineParts.length} images and extract EVERY SINGLE game shown across all of them without skipping or deduplicating distinct opponents, dates, or times.`

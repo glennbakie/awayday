@@ -1641,18 +1641,64 @@ function RunSheetContent({
     }
   };
 
-  const handleParseSchedule = () => {
-    const lines = ingestRawText
-      .split("\n")
-      .map(l => l.trim())
-      .filter(Boolean);
-
-    if (lines.length === 0) {
+  const handleParseSchedule = async () => {
+    const trimmedText = ingestRawText.trim();
+    if (!trimmedText) {
       setIngestError("Please paste schedule text before parsing.");
       return;
     }
 
+    setIsAnalyzingScreenshots(true);
     setIngestError(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("text", trimmedText);
+      if (ingestImages.length > 0) {
+        const compressed = await Promise.all(
+          ingestImages.map((item) => compressImageForVision(item.file))
+        );
+        compressed.forEach((f) => formData.append("images", f));
+      }
+      if (ingestModalMode === "create") {
+        if (newSheetName.trim()) {
+          formData.append("tournamentName", newSheetName.trim());
+          formData.append("teamName", newSheetName.trim());
+        }
+      } else {
+        formData.append("teamName", tournament.teamName);
+        formData.append("tournamentName", tournament.name);
+        if (!isSchedulePendingState && games.length > 0) {
+          formData.append("existingGames", JSON.stringify(games));
+        }
+      }
+
+      const res = await fetch("/api/ingest-schedule", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json().catch(() => null);
+      if (res.ok && data?.success && Array.isArray(data.games) && data.games.length > 0) {
+        if (ingestModalMode === "create") {
+          setPendingCreateMeta(data);
+        } else {
+          applyExtractedTournamentFromApi(data);
+        }
+        const mapped = mapExtractedGamesFromApi(dedupeAndCleanGames(data.games), data);
+        setParsedPreviewGames(mapped);
+        return;
+      }
+    } catch {
+      // Fallback to local line parser if API call fails
+    } finally {
+      setIsAnalyzingScreenshots(false);
+    }
+
+    const lines = trimmedText
+      .split("\n")
+      .map(l => l.trim())
+      .filter(Boolean);
+
     const customLabel = newSheetName.trim();
     const targetHub = ingestModalMode === "create"
       ? customLabel || "Tournament Venue"
@@ -1701,7 +1747,7 @@ function RunSheetContent({
       });
     }
 
-    setParsedPreviewGames(parsed);
+    setParsedPreviewGames(sortGamesChronologically(parsed));
   };
 
   const parseTimeStringToMinutes = (timeStr: string, fallbackMinutes = 600) => {
@@ -1850,6 +1896,9 @@ function RunSheetContent({
         batchFiles.forEach((file) => {
           formData.append("images", file);
         });
+        if (ingestRawText.trim()) {
+          formData.append("text", ingestRawText.trim());
+        }
         if (ingestModalMode === "create") {
           if (newSheetName.trim()) {
             formData.append("tournamentName", newSheetName.trim());
@@ -1858,6 +1907,9 @@ function RunSheetContent({
         } else {
           formData.append("teamName", tournament.teamName);
           formData.append("tournamentName", tournament.name);
+          if (!isSchedulePendingState && games.length > 0) {
+            formData.append("existingGames", JSON.stringify(games));
+          }
         }
 
         const res = await fetch("/api/ingest-schedule", {
@@ -2069,8 +2121,43 @@ function RunSheetContent({
       }
     }
 
-    setGames(parsedPreviewGames);
-    await broadcastGamesSync(parsedPreviewGames);
+    const hasExistingRealGames = !isSchedulePendingState && games.length > 0;
+    const finalMergedGames = hasExistingRealGames
+      ? mergeAndDedupeGames([...games, ...parsedPreviewGames], { preferIncoming: true }).map((g, idx) => ({
+          ...g,
+          gameNumber: idx + 1,
+        }))
+      : sortGamesChronologically(parsedPreviewGames);
+
+    const hasRealFinalGames = finalMergedGames.some(
+      (g) => !g.isPlaceholder && !/tbd|pending/i.test(String(g.opponent || ""))
+    );
+
+    setGames(finalMergedGames);
+    if (hasRealFinalGames) {
+      setTournament((prev) => ({ ...prev, schedulePending: false }));
+    }
+    try {
+      const serialized = JSON.stringify(finalMergedGames);
+      window.localStorage.setItem(`awayday_games_${slug}`, serialized);
+      window.localStorage.setItem(`awayday_games_sprint1_${slug}`, serialized);
+    } catch {
+      // Ignore storage errors
+    }
+    await broadcastGamesSync(finalMergedGames);
+    try {
+      await fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          games: finalMergedGames,
+          schedule_pending: !hasRealFinalGames,
+        }),
+      });
+    } catch (patchErr) {
+      console.warn("PATCH /api/tournaments/[slug] warning (non-fatal):", patchErr);
+    }
+
     setParsedPreviewGames(null);
     setIngestRawText("");
     ingestImages.forEach((item) => URL.revokeObjectURL(item.previewUrl));
@@ -2754,9 +2841,20 @@ function RunSheetContent({
                   setIngestError(null);
                   setIsIngestModalOpen(true);
                 }}
-                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-[#0F2942] text-white text-xs font-bold cursor-pointer hover:bg-[#1A3D5D] transition-colors"
+                className="w-full flex flex-col items-center justify-center gap-0.5 px-4 py-2.5 rounded-xl bg-[#0F2942] text-white text-xs font-bold cursor-pointer hover:bg-[#1A3D5D] transition-colors text-center"
               >
-                <span>{isAnalyzingScreenshots ? "⏳ Analyzing Schedule..." : "📄 Upload Schedule When Released"}</span>
+                <span>
+                  {isAnalyzingScreenshots
+                    ? "⏳ Analyzing Schedule..."
+                    : !isSchedulePendingState && games.length > 0
+                      ? "🔄 Update / Add Schedule Info"
+                      : "📄 Upload Schedule When Released"}
+                </span>
+                {!isSchedulePendingState && games.length > 0 && !isAnalyzingScreenshots && (
+                  <span className="text-[10px] font-medium text-slate-300">
+                    Paste a coach text or drop bracket/court screenshots to update this live sheet
+                  </span>
+                )}
               </button>
 
               <div className="flex flex-wrap items-center justify-between gap-2">
@@ -5325,7 +5423,11 @@ function RunSheetContent({
                   MANAGER SUITE • SCHEDULE IMPORT
                 </span>
                 <h3 className="text-base font-black text-white mt-1.5">
-                  {ingestModalMode === "create" ? "Create New Run Sheet" : "Update Run Sheet"}
+                  {ingestModalMode === "create"
+                    ? "Create New Run Sheet"
+                    : !isSchedulePendingState && games.length > 0
+                      ? "Update Live Run Sheet"
+                      : "Update Run Sheet"}
                 </h3>
               </div>
               <button
@@ -5547,7 +5649,9 @@ function RunSheetContent({
                       ? isCreatingSheet
                         ? "Creating..."
                         : "Create Run Sheet"
-                      : "Apply to Run Sheet"}
+                      : !isSchedulePendingState && games.length > 0
+                        ? "Merge Schedule Updates"
+                        : "Apply to Run Sheet"}
                   </button>
                 </div>
 

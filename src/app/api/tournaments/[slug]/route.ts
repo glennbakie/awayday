@@ -174,40 +174,145 @@ export async function PATCH(
     const resolvedParams = await Promise.resolve(context.params);
     const { slug } = resolvedParams;
     const body = await req.json();
-    const { is_archived } = body;
-    const nextArchived = Boolean(is_archived);
 
-    // Attempt direct update on `tournaments` table by slug
-    const { error } = await supabase
-      .from("tournaments")
-      .update({ is_archived: nextArchived })
-      .eq("slug", slug);
+    const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
+    const serviceOrAnonKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      "";
+    const dbClient = supabaseUrl && serviceOrAnonKey
+      ? createClient(supabaseUrl, serviceOrAnonKey, { auth: { persistSession: false } })
+      : supabase;
 
-    if (error) {
-      // Fallback: if `tournaments` uses `team_trips.share_slug`, update via trip lookup
-      try {
-        const { data: tripRow } = await supabase
-          .from("team_trips")
-          .select("id, tournament_id")
-          .eq("share_slug", slug)
-          .maybeSingle();
+    // 1. Archive toggle (if provided)
+    if (body.is_archived !== undefined) {
+      const nextArchived = Boolean(body.is_archived);
+      const { error } = await dbClient
+        .from("tournaments")
+        .update({ is_archived: nextArchived })
+        .eq("slug", slug);
 
-        if (tripRow?.tournament_id) {
-          await supabase
-            .from("tournaments")
-            .update({ is_archived: nextArchived })
-            .eq("id", tripRow.tournament_id);
+      if (error) {
+        try {
+          const { data: tripRow } = await dbClient
+            .from("team_trips")
+            .select("id, tournament_id")
+            .eq("share_slug", slug)
+            .maybeSingle();
+
+          if (tripRow?.tournament_id) {
+            await dbClient
+              .from("tournaments")
+              .update({ is_archived: nextArchived })
+              .eq("id", tripRow.tournament_id);
+          }
+        } catch (fallbackErr) {
+          console.warn("Fallback archive update warning (non-fatal):", fallbackErr);
         }
-      } catch (fallbackErr) {
-        console.warn("Fallback archive update warning (non-fatal):", fallbackErr);
+      }
+      if (!Array.isArray(body.games)) {
+        return NextResponse.json({ success: true, is_archived: nextArchived });
       }
     }
 
-    return NextResponse.json({ success: true, is_archived: nextArchived });
+    // 2. Games / schedule update (if provided)
+    if (Array.isArray(body.games)) {
+      const sortedGames = sortGamesChronologically(body.games);
+      const hasRealGames = sortedGames.some(
+        (g: any) => !g?.isPlaceholder && !/tbd|pending/i.test(String(g?.opponent || ""))
+      );
+      const nextPending = hasRealGames ? false : Boolean(body.schedule_pending);
+
+      const { data: tripRow } = await dbClient
+        .from("team_trips")
+        .select("id, tournament_id, team_name, hotel_name, hotel_address")
+        .eq("share_slug", slug)
+        .maybeSingle();
+
+      const { data: tourneyRow } = await dbClient
+        .from("tournaments")
+        .select("id, city, dates")
+        .or(`slug.eq.${slug},share_slug.eq.${slug}`)
+        .maybeSingle();
+
+      const tournamentId = tripRow?.tournament_id || tourneyRow?.id;
+
+      // Best-effort update on tournaments JSON/pending columns
+      if (tournamentId) {
+        try {
+          await dbClient
+            .from("tournaments")
+            .update({ schedule_pending: nextPending, schedule_json: sortedGames })
+            .eq("id", tournamentId);
+        } catch {
+          // Ignore if optional columns do not exist
+        }
+      }
+
+      // Replace games rows for this slug
+      try {
+        await dbClient.from("games").delete().eq("share_slug", slug);
+      } catch {
+        // Ignore if share_slug column does not exist
+      }
+
+      const teamLabel = tripRow?.team_name || "My Team";
+      const cityLabel = tourneyRow?.city || "Brampton, ON";
+      for (let idx = 0; idx < sortedGames.length; idx++) {
+        const g = sortedGames[idx] || {};
+        const opponent = String(g.opponent || `Opponent ${idx + 1}`).trim();
+        const venueName = String(g.venueName || "Tournament Venue").trim();
+        const venueAddress = String(g.venueAddress || cityLabel).trim();
+        const gameCity = resolveVenueCity(venueName, venueAddress, g.city || cityLabel);
+        const gamePayload: Record<string, any> = {
+          ...(tripRow?.id ? { trip_id: tripRow.id } : {}),
+          ...(tournamentId ? { tournament_id: tournamentId } : {}),
+          share_slug: slug,
+          game_number: idx + 1,
+          day_label: String(g.dayLabel || g.day || tourneyRow?.dates || "Weekend").trim(),
+          matchup: String(g.matchup || `${teamLabel} vs ${opponent}`).trim(),
+          opponent,
+          tipoff_minutes:
+            typeof g.tipOffMinutes === "number" && !Number.isNaN(g.tipOffMinutes)
+              ? g.tipOffMinutes
+              : 600 + idx * 180,
+          court: String(g.court || `Court ${idx + 1}`).trim(),
+          venue_name: venueName,
+          venue_address: venueAddress,
+          city: gameCity,
+          warmup_buffer_min: g.warmupBufferMin ?? 30,
+          hotel_travel_min: g.hotelTravelMin ?? 15,
+          status: String(g.status || "Upcoming").trim(),
+          jersey_color: String(g.jerseyColor || "White (Home)").trim(),
+          telemetry_flag: g.telemetryFlag || undefined,
+          is_placeholder: Boolean(g.isPlaceholder && !hasRealGames),
+        };
+
+        for (let attempt = 0; attempt < 8; attempt++) {
+          const { error: insErr } = await dbClient.from("games").insert(gamePayload);
+          if (!insErr) break;
+          const missingMatch = String(insErr.message || "").match(/Could not find the '([^']+)' column/i);
+          if (missingMatch?.[1] && missingMatch[1] in gamePayload) {
+            delete gamePayload[missingMatch[1]];
+            continue;
+          }
+          break;
+        }
+      }
+
+      return NextResponse.json({
+        success: true,
+        games: sortedGames,
+        schedulePending: nextPending,
+      });
+    }
+
+    return NextResponse.json({ success: true });
   } catch (err: any) {
     console.error("Error in PATCH /api/tournaments/[slug]:", err);
     return NextResponse.json(
-      { error: err?.message || "Failed to update archive state" },
+      { error: err?.message || "Failed to update tournament" },
       { status: 500 }
     );
   }

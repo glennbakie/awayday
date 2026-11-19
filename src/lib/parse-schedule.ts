@@ -196,79 +196,127 @@ function isTbdField(val?: string): boolean {
   return !v || /^(tbd|unknown|n\/a|pending)$/i.test(v);
 }
 
-function pickRicherString(a?: string, b?: string): string | undefined {
+function pickPreferredString(a?: string, b?: string, preferIncoming = false): string | undefined {
   const aTbd = isTbdField(a);
   const bTbd = isTbdField(b);
   if (aTbd && !bTbd) return b;
   if (!aTbd && bTbd) return a;
   if (!a) return b;
   if (!b) return a;
+  if (preferIncoming) return b;
   return b.trim().length > a.trim().length ? b : a;
 }
 
-function mergeTwoGames<T extends MergeableGame>(existing: T, incoming: T): T {
+function mergeTwoGames<T extends MergeableGame>(
+  existing: T,
+  incoming: T,
+  preferIncoming = false
+): T {
   return {
     ...existing,
-    day: pickRicherString(existing.day, incoming.day),
-    dateStr: pickRicherString(existing.dateStr, incoming.dateStr),
-    tipOff: pickRicherString(existing.tipOff, incoming.tipOff),
-    arrivalCall: pickRicherString(existing.arrivalCall, incoming.arrivalCall),
-    court: pickRicherString(existing.court, incoming.court),
-    venueName: pickRicherString(existing.venueName, incoming.venueName),
-    venueAddress: pickRicherString(existing.venueAddress, incoming.venueAddress),
-    opponent: pickRicherString(existing.opponent, incoming.opponent),
-    jerseyColor: pickRicherString(existing.jerseyColor, incoming.jerseyColor),
-    telemetryTag: existing.telemetryTag || incoming.telemetryTag,
+    ...(preferIncoming ? incoming : {}),
+    day: pickPreferredString(existing.day, incoming.day, preferIncoming),
+    dayLabel: pickPreferredString(existing.dayLabel, incoming.dayLabel, preferIncoming),
+    dateStr: pickPreferredString(existing.dateStr, incoming.dateStr, preferIncoming),
+    tipOff: pickPreferredString(existing.tipOff, incoming.tipOff, preferIncoming),
+    tipOffMinutes:
+      preferIncoming && typeof incoming.tipOffMinutes === "number"
+        ? incoming.tipOffMinutes
+        : existing.tipOffMinutes ?? incoming.tipOffMinutes,
+    arrivalCall: pickPreferredString(existing.arrivalCall, incoming.arrivalCall, preferIncoming),
+    court: pickPreferredString(existing.court, incoming.court, preferIncoming),
+    venueName: pickPreferredString(existing.venueName, incoming.venueName, preferIncoming),
+    venueAddress: pickPreferredString(existing.venueAddress, incoming.venueAddress, preferIncoming),
+    city: pickPreferredString(existing.city, incoming.city, preferIncoming),
+    opponent: pickPreferredString(existing.opponent, incoming.opponent, preferIncoming),
+    jerseyColor: pickPreferredString(existing.jerseyColor, incoming.jerseyColor, preferIncoming),
+    telemetryTag: preferIncoming
+      ? incoming.telemetryTag || existing.telemetryTag
+      : existing.telemetryTag || incoming.telemetryTag,
     isPlaceholder: Boolean(existing.isPlaceholder && incoming.isPlaceholder),
   };
 }
 
 /**
- * Merges and deduplicates games extracted across multiple screenshots/batches:
+ * Merges and deduplicates games extracted across multiple screenshots/batches or schedule updates:
  * 1. Discards chat-announcement/placeholder TBD entries when named games exist.
  * 2. Discards TBD-opponent entries that collide with a named game at the same date + startTime.
- * 3. Merges duplicate screenshots of the same game (same normalized date + startTime + opponent),
- *    preserving the richest venue, court, uniform, and arrival fields.
+ * 3. Matches by (normalizedDate + normalizedOpponent) for named opponents (or date + time + opp)
+ *    and merges into one record, preserving richest fields or preferring incoming updates.
+ * 4. Sorts chronologically by (date ASC, startTime ASC) and assigns gameNumber 1..N.
  */
-export function mergeAndDedupeGames<T extends MergeableGame>(games: T[]): T[] {
+export function mergeAndDedupeGames<T extends MergeableGame>(
+  games: T[],
+  options?: { preferIncoming?: boolean }
+): T[] {
+  const preferIncoming = Boolean(options?.preferIncoming);
   const hasAnyNamedGame = games.some(
     (g) => !g.isPlaceholder && !isUnknownOrTbdOpponent(g.opponent) && !/tbd|pending/i.test(g.tipOff || "")
   );
 
   const filtered = hasAnyNamedGame
-    ? games.filter((g) => !g.isPlaceholder && !isUnknownOrTbdOpponent(g.opponent))
+    ? games.filter(
+        (g) =>
+          (!g.isPlaceholder && !isUnknownOrTbdOpponent(g.opponent)) ||
+          (preferIncoming && typeof g.gameNumber === "number" && !g.isPlaceholder)
+      )
     : games;
 
   // Track named-game time slots (date + startTime) for time-slot collision checks
   const namedTimeSlots = new Set<string>();
   for (const g of filtered) {
     if (!isUnknownOrTbdOpponent(g.opponent)) {
-      const slot = `${normalizeDateKey(g.dateStr, g.day)}|${normalizeTimeKey(g.tipOff)}`;
+      const slot = `${normalizeDateKey(g.dateStr, g.dayLabel || g.day)}|${normalizeTimeKey(
+        g.tipOff || (typeof g.tipOffMinutes === "number" ? String(g.tipOffMinutes) : "")
+      )}`;
       namedTimeSlots.add(slot);
     }
   }
 
   const byKey = new Map<string, T>();
   const orderedKeys: string[] = [];
+  const keyByGameNumber = new Map<number, string>();
+  const keyByTimeSlot = new Map<string, string>();
 
   for (const g of filtered) {
-    const dateKey = normalizeDateKey(g.dateStr, g.day);
-    const timeKey = normalizeTimeKey(g.tipOff);
+    const dateKey = normalizeDateKey(g.dateStr, g.dayLabel || g.day);
+    const timeKey =
+      typeof g.tipOffMinutes === "number" && !Number.isNaN(g.tipOffMinutes)
+        ? String(g.tipOffMinutes)
+        : normalizeTimeKey(g.tipOff);
     const oppKey = normalizeOpponentName(g.opponent);
     const slotKey = `${dateKey}|${timeKey}`;
 
     // Discard generic TBD entry if a named game exists at that exact date + startTime
-    if (isUnknownOrTbdOpponent(g.opponent) && namedTimeSlots.has(slotKey)) {
+    if (isUnknownOrTbdOpponent(g.opponent) && namedTimeSlots.has(slotKey) && !preferIncoming) {
       continue;
     }
 
-    const dedupeKey = `${dateKey}|${timeKey}|${oppKey}`;
-    const existing = byKey.get(dedupeKey);
-    if (existing) {
-      byKey.set(dedupeKey, mergeTwoGames(existing, g));
+    const dedupeKey = !isUnknownOrTbdOpponent(g.opponent)
+      ? `${dateKey}|${oppKey}`
+      : `${dateKey}|${timeKey}|${oppKey}`;
+
+    let matchedKey: string | undefined = byKey.has(dedupeKey) ? dedupeKey : undefined;
+
+    if (!matchedKey && preferIncoming) {
+      if (typeof g.gameNumber === "number" && keyByGameNumber.has(g.gameNumber) && isUnknownOrTbdOpponent(g.opponent)) {
+        matchedKey = keyByGameNumber.get(g.gameNumber);
+      } else if (isUnknownOrTbdOpponent(g.opponent) && keyByTimeSlot.has(slotKey)) {
+        matchedKey = keyByTimeSlot.get(slotKey);
+      }
+    }
+
+    if (matchedKey && byKey.has(matchedKey)) {
+      byKey.set(matchedKey, mergeTwoGames(byKey.get(matchedKey)!, g, preferIncoming));
     } else {
       byKey.set(dedupeKey, g);
       orderedKeys.push(dedupeKey);
+      if (typeof g.gameNumber === "number") {
+        keyByGameNumber.set(g.gameNumber, dedupeKey);
+      }
+      if (slotKey && !/|$/i.test(slotKey)) {
+        keyByTimeSlot.set(slotKey, dedupeKey);
+      }
     }
   }
 
