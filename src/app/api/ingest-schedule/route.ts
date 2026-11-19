@@ -336,34 +336,37 @@ export async function POST(req: NextRequest) {
           ? `${userPrompt}\n\nBATCH INSTRUCTION: This batch contains ${batchParts.length} images. Extract EVERY SINGLE game shown in these ${batchParts.length} images without skipping or deduplicating distinct opponents/times.`
           : userPrompt;
 
+      const candidateModels = ["gemini-3.8-flash", "gemini-flash-latest"];
       for (const candidateKey of candidateKeys) {
-        try {
-          const ai = new GoogleGenAI({ apiKey: candidateKey });
-          const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: [
-              {
-                role: "user",
-                parts: [{ text: batchPrompt }, ...batchParts],
+        for (const modelName of candidateModels) {
+          try {
+            const ai = new GoogleGenAI({ apiKey: candidateKey });
+            const response = await ai.models.generateContent({
+              model: modelName,
+              contents: [
+                {
+                  role: "user",
+                  parts: [{ text: batchPrompt }, ...batchParts],
+                },
+              ],
+              config: {
+                systemInstruction,
+                maxOutputTokens: 8192,
+                responseMimeType: "application/json",
+                responseSchema,
               },
-            ],
-            config: {
-              systemInstruction,
-              maxOutputTokens: 8192,
-              responseMimeType: "application/json",
-              responseSchema,
-            },
-          });
+            });
 
-          if (response.text) {
-            return JSON.parse(response.text) as ParsedSchedulePayload;
+            if (response.text) {
+              return JSON.parse(response.text) as ParsedSchedulePayload;
+            }
+          } catch (innerErr: any) {
+            const errMsg = innerErr?.message || String(innerErr);
+            if (!lastGeminiError || !/PERMISSION_DENIED.*Permission denied on the service/i.test(errMsg)) {
+              lastGeminiError = errMsg;
+            }
+            console.warn(`Gemini ${modelName} attempt failed, trying fallback:`, innerErr);
           }
-        } catch (innerErr: any) {
-          const errMsg = innerErr?.message || String(innerErr);
-          if (!lastGeminiError || !/PERMISSION_DENIED.*Permission denied on the service/i.test(errMsg)) {
-            lastGeminiError = errMsg;
-          }
-          console.warn("Gemini candidate key attempt failed, trying fallback:", innerErr);
         }
       }
 
