@@ -326,6 +326,115 @@ export function mergeAndDedupeGames<T extends MergeableGame>(
 
 export const dedupeAndCleanGames = mergeAndDedupeGames;
 
+const ORDINAL_TO_NUMBER: Record<string, number> = {
+  one: 1,
+  first: 1,
+  "1": 1,
+  "1st": 1,
+  two: 2,
+  second: 2,
+  "2": 2,
+  "2nd": 2,
+  three: 3,
+  third: 3,
+  "3": 3,
+  "3rd": 3,
+  four: 4,
+  fourth: 4,
+  "4": 4,
+  "4th": 4,
+  five: 5,
+  fifth: 5,
+  "5": 5,
+  "5th": 5,
+  six: 6,
+  sixth: 6,
+  "6": 6,
+  "6th": 6,
+};
+
+export function parseGameNumberReference(text: string): number | null {
+  const m = text.match(
+    /\b(?:game\s+(one|two|three|four|five|six|\d+)|g\s*(\d+)|(first|second|third|fourth|fifth|sixth|1st|2nd|3rd|4th|5th|6th)\s+game)\b/i
+  );
+  if (!m) return null;
+  const token = (m[1] || m[2] || m[3] || "").toLowerCase();
+  return ORDINAL_TO_NUMBER[token] ?? (Number.isFinite(parseInt(token, 10)) ? parseInt(token, 10) : null);
+}
+
+/**
+ * Deterministically parses short natural-language schedule updates like:
+ * - "game one is now white jerseys"
+ * - "Game 2 moved to Court 3"
+ * - "first game tip-off at 1:30 PM"
+ * Returns the patched game(s) when a target existing game and at least one field update are detected,
+ * or null if the text is a full multi-line schedule.
+ */
+export function applyPartialTextPatchToGames<T extends MergeableGame>(
+  rawText: string,
+  existingGames: T[]
+): T[] | null {
+  const text = (rawText || "").trim();
+  if (!text || !Array.isArray(existingGames) || existingGames.length === 0) {
+    return null;
+  }
+
+  const targetNum = parseGameNumberReference(text);
+  if (!targetNum) return null;
+
+  const targetIdx = existingGames.findIndex(
+    (g, idx) => (g.gameNumber ?? idx + 1) === targetNum
+  );
+  if (targetIdx === -1) return null;
+
+  const base = existingGames[targetIdx];
+  let changed = false;
+  const patch: Partial<T> = {};
+
+  if (/\b(white|light|home)\b/i.test(text)) {
+    patch.jerseyColor = "White (Home)";
+    changed = true;
+  } else if (/\b(black|dark|away)\b/i.test(text)) {
+    patch.jerseyColor = "Dark / Black (Away)";
+    changed = true;
+  }
+
+  const courtMatch = text.match(/\bcourt\s*#?\s*([a-z0-9]+)\b/i);
+  if (courtMatch?.[1]) {
+    patch.court = `Court ${courtMatch[1].toUpperCase()}`;
+    changed = true;
+  }
+
+  const timeMatch = text.match(/\b(\d{1,2}):(\d{2})\s*(am|pm)?\b/i);
+  if (timeMatch) {
+    let h = parseInt(timeMatch[1], 10);
+    const mins = parseInt(timeMatch[2], 10);
+    const mer = (timeMatch[3] || "").toUpperCase();
+    if (mer === "PM" && h < 12) h += 12;
+    if (mer === "AM" && h === 12) h = 0;
+    patch.tipOffMinutes = h * 60 + mins;
+    patch.tipOff = `${timeMatch[1]}:${timeMatch[2]}${mer ? ` ${mer}` : ""}`;
+    changed = true;
+  }
+
+  if (!changed) return null;
+
+  const updatedMatchup =
+    patch.jerseyColor && base.opponent
+      ? base.matchup?.replace(/\s+(vs|at)\s+/i, /away|black/i.test(patch.jerseyColor) ? " at " : " vs ")
+      : base.matchup;
+
+  return [
+    {
+      ...base,
+      ...patch,
+      ...(updatedMatchup ? { matchup: updatedMatchup } : {}),
+      gameNumber: base.gameNumber ?? targetIdx + 1,
+      isPlaceholder: false,
+    },
+  ];
+}
+
 /**
  * Downscales an image File on a <canvas> to max dimension 1100px (JPEG, quality 0.78)
  * to shrink payload size by ~85% while keeping schedule text crisp.

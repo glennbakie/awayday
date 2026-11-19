@@ -17,6 +17,7 @@ import {
   compressImageForVision,
   sortGamesChronologically,
   resolveVenueCity,
+  applyPartialTextPatchToGames,
 } from "@/lib/parse-schedule";
 import { 
   Clock, 
@@ -1648,8 +1649,20 @@ function RunSheetContent({
       return;
     }
 
-    setIsAnalyzingScreenshots(true);
     setIngestError(null);
+
+    const isUpdatingExistingSheet =
+      ingestModalMode === "update" && !isSchedulePendingState && games.length > 0;
+
+    if (isUpdatingExistingSheet && ingestImages.length === 0) {
+      const localPatch = applyPartialTextPatchToGames(trimmedText, games);
+      if (localPatch && localPatch.length > 0) {
+        setParsedPreviewGames(localPatch);
+        return;
+      }
+    }
+
+    setIsAnalyzingScreenshots(true);
 
     try {
       const formData = new FormData();
@@ -1668,7 +1681,7 @@ function RunSheetContent({
       } else {
         formData.append("teamName", tournament.teamName);
         formData.append("tournamentName", tournament.name);
-        if (!isSchedulePendingState && games.length > 0) {
+        if (isUpdatingExistingSheet) {
           formData.append("existingGames", JSON.stringify(games));
         }
       }
@@ -1679,11 +1692,25 @@ function RunSheetContent({
       });
       const data = await res.json().catch(() => null);
       if (res.ok && data?.success && Array.isArray(data.games) && data.games.length > 0) {
+        const hasRealApiGames = data.games.some(
+          (g: any) => !g?.isPlaceholder && !/tbd|pending/i.test(String(g?.opponent || ""))
+        );
         if (ingestModalMode === "create") {
           setPendingCreateMeta(data);
-        } else {
+        } else if (!isUpdatingExistingSheet) {
           applyExtractedTournamentFromApi(data);
         }
+
+        if (isUpdatingExistingSheet && !hasRealApiGames) {
+          const fallbackPatch = applyPartialTextPatchToGames(trimmedText, games);
+          if (fallbackPatch && fallbackPatch.length > 0) {
+            setParsedPreviewGames(fallbackPatch);
+            return;
+          }
+          setIngestError("Could not match that update to an existing game. Try e.g. 'Game 1 white jerseys' or 'Game 2 Court 3'.");
+          return;
+        }
+
         const mapped = mapExtractedGamesFromApi(dedupeAndCleanGames(data.games), data);
         setParsedPreviewGames(mapped);
         return;
@@ -1984,7 +2011,7 @@ function RunSheetContent({
 
       if (ingestModalMode === "create") {
         setPendingCreateMeta(mergedData);
-      } else {
+      } else if (isSchedulePendingState || games.length === 0) {
         applyExtractedTournamentFromApi(mergedData);
       }
       if (finalExtracted.length === 0 && !mergedData?.schedulePending) {
@@ -2139,6 +2166,7 @@ function RunSheetContent({
     }
     try {
       const serialized = JSON.stringify(finalMergedGames);
+      window.localStorage.setItem("awayday_active_slug", slug);
       window.localStorage.setItem(`awayday_games_${slug}`, serialized);
       window.localStorage.setItem(`awayday_games_sprint1_${slug}`, serialized);
     } catch {

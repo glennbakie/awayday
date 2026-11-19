@@ -5,7 +5,7 @@ import {
   computeTravelCorridor,
   getCityFuelAndFoodRecommendations,
 } from "@/lib/corridor-engine";
-import { mergeAndDedupeGames } from "@/lib/parse-schedule";
+import { mergeAndDedupeGames, applyPartialTextPatchToGames } from "@/lib/parse-schedule";
 
 export interface ExtractedGame {
   day: string;          // e.g. "Saturday, Oct 24"
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
 
     const existingSummary =
       existingGamesContext.length > 0
-        ? `Existing Scheduled Games (match by Game #, date, time, or opponent if the new text/screenshots update an existing game, e.g. 'Game 1 moved to Court 3, wear White'):\n${existingGamesContext
+        ? `Existing Scheduled Games (match by Game # / ordinal like "game one" / "first game", date, time, or opponent if the new text/screenshots update an existing game, e.g. 'game one is now white jerseys' or 'Game 2 moved to Court 3' — preserve the existing opponent/venue/date/time for any unchanged fields and set isPlaceholder: false):\n${existingGamesContext
             .map(
               (g: any, idx: number) =>
                 `Game ${g.gameNumber ?? idx + 1}: ${g.dayLabel || g.day || ""} | ${g.opponent || "TBD"} | ${g.court || "TBD"} | ${g.venueName || ""} | ${g.jerseyColor || ""}`
@@ -557,19 +557,55 @@ export async function POST(req: NextRequest) {
         : teamName;
 
     const rawGames = Array.isArray(parsed.games) ? parsed.games : [];
+    const partialTextPatch =
+      existingGamesContext.length > 0 && rawText
+        ? applyPartialTextPatchToGames(rawText, existingGamesContext)
+        : null;
+
+    const effectiveRawGames =
+      partialTextPatch &&
+      (rawGames.length === 0 ||
+        rawGames.every(
+          (g) =>
+            g.isPlaceholder === true ||
+            /tbd|pending/i.test(g.tipOff || "") ||
+            /game\s*\d+\s*-\s*tbd|tip-off pending/i.test(g.opponent || "")
+        ))
+        ? partialTextPatch.map((pg: any) => ({
+            day: pg.dayLabel || pg.day || "Weekend",
+            dateStr: pg.dateStr || "",
+            tipOff:
+              pg.tipOff ||
+              (typeof pg.tipOffMinutes === "number"
+                ? `${Math.floor(pg.tipOffMinutes / 60) % 12 || 12}:${String(pg.tipOffMinutes % 60).padStart(2, "0")} ${pg.tipOffMinutes >= 720 ? "PM" : "AM"}`
+                : "12:00 PM"),
+            arrivalCall: pg.arrivalCall || "",
+            court: pg.court || "TBD",
+            venueName: pg.venueName || "Tournament Venue",
+            venueAddress: pg.venueAddress || "",
+            opponent: pg.opponent || "Opponent",
+            jerseyColor: (pg.jerseyColor === "Dark / Black (Away)" ? "Dark / Black (Away)" : "White (Home)") as "White (Home)" | "Dark / Black (Away)",
+            telemetryTag: pg.telemetryTag,
+            isPlaceholder: false,
+          }))
+        : rawGames;
+
     const hasOnlyPlaceholders =
-      rawGames.length === 0 ||
-      rawGames.every(
+      effectiveRawGames.length === 0 ||
+      effectiveRawGames.every(
         (g) =>
           g.isPlaceholder === true ||
           /tbd|pending/i.test(g.tipOff || "") ||
           /game\s*\d+\s*-\s*tbd|tip-off pending/i.test(g.opponent || "")
       );
-    const isSchedulePending = Boolean(parsed.schedulePending || hasOnlyPlaceholders);
+    const isSchedulePending =
+      existingGamesContext.length > 0 && hasOnlyPlaceholders
+        ? false
+        : Boolean(parsed.schedulePending || hasOnlyPlaceholders);
 
     const shortCity = resolvedCity.split(",")[0].trim() || "Brampton";
     const gamesOut: ExtractedGame[] =
-      isSchedulePending && rawGames.length === 0
+      isSchedulePending && effectiveRawGames.length === 0
         ? [
             {
               day: resolvedDates.split(/[-–]/)[0]?.trim() || "Sat, Nov 21",
@@ -598,7 +634,7 @@ export async function POST(req: NextRequest) {
               isPlaceholder: true,
             },
           ]
-        : rawGames;
+        : effectiveRawGames;
 
     const rawHotelName = (parsed.hotel?.name || "").trim();
     const rawHotelAddress = (parsed.hotel?.address || "").trim();
