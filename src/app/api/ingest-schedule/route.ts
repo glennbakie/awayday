@@ -242,14 +242,103 @@ export async function POST(req: NextRequest) {
     }
 
     let lastGeminiError: string | null = null;
+
+    const callOpenAiFallback = async (
+      batchPrompt: string,
+      batchParts: Array<{ inlineData: { mimeType: string; data: string } }>
+    ): Promise<ParsedSchedulePayload | null> => {
+      const openAiKey = (process.env.OPENAI_API_KEY || "").trim();
+      if (!openAiKey) return null;
+      const content: any[] = [
+        {
+          type: "text",
+          text: `${systemInstruction}\n\n${batchPrompt}\n\nReturn ONLY a valid JSON object matching { success: boolean, schedulePending: boolean, tournamentName?: string, teamName?: string, city?: string, dates?: string, hotel?: { name?: string, address?: string, rate?: string, breakfastHours?: string, checkoutTime?: string }, games: Array<{ day, dateStr, tipOff, arrivalCall, court, venueName, venueAddress?, opponent, jerseyColor, telemetryTag?, isPlaceholder? }> }.`,
+        },
+        ...batchParts
+          .filter((p) => p.inlineData.mimeType.startsWith("image/"))
+          .map((p) => ({
+            type: "image_url",
+            image_url: {
+              url: `data:${p.inlineData.mimeType};base64,${p.inlineData.data}`,
+            },
+          })),
+      ];
+      const res = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openAiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o-mini",
+          response_format: { type: "json_object" },
+          max_tokens: 4096,
+          messages: [{ role: "user", content }],
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`OpenAI fallback failed (${res.status}): ${errText.slice(0, 200)}`);
+      }
+      const json = await res.json();
+      const rawContent = json?.choices?.[0]?.message?.content;
+      return rawContent ? (JSON.parse(rawContent) as ParsedSchedulePayload) : null;
+    };
+
+    const callAnthropicFallback = async (
+      batchPrompt: string,
+      batchParts: Array<{ inlineData: { mimeType: string; data: string } }>
+    ): Promise<ParsedSchedulePayload | null> => {
+      const anthropicKey = (process.env.ANTHROPIC_API_KEY || "").trim();
+      if (!anthropicKey) return null;
+      const content: any[] = [
+        ...batchParts
+          .filter((p) => p.inlineData.mimeType.startsWith("image/"))
+          .map((p) => ({
+            type: "image",
+            source: {
+              type: "base64",
+              media_type: p.inlineData.mimeType,
+              data: p.inlineData.data,
+            },
+          })),
+        {
+          type: "text",
+          text: `${systemInstruction}\n\n${batchPrompt}\n\nReturn ONLY raw JSON (no markdown fences) matching { success: boolean, schedulePending: boolean, tournamentName?: string, teamName?: string, city?: string, dates?: string, hotel?: { name?: string, address?: string, rate?: string, breakfastHours?: string, checkoutTime?: string }, games: Array<{ day, dateStr, tipOff, arrivalCall, court, venueName, venueAddress?, opponent, jerseyColor, telemetryTag?, isPlaceholder? }> }.`,
+        },
+      ];
+      const res = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": anthropicKey,
+          "anthropic-version": "2023-06-01",
+        },
+        body: JSON.stringify({
+          model: "claude-3-5-sonnet-latest",
+          max_tokens: 4096,
+          messages: [{ role: "user", content }],
+        }),
+      });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        throw new Error(`Anthropic fallback failed (${res.status}): ${errText.slice(0, 200)}`);
+      }
+      const json = await res.json();
+      const rawTextBlock = json?.content?.find((b: any) => b?.type === "text")?.text || "";
+      const cleaned = rawTextBlock.replace(/^```json\s*/i, "").replace(/```\s*$/, "").trim();
+      return cleaned ? (JSON.parse(cleaned) as ParsedSchedulePayload) : null;
+    };
+
     const extractBatch = async (batchParts: Array<{ inlineData: { mimeType: string; data: string } }>) => {
+      const batchPrompt =
+        batchParts.length > 1
+          ? `${userPrompt}\n\nBATCH INSTRUCTION: This batch contains ${batchParts.length} images. Extract EVERY SINGLE game shown in these ${batchParts.length} images without skipping or deduplicating distinct opponents/times.`
+          : userPrompt;
+
       for (const candidateKey of candidateKeys) {
         try {
           const ai = new GoogleGenAI({ apiKey: candidateKey });
-          const batchPrompt =
-            batchParts.length > 1
-              ? `${userPrompt}\n\nBATCH INSTRUCTION: This batch contains ${batchParts.length} images. Extract EVERY SINGLE game shown in these ${batchParts.length} images without skipping or deduplicating distinct opponents/times.`
-              : userPrompt;
           const response = await ai.models.generateContent({
             model: "gemini-2.5-flash",
             contents: [
@@ -270,10 +359,28 @@ export async function POST(req: NextRequest) {
             return JSON.parse(response.text) as ParsedSchedulePayload;
           }
         } catch (innerErr: any) {
-          lastGeminiError = innerErr?.message || String(innerErr);
+          const errMsg = innerErr?.message || String(innerErr);
+          if (!lastGeminiError || !/PERMISSION_DENIED.*Permission denied on the service/i.test(errMsg)) {
+            lastGeminiError = errMsg;
+          }
           console.warn("Gemini candidate key attempt failed, trying fallback:", innerErr);
         }
       }
+
+      try {
+        const openAiParsed = await callOpenAiFallback(batchPrompt, batchParts);
+        if (openAiParsed) return openAiParsed;
+      } catch (openAiErr: any) {
+        lastGeminiError = openAiErr?.message || lastGeminiError;
+      }
+
+      try {
+        const anthropicParsed = await callAnthropicFallback(batchPrompt, batchParts);
+        if (anthropicParsed) return anthropicParsed;
+      } catch (anthropicErr: any) {
+        lastGeminiError = anthropicErr?.message || lastGeminiError;
+      }
+
       return null;
     };
 
