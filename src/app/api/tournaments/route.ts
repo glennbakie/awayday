@@ -119,17 +119,35 @@ function buildSlugFromParts(rawName: string): string {
   return `${base || "awayday-sheet"}-${suffix}`;
 }
 
+function getFallbackValueForColumn(
+  col: string,
+  defaults: { slug: string; teamName: string; name: string }
+): any {
+  const lower = col.toLowerCase();
+  if (lower.includes("slug")) return defaults.slug;
+  if (lower === "team_name") return defaults.teamName;
+  if (lower === "name" || lower === "title") return defaults.name;
+  if (lower.includes("date")) return new Date().toISOString().slice(0, 10);
+  if (lower === "games" || lower === "schedule") return [];
+  if (lower.includes("json") || lower === "meta") return {};
+  return "TBD";
+}
+
 async function resilientUpsert(
   dbClient: any,
   table: string,
   payload: Record<string, any>,
   onConflict?: string,
-  defaultSlug?: string
+  defaults: { slug: string; teamName: string; name: string } = {
+    slug: "awayday-sheet",
+    teamName: "Ottawa Elite",
+    name: "Weekend Tournament",
+  }
 ): Promise<{ data: any; error: any }> {
   const currentPayload: Record<string, any> = { ...payload };
   let activeConflict = onConflict;
 
-  for (let attempt = 0; attempt <= Object.keys(payload).length + 6; attempt++) {
+  for (let attempt = 0; attempt < 10; attempt++) {
     const query = activeConflict
       ? dbClient.from(table).upsert(currentPayload, { onConflict: activeConflict })
       : dbClient.from(table).insert(currentPayload);
@@ -140,6 +158,16 @@ async function resilientUpsert(
     }
 
     const msg = String(error?.message || "");
+
+    const notNullMatch = msg.match(/null value in column "([^"]+)"/i);
+    if (notNullMatch?.[1]) {
+      const requiredCol = notNullMatch[1];
+      if (!(requiredCol in currentPayload) || currentPayload[requiredCol] == null) {
+        currentPayload[requiredCol] = getFallbackValueForColumn(requiredCol, defaults);
+        continue;
+      }
+    }
+
     const missingMatch = msg.match(/Could not find the '([^']+)' column/i);
     if (missingMatch?.[1] && missingMatch[1] in currentPayload) {
       const missingCol = missingMatch[1];
@@ -153,17 +181,6 @@ async function resilientUpsert(
       continue;
     }
 
-    const notNullMatch = msg.match(/null value in column "([^"]+)" violates not-null constraint/i);
-    if (notNullMatch?.[1]) {
-      const requiredCol = notNullMatch[1];
-      if (!(requiredCol in currentPayload) || currentPayload[requiredCol] == null) {
-        currentPayload[requiredCol] = /slug$/i.test(requiredCol)
-          ? defaultSlug || "awayday-sheet"
-          : "";
-        continue;
-      }
-    }
-
     if (activeConflict && /no unique or exclusion constraint matching the ON CONFLICT/i.test(msg)) {
       activeConflict = undefined;
       continue;
@@ -172,20 +189,34 @@ async function resilientUpsert(
     return { data: null, error };
   }
 
-  return { data: null, error: { message: `Failed to upsert into ${table}` } };
+  return { data: null, error: { message: `Failed to upsert into ${table} after 10 attempts` } };
 }
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const rawName = (body?.name || body?.tournamentName || "Tournament Weekend").trim();
-    const teamName = (body?.teamName || "My Team").trim() || "My Team";
-    const city = (body?.city || "Brampton, ON").trim() || "Brampton, ON";
+    const rawName = (
+      body?.name ||
+      body?.tournamentName ||
+      body?.parsedTournamentName ||
+      "Weekend Tournament"
+    ).trim() || "Weekend Tournament";
+    const teamName = (
+      body?.teamName ||
+      body?.parsedTeamName ||
+      "Ottawa Elite"
+    ).trim() || "Ottawa Elite";
+    const city = (body?.city || "TBD").trim() || "TBD";
     const dates = (body?.dates || "Nov 21–22, 2026").trim() || "Nov 21–22, 2026";
+    const todayIso = new Date().toISOString().slice(0, 10);
+    const startDate = (body?.startDate || body?.start_date || todayIso).trim() || todayIso;
+    const endDate = (body?.endDate || body?.end_date || startDate || todayIso).trim() || todayIso;
     const hotelName = (body?.hotel?.name || "Team Hotel").trim();
     const hotelAddress = (body?.hotel?.address || city).trim();
     const requestedSlug = (body?.slug || "").trim();
     const slug = requestedSlug || buildSlugFromParts(`${rawName}-${teamName}`);
+    const shareSlug = (body?.shareSlug || body?.share_slug || slug).trim() || slug;
+    const schemaDefaults = { slug, teamName, name: rawName };
 
     const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
@@ -205,15 +236,18 @@ export async function POST(req: NextRequest) {
       dbClient,
       "tournaments",
       {
-        slug,
-        share_slug: slug,
+        team_name: teamName,
         name: rawName,
+        slug,
+        share_slug: shareSlug,
         city,
         dates,
+        start_date: startDate,
+        end_date: endDate,
         is_archived: false,
       },
       "slug",
-      slug
+      schemaDefaults
     );
 
     if (!tourneyErr && tourneyRow?.id) {
@@ -222,13 +256,13 @@ export async function POST(req: NextRequest) {
       if (tourneyErr) {
         lastErrorMessage = tourneyErr.message;
       }
-      // Fallback to minimal `tournaments` payload (`name` + `share_slug`)
+      // Fallback to minimal `tournaments` payload (`name`, `team_name`, `share_slug`)
       const { data: minRow, error: minErr } = await resilientUpsert(
         dbClient,
         "tournaments",
-        { name: rawName, share_slug: slug },
+        { name: rawName, team_name: teamName, share_slug: shareSlug },
         "name",
-        slug
+        schemaDefaults
       );
 
       if (minErr) {
@@ -248,10 +282,10 @@ export async function POST(req: NextRequest) {
           team_name: teamName,
           hotel_name: hotelName,
           hotel_address: hotelAddress,
-          share_slug: slug,
+          share_slug: shareSlug,
         },
         "share_slug",
-        slug
+        schemaDefaults
       );
       if (tripErr) {
         lastErrorMessage = tripErr.message;
