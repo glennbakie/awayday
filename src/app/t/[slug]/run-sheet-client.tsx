@@ -540,14 +540,6 @@ function RunSheetContent({
     }
   }, [showPassModal]);
 
-  const cityFuel = getCityFuelAndFoodRecommendations(
-    tournament.city || "Brampton, ON",
-    tournament.hotel.address || "150 Westcreek Blvd, Brampton"
-  );
-  const coffeeSpots = cityFuel.coffeeSpots;
-  const quickLunchSpots = cityFuel.quickLunchSpots;
-  const corridorFoodSpots = cityFuel.corridorFoodSpots;
-
   const [games, setGames] = useState<Game[]>(() =>
     isDemoSlug
       ? [
@@ -1198,6 +1190,36 @@ function RunSheetContent({
     };
   }, [slug]);
 
+  const satGames = games.filter((g) => /sat/i.test(g.dayLabel || "") && !g.isPlaceholder);
+  const primarySatGame = satGames[0] || games.find((g) => !g.isPlaceholder) || games[0];
+  const lastSatGame = satGames[satGames.length - 1] || primarySatGame;
+  const primarySatVenueLabel = primarySatGame?.venueName || tournament.primaryHub || "Primary Gym";
+  const hasRealHotel =
+    Boolean(tournament.hotel?.address) &&
+    !/^(tbd|away)$/i.test(tournament.hotel.address.trim()) &&
+    !(/mississauga/i.test(tournament.city || "") && /150 westcreek/i.test(tournament.hotel.address));
+  const dinnerAnchorHotelName =
+    tournament.hotel?.name && !/^team\s*hotel/i.test(tournament.hotel.name) && hasRealHotel
+      ? tournament.hotel.name
+      : lastSatGame?.venueName || "Team Hotel";
+  const dinnerAnchorAddress = hasRealHotel
+    ? tournament.hotel.address
+    : lastSatGame?.venueAddress || lastSatGame?.city || tournament.city || "";
+
+  const cityFuel = getCityFuelAndFoodRecommendations(
+    tournament.city || primarySatGame?.city || "Brampton, ON",
+    dinnerAnchorAddress,
+    {
+      venueName: primarySatVenueLabel,
+      venueAddress: primarySatGame?.venueAddress || tournament.primaryHubAddress,
+      venueCity: primarySatGame?.city || tournament.city,
+      hotelName: dinnerAnchorHotelName,
+    }
+  );
+  const coffeeSpots = cityFuel.coffeeSpots;
+  const quickLunchSpots = cityFuel.quickLunchSpots;
+  const corridorFoodSpots = cityFuel.corridorFoodSpots;
+
   const mapDinnerSpotsToMealOptions = (
     spots: ReturnType<typeof getCityFuelAndFoodRecommendations>["dinnerSpots"]
   ): MealOption[] => {
@@ -1218,23 +1240,28 @@ function RunSheetContent({
     mapDinnerSpotsToMealOptions(cityFuel.dinnerSpots)
   );
 
-  // Sync dinner poll options when tournament city/hotel changes (e.g., Brampton vs Oakville)
+  // Sync dinner poll options when tournament city, hotel, or games change
   useEffect(() => {
-    const recommendedDinner = mapDinnerSpotsToMealOptions(
-      getCityFuelAndFoodRecommendations(
-        tournament.city || "Brampton, ON",
-        tournament.hotel.address || "150 Westcreek Blvd, Brampton"
-      ).dinnerSpots
-    );
+    const recommendedDinner = mapDinnerSpotsToMealOptions(cityFuel.dinnerSpots);
     setOptions((prev) => {
-      const isBrampton = (tournament.city || "").toLowerCase().includes("brampton");
-      const hasOakvilleSpots = prev.some((o) => /oakville/i.test(o.name) || /oakville/i.test(o.address));
-      if (isBrampton && hasOakvilleSpots) {
+      const anchorText = `${dinnerAnchorAddress} ${tournament.city || ""}`.toLowerCase();
+      const isMississaugaAnchor = anchorText.includes("mississauga");
+      const isOakvilleAnchor = anchorText.includes("oakville") || anchorText.includes("burlington");
+      const isBramptonAnchor = anchorText.includes("brampton");
+      const hasBramptonSpots = prev.some((o) => /brampton|orion gate|westcreek/i.test(`${o.name} ${o.address}`));
+      const hasOakvilleSpots = prev.some((o) => /oakville/i.test(`${o.name} ${o.address}`));
+      const hasMississaugaSpots = prev.some((o) => /mississauga|heartland|square one/i.test(`${o.name} ${o.address}`));
+
+      if (
+        (isMississaugaAnchor && !hasMississaugaSpots) ||
+        (isOakvilleAnchor && !hasOakvilleSpots) ||
+        (isBramptonAnchor && !hasBramptonSpots && (hasOakvilleSpots || hasMississaugaSpots))
+      ) {
         return recommendedDinner;
       }
       return prev;
     });
-  }, [tournament.city, tournament.hotel.address]);
+  }, [tournament.city, tournament.hotel.address, dinnerAnchorAddress, games]);
 
   const [vaultTournaments, setVaultTournaments] = useState<VaultTournament[]>([]);
 
@@ -4142,7 +4169,7 @@ function RunSheetContent({
                     <Zap className="w-4 h-4 text-[#0B192C]" /> Fast Athlete Fuel Near Gym
                   </h4>
                   <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                    No reservations needed — quick wraps, smoothies, &amp; light carbs
+                    Near {primarySatVenueLabel} — quick wraps, smoothies, &amp; light carbs
                   </p>
                 </div>
                 <span className="inline-flex items-center rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 shrink-0">
@@ -4679,11 +4706,13 @@ function RunSheetContent({
                 <h3 className="text-xs font-black tracking-tight uppercase text-[#0B192C]">
                   Sideline Fuel
                 </h3>
-                <span className="text-[11px] text-slate-500 font-medium">Coffee Radar &amp; Parent Pit Stops (10-Min Hotel Radius)</span>
+                <span className="text-[11px] text-slate-500 font-medium">
+                  Coffee Radar &amp; Parent Pit Stops near {primarySatVenueLabel}
+                </span>
               </div>
             </div>
             <span className="inline-flex items-center rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
-              Near Hotel
+              Near Gym
             </span>
           </div>
 

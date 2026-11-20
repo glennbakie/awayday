@@ -100,16 +100,20 @@ export function getGoogleMapsSearchUrl(address: string): string {
 
 export function getCityFuelAndFoodRecommendations(
   cityRaw = "Brampton, ON",
-  hotelAddress = "150 Westcreek Blvd, Brampton, ON"
+  hotelAddress = "",
+  venueContext?: {
+    venueName?: string;
+    venueAddress?: string;
+    venueCity?: string;
+    hotelName?: string;
+  }
 ): CityFuelRecommendations {
-  const lowerCity = (cityRaw || "").toLowerCase();
-  const lowerHotel = (hotelAddress || "").toLowerCase();
-  const isOakville = lowerCity.includes("oakville") || lowerCity.includes("burlington");
-  const isBrampton =
-    lowerCity.includes("brampton") ||
-    lowerHotel.includes("westcreek") ||
-    lowerHotel.includes("brampton") ||
-    !isOakville;
+  const venueLabel = (venueContext?.venueName || "").trim() || "Primary Gym";
+  const venueAddr = (venueContext?.venueAddress || "").trim();
+  const venueCityText = (venueContext?.venueCity || venueAddr || venueLabel || cityRaw || "").toLowerCase();
+
+  const hotelLabel = (venueContext?.hotelName || "").trim() || (hotelAddress || "").trim() || "Team Hotel";
+  const hotelCityText = (hotelAddress || cityRaw || "").toLowerCase();
 
   const s1Addr = "1200 Division St, Kingston, ON K7K 6X4";
   const s2Addr = "Port Hope ONroute Westbound, Hwy 401, Port Hope, ON";
@@ -136,116 +140,328 @@ export function getCityFuelAndFoodRecommendations(
     },
   ];
 
-  if (!isBrampton && isOakville) {
-    return {
-      corridorFoodSpots,
-      dinnerSpots: [
-        {
-          name: "Beertown Public House (Oakville)",
-          type: "Team Sit-Down",
-          distance: "6 min drive from hotel",
-          note: "Large group tables and athlete-friendly menu",
-          phone: "(905) 849-8696",
-          address: "271 Cornwall Rd, Oakville, ON",
-          votes: 0,
-          seats: 0,
-          players: 0,
-          adults: 0,
-          percentage: 0,
-          isLeading: false,
-        },
-        {
-          name: "Scaddabush Italian Kitchen (Oakville)",
-          type: "Pasta & Team Tables",
-          distance: "5 min drive from hotel",
-          note: "Pre-game pasta bowls & shareable team platters",
-          phone: "(905) 829-0070",
-          address: "2095 Winston Park Dr, Oakville, ON",
-          votes: 0,
-          seats: 0,
-          players: 0,
-          adults: 0,
-          percentage: 0,
-          isLeading: false,
-        },
-        {
-          name: "State & Main Kitchen (Oakville)",
-          type: "Casual / Group Seating",
-          distance: "8 min drive from hotel",
-          note: "Easy group seating for parents & players",
-          phone: "(289) 291-0022",
-          address: "478 Dundas St W, Oakville, ON",
-          votes: 0,
-          seats: 0,
-          players: 0,
-          adults: 0,
-          percentage: 0,
-          isLeading: false,
-        },
-      ],
-      quickLunchSpots: [
-        {
-          name: "Fortinos Hot Bar & Panini Counter",
-          type: "Deli Wraps, Pasta & Salad Bar",
-          distance: "4 min drive (1.8 km)",
-          note: "Huge fresh hot bar, grilled paninis, fruit & hydration — ideal between weekend games.",
-          address: "Upper Middle Rd, Burlington, ON",
-        },
-        {
-          name: "Firehouse Subs (Burlington / Oakville)",
-          type: "Hot & Cold Subs",
-          distance: "5 min drive (2.1 km)",
-          note: "Quick hearty subs, easy seating for athletes & parents between games.",
-          address: "Burlington, ON",
-        },
-        {
-          name: "Freshii (Dorval Crossing)",
-          type: "Smoothies & Bowls",
-          distance: "3 min drive (1.3 km)",
-          note: "Fast wraps, protein bowls, energizing smoothies. Order ahead on app.",
-          address: "Dorval Dr, Oakville, ON",
-        },
-        {
-          name: "Booster Juice",
-          type: "Smoothies & Paninis",
-          distance: "3 min drive (1.4 km)",
-          note: "Quick athlete fuel & hydration between back-to-back games.",
-          address: "Oakville, ON",
-        },
-      ],
-      coffeeSpots: [
-        {
-          name: "Tribeca Coffee Co. (Oakville)",
-          distance: "4 min drive (1.6 km)",
-          type: "Sit Down & Wi-Fi",
-          note: "Craft espresso, warm pastries, great parent lounge spot near Dorval",
-          address: "Oakville, ON",
-        },
-        {
-          name: "Tim Hortons (Dorval Crossing)",
-          distance: "2 min drive (0.8 km)",
-          type: "Drive-Thru",
-          note: "Right off Dorval Dr & QEW — fast mobile order pickup before tip-off",
-          address: "Dorval Dr, Oakville, ON",
-        },
-        {
-          name: "Peach Coffee Co. (Burlington)",
-          distance: "5 min drive (2.2 km)",
-          type: "Specialty / Fast",
-          note: "Close to Notre Dame CSS for Sunday morning coffee run",
-          address: "Burlington, ON",
-        },
-      ],
-    };
+  // 1. Midday Fuel & Coffee — anchored to Primary Saturday Game Venue
+  const isVenueOakville = venueCityText.includes("oakville") || venueCityText.includes("burlington");
+  const isVenueMississauga =
+    venueCityText.includes("mississauga") ||
+    venueCityText.includes("rick hansen") ||
+    venueCityText.includes("meadowvale") ||
+    venueCityText.includes("erin mills");
+  const isVenueBrampton =
+    venueCityText.includes("brampton") ||
+    venueCityText.includes("central peel") ||
+    venueCityText.includes("westcreek");
+
+  let quickLunchSpots: CityDiningSpot[];
+  let coffeeSpots: CityDiningSpot[];
+
+  if (isVenueOakville) {
+    quickLunchSpots = [
+      {
+        name: "Fortinos Hot Bar & Panini Counter",
+        type: "Deli Wraps, Pasta & Salad Bar",
+        distance: `4 min drive near ${venueLabel}`,
+        note: "Huge fresh hot bar, grilled paninis, fruit & hydration — ideal between weekend games.",
+        address: "Upper Middle Rd, Burlington, ON",
+      },
+      {
+        name: "Firehouse Subs (Burlington / Oakville)",
+        type: "Hot & Cold Subs",
+        distance: `5 min drive near ${venueLabel}`,
+        note: "Quick hearty subs, easy seating for athletes & parents between games.",
+        address: "Burlington, ON",
+      },
+      {
+        name: "Freshii (Dorval Crossing)",
+        type: "Smoothies & Bowls",
+        distance: `3 min drive near ${venueLabel}`,
+        note: "Fast wraps, protein bowls, energizing smoothies. Order ahead on app.",
+        address: "Dorval Dr, Oakville, ON",
+      },
+      {
+        name: "Booster Juice",
+        type: "Smoothies & Paninis",
+        distance: `3 min drive near ${venueLabel}`,
+        note: "Quick athlete fuel & hydration between back-to-back games.",
+        address: "Oakville, ON",
+      },
+    ];
+    coffeeSpots = [
+      {
+        name: "Tribeca Coffee Co. (Oakville)",
+        distance: `4 min drive near ${venueLabel}`,
+        type: "Sit Down & Wi-Fi",
+        note: "Craft espresso, warm pastries, great parent lounge spot near Dorval",
+        address: "Oakville, ON",
+      },
+      {
+        name: "Tim Hortons (Dorval Crossing)",
+        distance: `2 min drive near ${venueLabel}`,
+        type: "Drive-Thru",
+        note: "Right off Dorval Dr & QEW — fast mobile order pickup before tip-off",
+        address: "Dorval Dr, Oakville, ON",
+      },
+      {
+        name: "Peach Coffee Co. (Burlington)",
+        distance: `5 min drive near ${venueLabel}`,
+        type: "Specialty / Fast",
+        note: "Close to Notre Dame CSS for Sunday morning coffee run",
+        address: "Burlington, ON",
+      },
+    ];
+  } else if (isVenueMississauga) {
+    quickLunchSpots = [
+      {
+        name: "Osmow's Shawarma & Grill (Mississauga)",
+        type: "Protein Bowls & Wraps",
+        distance: `5 min drive near ${venueLabel}`,
+        note: "Fast chicken/rice bowls & wraps between Saturday games.",
+        address: "Hurontario St & Matheson Blvd, Mississauga, ON",
+      },
+      {
+        name: "Freshii & Subway (Heartland / Mississauga)",
+        type: "Wraps, Smoothies & Sub Platters",
+        distance: `6 min drive near ${venueLabel}`,
+        note: "Quick healthy wraps, smoothies, and team sub platters near the gym.",
+        address: "Mavis Rd & Britannia Rd, Mississauga, ON",
+      },
+      {
+        name: "Booster Juice & Panera Bread (Heartland)",
+        type: "Smoothies, Soups & Half-Sandwiches",
+        distance: `6 min drive near ${venueLabel}`,
+        note: "Light athlete fuel, fruit smoothies & hydration between tip-offs.",
+        address: "Heartland Town Centre, Mississauga, ON",
+      },
+      {
+        name: "Longo's / Whole Foods Hot Bar (Mississauga)",
+        type: "Deli Wraps, Pasta & Salad Bar",
+        distance: `7 min drive near ${venueLabel}`,
+        note: "Fresh pasta bar, sandwiches, fruit cups, and sports drinks.",
+        address: "Mississauga, ON",
+      },
+    ];
+    coffeeSpots = [
+      {
+        name: "Tim Hortons (Mississauga — Near Venue)",
+        distance: `3 min drive near ${venueLabel}`,
+        type: "Drive-Thru & Mobile Pickup",
+        note: "Fast morning coffee & breakfast run right near the gym.",
+        address: venueAddr || "Mississauga, ON",
+      },
+      {
+        name: "Starbucks (Heartland / Matheson — Mississauga)",
+        distance: `5 min drive near ${venueLabel}`,
+        type: "Sit Down, Wi-Fi & Mobile Order",
+        note: "Easy espresso pickup and parent lounge between games.",
+        address: "Matheson Blvd W, Mississauga, ON",
+      },
+      {
+        name: "Second Cup Café (Mississauga)",
+        distance: `6 min drive near ${venueLabel}`,
+        type: "Specialty Espresso & Pastries",
+        note: "Warm pastries and coffee close to the tournament courts.",
+        address: "Mississauga, ON",
+      },
+    ];
+  } else if (isVenueBrampton) {
+    quickLunchSpots = [
+      {
+        name: "Osmow's Shawarma & Grill (Brampton)",
+        type: "Protein Bowls & Wraps",
+        distance: `4 min drive near ${venueLabel}`,
+        note: "Fast chicken/rice bowls between games.",
+        address: "70 Biscayne Crescent, Brampton, ON",
+      },
+      {
+        name: "Freshii & Subway (Orion Gate Plaza — Brampton)",
+        type: "Wraps, Smoothies & Sub Platters",
+        distance: `5 min drive near ${venueLabel}`,
+        note: "Quick healthy wraps, energizing smoothies, and pre-game sub trays.",
+        address: "20 Biscayne Crescent, Brampton, ON",
+      },
+      {
+        name: "Fortinos Hot Bar & Panini Counter (Brampton)",
+        type: "Deli Wraps, Pasta & Salad Bar",
+        distance: `6 min drive near ${venueLabel}`,
+        note: "Full hot pasta bar, grilled paninis, fruit & Gatorade cases.",
+        address: "55 Mountainash Rd, Brampton, ON",
+      },
+      {
+        name: "Booster Juice & Panera Bread (Bramalea)",
+        type: "Smoothies, Soups & Half-Sandwiches",
+        distance: `7 min drive near ${venueLabel}`,
+        note: "Ideal light athlete fuel & hydration between back-to-back games.",
+        address: "25 Peel Centre Dr, Brampton, ON",
+      },
+    ];
+    coffeeSpots = [
+      {
+        name: "Tim Hortons (Brampton — Near Venue)",
+        distance: `3 min drive near ${venueLabel}`,
+        type: "Drive-Thru & Mobile Pickup",
+        note: "Fast morning coffee run near the gym.",
+        address: venueAddr || "Brampton, ON",
+      },
+      {
+        name: "Starbucks (Orion Gate / Biscayne Cres — Brampton)",
+        distance: `5 min drive near ${venueLabel}`,
+        type: "Sit Down, Wi-Fi & Mobile Order",
+        note: "Great parent lounge and espresso stop between games.",
+        address: "10 Biscayne Crescent, Brampton, ON",
+      },
+      {
+        name: "Second Cup Café (Brampton — Queen & 410)",
+        distance: `7 min drive near ${venueLabel}`,
+        type: "Specialty Espresso & Pastries",
+        note: "Warm pastries and coffee close to the tournament courts.",
+        address: "25 Peel Centre Dr, Brampton, ON",
+      },
+    ];
+  } else {
+    const cleanVenueCity = (venueContext?.venueCity || cityRaw || "Tournament Area").trim();
+    quickLunchSpots = [
+      {
+        name: `Subway / Freshii (${cleanVenueCity})`,
+        type: "Wraps, Smoothies & Sub Platters",
+        distance: `5 min drive near ${venueLabel}`,
+        note: "Fast wraps, subs & light carbs between games.",
+        address: venueAddr || cleanVenueCity,
+      },
+      {
+        name: `Booster Juice (${cleanVenueCity})`,
+        type: "Smoothies & Paninis",
+        distance: `5 min drive near ${venueLabel}`,
+        note: "Quick athlete fuel & hydration near the gym.",
+        address: venueAddr || cleanVenueCity,
+      },
+      {
+        name: `Local Grocery Hot Bar (${cleanVenueCity})`,
+        type: "Deli Wraps, Pasta & Fruit",
+        distance: `6 min drive near ${venueLabel}`,
+        note: "Easy grab-and-go pasta, fruit & sports drinks.",
+        address: venueAddr || cleanVenueCity,
+      },
+    ];
+    coffeeSpots = [
+      {
+        name: `Tim Hortons (${cleanVenueCity})`,
+        distance: `3 min drive near ${venueLabel}`,
+        type: "Drive-Thru & Mobile Pickup",
+        note: "Fast morning coffee & breakfast run near the gym.",
+        address: venueAddr || cleanVenueCity,
+      },
+      {
+        name: `Starbucks (${cleanVenueCity})`,
+        distance: `5 min drive near ${venueLabel}`,
+        type: "Sit Down, Wi-Fi & Mobile Order",
+        note: "Espresso & parent pit stop near the court.",
+        address: venueAddr || cleanVenueCity,
+      },
+    ];
   }
 
-  return {
-    corridorFoodSpots,
-    dinnerSpots: [
+  // 2. Team Dinner — anchored to Team Hotel (falling back to last Saturday game venue / city)
+  const isHotelOakville = hotelCityText.includes("oakville") || hotelCityText.includes("burlington");
+  const isHotelMississauga = hotelCityText.includes("mississauga");
+  const isHotelBrampton = hotelCityText.includes("brampton") || hotelCityText.includes("westcreek");
+
+  let dinnerSpots: CityDiningSpot[];
+  if (isHotelOakville) {
+    dinnerSpots = [
+      {
+        name: "Beertown Public House (Oakville)",
+        type: "Team Sit-Down",
+        distance: `6 min drive from ${hotelLabel}`,
+        note: "Large group tables and athlete-friendly menu",
+        phone: "(905) 849-8696",
+        address: "271 Cornwall Rd, Oakville, ON",
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
+      },
+      {
+        name: "Scaddabush Italian Kitchen (Oakville)",
+        type: "Pasta & Team Tables",
+        distance: `5 min drive from ${hotelLabel}`,
+        note: "Pre-game pasta bowls & shareable team platters",
+        phone: "(905) 829-0070",
+        address: "2095 Winston Park Dr, Oakville, ON",
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
+      },
+      {
+        name: "State & Main Kitchen (Oakville)",
+        type: "Casual / Group Seating",
+        distance: `8 min drive from ${hotelLabel}`,
+        note: "Easy group seating for parents & players",
+        phone: "(289) 291-0022",
+        address: "478 Dundas St W, Oakville, ON",
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
+      },
+    ];
+  } else if (isHotelMississauga) {
+    dinnerSpots = [
+      {
+        name: "Jack Astor's Bar & Grill (Mississauga — Heartland)",
+        type: "Team Sit-Down & Large Groups",
+        distance: `5 min drive from ${hotelLabel}`,
+        note: "Accommodates 20+ player & parent tables right in Heartland Town Centre.",
+        phone: "(905) 568-3343",
+        address: "5960 Mavis Rd, Mississauga, ON",
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
+      },
+      {
+        name: "Scaddabush Italian Kitchen (Square One / Mississauga)",
+        type: "Pasta & Team Tables",
+        distance: `6 min drive from ${hotelLabel}`,
+        note: "Fresh pasta bowls & shareable team platters near the hotel.",
+        phone: "(905) 277-4600",
+        address: "209 Rathburn Rd W, Mississauga, ON",
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
+      },
+      {
+        name: "Boston Pizza (Mississauga — Hurontario)",
+        type: "Pasta, Pizza & Team Tables",
+        distance: `5 min drive from ${hotelLabel}`,
+        note: "Classic team carb-load spot with easy group reservations.",
+        phone: "(905) 890-2222",
+        address: "5065 Hurontario St, Mississauga, ON",
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
+      },
+    ];
+  } else if (isHotelBrampton) {
+    dinnerSpots = [
       {
         name: "Jack Astor's Bar & Grill (Brampton — Orion Gate)",
         type: "Team Sit-Down & Large Groups",
-        distance: "3 min drive from 150 Westcreek Blvd",
+        distance: `4 min drive from ${hotelLabel}`,
         note: "Right across Steeles Ave near Hwy 410 — accommodates 20+ player & parent tables.",
         phone: "(905) 455-5225",
         address: "20 Biscayne Crescent, Brampton, ON",
@@ -259,8 +475,8 @@ export function getCityFuelAndFoodRecommendations(
       {
         name: "Boston Pizza (Brampton — Steeles & Great Lakes)",
         type: "Pasta, Pizza & Team Tables",
-        distance: "4 min drive from 150 Westcreek Blvd",
-        note: "Classic team carb-load spot within a 5-minute radius of Fairfield Inn Brampton.",
+        distance: `5 min drive from ${hotelLabel}`,
+        note: "Classic team carb-load spot with easy group seating.",
         phone: "(905) 459-0990",
         address: "80 Great Lakes Dr, Brampton, ON",
         votes: 0,
@@ -273,8 +489,8 @@ export function getCityFuelAndFoodRecommendations(
       {
         name: "Lone Star Texas Grill / Chuck's Roadhouse (Brampton)",
         type: "Casual / Group Seating",
-        distance: "5 min drive from 150 Westcreek Blvd",
-        note: "Fast group seating off Hurontario & County Court Blvd (within 10-min radius of hotel).",
+        distance: `6 min drive from ${hotelLabel}`,
+        note: "Fast group seating off Hurontario & County Court Blvd.",
         phone: "(905) 454-0150",
         address: "200 County Ct Blvd, Brampton, ON",
         votes: 0,
@@ -284,60 +500,46 @@ export function getCityFuelAndFoodRecommendations(
         percentage: 0,
         isLeading: false,
       },
-    ],
-    quickLunchSpots: [
+    ];
+  } else {
+    const cleanHotelCity = (hotelAddress || cityRaw || "Tournament Area").trim();
+    dinnerSpots = [
       {
-        name: "Osmow's Shawarma & Grill (Westcreek / Steeles)",
-        type: "Protein Bowls & Wraps",
-        distance: "2 min drive (0.6 km from 150 Westcreek Blvd)",
-        note: "Steps from Fairfield Inn & Suites Brampton — fast chicken/rice bowls between games.",
-        address: "70 Biscayne Crescent, Brampton, ON",
+        name: `Boston Pizza (${cleanHotelCity})`,
+        type: "Pasta, Pizza & Team Tables",
+        distance: `5 min drive from ${hotelLabel}`,
+        note: "Classic team carb-load spot with easy group seating.",
+        phone: "(905) 555-0100",
+        address: cleanHotelCity,
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
       },
       {
-        name: "Freshii & Subway (Orion Gate Plaza — Brampton)",
-        type: "Wraps, Smoothies & Sub Platters",
-        distance: "3 min drive (1.2 km from 150 Westcreek Blvd)",
-        note: "Quick healthy wraps, energizing smoothies, and pre-game sub trays right off Steeles Ave.",
-        address: "20 Biscayne Crescent, Brampton, ON",
+        name: `Jack Astor's / East Side Mario's (${cleanHotelCity})`,
+        type: "Team Sit-Down & Large Groups",
+        distance: `6 min drive from ${hotelLabel}`,
+        note: "Accommodates 20+ player & parent tables near the hotel.",
+        phone: "(905) 555-0101",
+        address: cleanHotelCity,
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
       },
-      {
-        name: "Fortinos Hot Bar & Panini Counter (Brampton)",
-        type: "Deli Wraps, Pasta & Salad Bar",
-        distance: "7 min drive (3.8 km from 150 Westcreek Blvd)",
-        note: "Full hot pasta bar, grilled paninis, fruit & Gatorade cases within 10 mins of hotel.",
-        address: "55 Mountainash Rd, Brampton, ON",
-      },
-      {
-        name: "Booster Juice & Panera Bread (Bramalea)",
-        type: "Smoothies, Soups & Half-Sandwiches",
-        distance: "8 min drive (4.1 km from 150 Westcreek Blvd)",
-        note: "Ideal light athlete fuel & hydration within a 10-minute radius of the hotel block.",
-        address: "25 Peel Centre Dr, Brampton, ON",
-      },
-    ],
-    coffeeSpots: [
-      {
-        name: "Tim Hortons (Westcreek Blvd & Steeles Ave)",
-        distance: "1 min drive (0.4 km from 150 Westcreek Blvd)",
-        type: "Drive-Thru & Mobile Pickup",
-        note: "Right at the corner of Westcreek Blvd & Steeles — fastest morning coffee run from Fairfield Inn.",
-        address: "2565 Steeles Ave E, Brampton, ON",
-      },
-      {
-        name: "Starbucks (Orion Gate / Biscayne Cres — Brampton)",
-        distance: "3 min drive (1.1 km from 150 Westcreek Blvd)",
-        type: "Sit Down, Wi-Fi & Mobile Order",
-        note: "Just across Hwy 410 on Steeles Ave — great parent lounge and espresso stop near hotel.",
-        address: "10 Biscayne Crescent, Brampton, ON",
-      },
-      {
-        name: "Second Cup Café (Brampton — Queen & 410)",
-        distance: "7 min drive (3.5 km from 150 Westcreek Blvd)",
-        type: "Specialty Espresso & Pastries",
-        note: "Within 10-minute radius of hotel block for warm pastries and parent downtime.",
-        address: "25 Peel Centre Dr, Brampton, ON",
-      },
-    ],
+    ];
+  }
+
+  return {
+    corridorFoodSpots,
+    dinnerSpots,
+    quickLunchSpots,
+    coffeeSpots,
   };
 }
 
