@@ -2291,15 +2291,40 @@ function RunSheetContent({
     document.body.scrollTop = 0;
   }, [activeTab]);
 
-  // Time calculations (Sunday Game 3 -> Game 4 is the 2h 45m Lunch Window; Saturday post-Game 2 is Dinner)
-  const lunchGameStart = games[2] || games[0] || { tipOffMinutes: 645 };
-  const lunchGameNext = games[3] || games[1] || games[0] || { tipOffMinutes: 870 };
-  const game1EndMinutes = (lunchGameStart.tipOffMinutes ?? 645) + 60; // ~11:45 AM Sunday
-  const game2WarmupMinutes = lunchGameNext.tipOffMinutes ?? 870; // 2:30 PM Sunday (2h 45m window)
-  const game2EndMinutes = ((games[1] || games[0])?.tipOffMinutes ?? 1095) + 75; // ~7:30 PM Saturday after 6:15 PM game
+  // Dynamic Day-1 same-day downtime calculations (Lunch between consecutive Day-1 games; Dinner after final Day-1 game)
+  const realGamesList = games.filter((g) => !g.isPlaceholder);
+  const firstGameRef = realGamesList[0] || games[0];
+  const firstDateKey = (firstGameRef as any)?.dateStr || "";
+  const firstDayKey = (firstGameRef?.dayLabel || "").trim().toLowerCase();
+  const day1Matches = realGamesList.filter((g) => {
+    if (firstDateKey && (g as any)?.dateStr) {
+      return (g as any).dateStr === firstDateKey;
+    }
+    if (firstDayKey && g.dayLabel) {
+      return g.dayLabel.trim().toLowerCase() === firstDayKey;
+    }
+    return true;
+  });
+  const day1GamesSorted = (day1Matches.length > 0 ? day1Matches : games)
+    .slice()
+    .sort((a, b) => (a.tipOffMinutes ?? 0) - (b.tipOffMinutes ?? 0));
+
+  const lunchGameStart = day1GamesSorted[0] || { tipOffMinutes: 720 };
+  const lunchGameNext = day1GamesSorted[1] || day1GamesSorted[0] || { tipOffMinutes: 900, warmupBufferMin: 45 };
+  const lastDay1Game = day1GamesSorted[day1GamesSorted.length - 1] || lunchGameStart;
+
+  const game1EndMinutes = (lunchGameStart.tipOffMinutes ?? 720) + 75;
+  const game2WarmupMinutes =
+    day1GamesSorted.length > 1
+      ? Math.max(
+          game1EndMinutes,
+          (lunchGameNext.tipOffMinutes ?? 900) - (lunchGameNext.warmupBufferMin || 45)
+        )
+      : game1EndMinutes + 60;
+  const game2EndMinutes = (lastDay1Game.tipOffMinutes ?? 1080) + 75;
 
   // Evening block reference: 9:30 PM (1290 mins) wind-down / hotel return
-  const eveningEndMinutes = Math.max(1290, game2EndMinutes + 120);
+  const eveningEndMinutes = Math.max(1290, game2EndMinutes + 60);
 
   // LUNCH vs DINNER DETERMINATION
   const gapMidpointMinutes = Math.floor((game1EndMinutes + game2WarmupMinutes) / 2);
@@ -2313,8 +2338,10 @@ function RunSheetContent({
   const windowHours = Math.floor(totalWindowMinutes / 60);
   const windowRemainingMins = totalWindowMinutes % 60;
 
-  // Vote closing time: for lunch it's midday; for dinner it locks before Game 2 starts
-  const voteClosingMinutes = isLunch ? (game1EndMinutes - 30) : (((games[1] || games[0])?.tipOffMinutes ?? 1095) - 30);
+  // Vote closing time: for lunch it's 30m before Game 1 ends; for dinner 30m before final Day-1 tip-off
+  const voteClosingMinutes = isLunch
+    ? game1EndMinutes - 30
+    : (lastDay1Game.tipOffMinutes ?? 1080) - 30;
 
   // Evaluate Poll Lock & Lock-Soon state from Live Clock or Manager Poll Time-Travel Toggle
   const liveClockDate = new Date(nowMs);
