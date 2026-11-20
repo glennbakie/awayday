@@ -522,11 +522,13 @@ function ClaimPageContent() {
         </div>
       </header>
 
-      <p className="text-center mx-auto max-w-sm px-4 pt-4 text-base sm:text-lg font-semibold leading-snug text-[#D95D39]">
-        All your team&apos;s tournament travel info in one place.
-      </p>
-
       <main className="max-w-md mx-auto px-4 pt-4 space-y-4">
+        <div className="mx-auto max-w-md rounded-2xl border border-[#D95D39]/25 bg-[#FFF6F3] px-4 py-2.5 text-center shadow-xs">
+          <p className="text-sm sm:text-base font-semibold leading-snug text-[#D95D39]">
+            All your team&apos;s tournament travel info in one place.
+          </p>
+        </div>
+
         {/* 1. Header Card */}
         <section className="bg-white rounded-[26px] p-5 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm space-y-2.5">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F7F6F2] border border-[#D1D5DB] text-[#0B192C] text-xs font-black tracking-tight">
