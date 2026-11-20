@@ -523,8 +523,8 @@ function ClaimPageContent() {
       </header>
 
       <main className="max-w-md mx-auto px-4 pt-4 space-y-4">
-        <div className="mx-auto max-w-md rounded-2xl bg-[#D59B42] px-4 py-2.5 text-center shadow-sm">
-          <p className="text-sm sm:text-base font-bold leading-snug text-[#0F1E36]">
+        <div className="w-full rounded-2xl bg-[#D59B42] px-5 py-3 text-center shadow-sm">
+          <p className="text-balance text-sm sm:text-base font-bold leading-snug text-[#0F1E36]">
             All your team&apos;s tournament travel info in one place.
           </p>
         </div>
