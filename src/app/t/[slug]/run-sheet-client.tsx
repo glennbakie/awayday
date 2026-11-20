@@ -58,7 +58,8 @@ import {
   Upload,
   Image as ImageIcon,
   Loader2,
-  FileText
+  FileText,
+  Share2
 } from "lucide-react";
 
 interface VenueAlert {
@@ -324,6 +325,7 @@ function RunSheetContent({
   const [selectedVaultTournament, setSelectedVaultTournament] = useState<VaultTournament | null>(null);
   const [showPassModal, setShowPassModal] = useState<boolean>(false);
   const [passCopied, setPassCopied] = useState<boolean>(false);
+  const [passShareCopied, setPassShareCopied] = useState<boolean>(false);
   const passDialogRef = useRef<HTMLDialogElement | null>(null);
   const [syncStatus, setSyncStatus] = useState<"connecting" | "live" | "degraded" | "offline">("connecting");
   const realtimeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -6310,13 +6312,54 @@ function RunSheetContent({
           </div>
 
           <div className="space-y-2 pt-1">
-            <a
-              href={`sms:?&body=${encodeURIComponent(shareText)}`}
-              className="min-h-[48px] w-full rounded-xl bg-[#0F2942] hover:bg-[#1A365D] text-white font-bold text-xs flex items-center justify-center gap-2 px-4 py-3 shadow-xs transition-colors"
+            <button
+              type="button"
+              onClick={async () => {
+                const passShareUrl = shareUrl;
+                const passShareText = shareText
+                  .replace(passShareUrl, "")
+                  .replace(/\s+\n/g, "\n")
+                  .trim();
+
+                if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+                  try {
+                    await navigator.share({
+                      title: "AwayDay Club Pass",
+                      text: passShareText,
+                      url: passShareUrl,
+                    });
+                    return;
+                  } catch (err: any) {
+                    if (err?.name === "AbortError") {
+                      return;
+                    }
+                  }
+                }
+
+                if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+                  try {
+                    await navigator.clipboard.writeText(`${passShareText}\n${passShareUrl}`);
+                    setPassShareCopied(true);
+                    window.setTimeout(() => setPassShareCopied(false), 2500);
+                  } catch {
+                    // Ignore clipboard errors
+                  }
+                }
+              }}
+              className="min-h-[48px] w-full rounded-xl bg-[#0F2942] hover:bg-[#1A365D] text-white font-bold text-xs flex items-center justify-center gap-2 px-4 py-3 shadow-xs transition-colors cursor-pointer active:scale-[0.99]"
             >
-              <span aria-hidden="true">💬</span>
-              <span>Text Free Pass to Another Team</span>
-            </a>
+              {passShareCopied ? (
+                <>
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400" aria-hidden="true" />
+                  <span>Pass link copied!</span>
+                </>
+              ) : (
+                <>
+                  <Share2 className="w-4 h-4" aria-hidden="true" />
+                  <span>Share Free Pass with Another Team</span>
+                </>
+              )}
+            </button>
 
             <div className="grid grid-cols-2 gap-2">
               <button
