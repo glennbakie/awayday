@@ -2816,11 +2816,19 @@ function RunSheetContent({
         <div className="overflow-x-hidden w-full max-w-md mx-auto">
           {/* Top Row: AwayDay. Logo on Left, LIVE SYNC + Notification Bell on Right */}
           <div className="flex items-center justify-between w-full">
-            <div className="flex items-baseline select-none tracking-tight shrink-0">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("schedule");
+                window.scrollTo({ top: 0, behavior: "smooth" });
+              }}
+              className="flex items-baseline select-none tracking-tight shrink-0 cursor-pointer"
+              aria-label="Back to top of Schedule"
+            >
               <span className="text-xl font-black italic tracking-tight text-[#0B192C]">
                 Away<span className="text-[#C2A26F]">Day.</span>
               </span>
-            </div>
+            </button>
             <div className="flex items-center gap-2">
               <div
                 role="status"

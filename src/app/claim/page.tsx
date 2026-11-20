@@ -540,7 +540,7 @@ function ClaimPageContent() {
       {/* Top Bar */}
       <header className="sticky top-0 z-20 bg-[#F8F7F3]/90 backdrop-blur-md px-4 py-3 border-b border-[#DCE1E7]/60">
         <div className="max-w-md mx-auto flex items-center justify-between">
-          <Link href="/t/test-team" className="flex items-baseline select-none tracking-tight">
+          <Link href="/claim" className="flex items-baseline select-none tracking-tight">
             <span className="text-[28px] leading-none font-black italic text-[#0B192C] tracking-tight pr-0.5 [-webkit-text-stroke:0.45px_#0B192C]">
               Away
             </span>
