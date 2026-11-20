@@ -522,7 +522,11 @@ function ClaimPageContent() {
         </div>
       </header>
 
-      <main className="max-w-md mx-auto px-4 pt-5 space-y-4">
+      <p className="text-center mx-auto max-w-sm px-4 pt-4 text-base sm:text-lg font-semibold leading-snug text-[#D95D39]">
+        All your team&apos;s tournament travel info in one place.
+      </p>
+
+      <main className="max-w-md mx-auto px-4 pt-4 space-y-4">
         {/* 1. Header Card */}
         <section className="bg-white rounded-[26px] p-5 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm space-y-2.5">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F7F6F2] border border-[#D1D5DB] text-[#0B192C] text-xs font-black tracking-tight">
@@ -532,7 +536,7 @@ function ClaimPageContent() {
           <h1 className="text-2xl font-black text-[#0B192C] tracking-tight leading-tight">
             {formattedTeamName !== "AwayDay"
               ? `Free for ${formattedTeamName} teams this season.`
-              : "All your team's tournament travel info in one place."}
+              : "Free for your team this season."}
           </h1>
 
           <p className="text-xs sm:text-sm font-semibold text-[#5C6B7B] leading-relaxed">
