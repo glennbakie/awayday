@@ -276,59 +276,53 @@ export async function PATCH(
       }
 
       // Replace games rows for this tournament
-      if (tournamentId) {
-        try {
-          await dbClient.from("games").delete().eq("tournament_id", tournamentId);
-        } catch {
-          // Ignore delete errors
-        }
+      if (!tournamentId) {
+        return NextResponse.json(
+          { error: `Tournament not found for slug "${slug}"` },
+          { status: 404 }
+        );
       }
 
-      const teamLabel = tripRow?.team_name || tourneyRow?.team_name || "My Team";
+      const { error: deleteGamesErr } = await dbClient
+        .from("games")
+        .delete()
+        .eq("tournament_id", tournamentId);
+      if (deleteGamesErr) {
+        console.warn("Warning deleting prior games:", deleteGamesErr.message);
+      }
+
       const cityLabel = tourneyRow?.city || tourneyRow?.hotel_address || "Brampton, ON";
-      for (let idx = 0; idx < sortedGames.length; idx++) {
-        const g = sortedGames[idx] || {};
+      const gameRows = sortedGames.map((g: any, idx: number) => {
         const opponent = String(g.opponent || `Opponent ${idx + 1}`).trim();
         const venueName = String(g.venueName || "Tournament Venue").trim();
         const venueAddress = String(g.venueAddress || cityLabel).trim();
-        const gameCity = resolveVenueCity(venueName, venueAddress, g.city || cityLabel);
         const tipOffMinutes =
           typeof g.tipOffMinutes === "number" && !Number.isNaN(g.tipOffMinutes)
             ? g.tipOffMinutes
             : 600 + idx * 180;
         const dayLabel = String(g.dayLabel || g.day || tourneyRow?.dates || "Weekend").trim();
         const tipOffIso = buildIsoTipOffTimestamp(g.dateStr, dayLabel, tipOffMinutes);
-        const gamePayload: Record<string, any> = {
-          ...(tripRow?.id ? { trip_id: tripRow.id } : {}),
-          ...(tournamentId ? { tournament_id: tournamentId } : {}),
-          share_slug: slug,
-          game_number: idx + 1,
-          day_label: dayLabel,
-          matchup: String(g.matchup || `${teamLabel} vs ${opponent}`).trim(),
+
+        return {
+          tournament_id: tournamentId,
           opponent,
           tip_off: tipOffIso,
-          tipoff_minutes: tipOffMinutes,
           court: String(g.court || `Court ${idx + 1}`).trim(),
           venue_name: venueName,
           venue_address: venueAddress,
-          city: gameCity,
           warmup_buffer_min: g.warmupBufferMin ?? 30,
           hotel_travel_min: g.hotelTravelMin ?? 15,
-          status: String(g.status || "Upcoming").trim(),
-          jersey_color: String(g.jerseyColor || "White (Home)").trim(),
-          telemetry_flag: g.telemetryFlag || undefined,
-          is_placeholder: Boolean(g.isPlaceholder && !hasRealGames),
         };
+      });
 
-        for (let attempt = 0; attempt < 8; attempt++) {
-          const { error: insErr } = await dbClient.from("games").insert(gamePayload);
-          if (!insErr) break;
-          const missingMatch = String(insErr.message || "").match(/Could not find the '([^']+)' column/i);
-          if (missingMatch?.[1] && missingMatch[1] in gamePayload) {
-            delete gamePayload[missingMatch[1]];
-            continue;
-          }
-          break;
+      if (gameRows.length > 0) {
+        const { error: gamesError } = await dbClient.from("games").insert(gameRows);
+        if (gamesError) {
+          console.error("Error inserting games in PATCH /api/tournaments/[slug]:", gamesError);
+          return NextResponse.json(
+            { error: `Failed to save games: ${gamesError.message}` },
+            { status: 500 }
+          );
         }
       }
 

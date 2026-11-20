@@ -404,23 +404,18 @@ export async function POST(req: NextRequest) {
     }
 
     // 3. Persist parsed games into `games` table (when provided)
-    if (incomingGames.length > 0 && (tournamentId || tripId)) {
-      if (tournamentId) {
-        try {
-          await dbClient.from("games").delete().eq("tournament_id", tournamentId);
-        } catch {
-          // Ignore delete errors
-        }
+    if (incomingGames.length > 0 && tournamentId) {
+      try {
+        await dbClient.from("games").delete().eq("tournament_id", tournamentId);
+      } catch {
+        // Ignore delete errors
       }
 
-      for (let idx = 0; idx < incomingGames.length; idx++) {
-        const g = incomingGames[idx] || {};
+      const gameRows = incomingGames.map((g, idx) => {
         const opponent = String(g.opponent || `Opponent ${idx + 1}`).trim();
         const venueName = String(g.venueName || g.venue || hotelName || "Tournament Venue").trim();
         const venueAddress = String(g.venueAddress || hotelAddress || city).trim();
-        const gameCity = resolveVenueCity(venueName, venueAddress, String(g.city || city).trim());
         const court = String(g.court || `Court ${idx + 1}`).trim();
-        const jerseyColor = String(g.jerseyColor || g.uniform || "White (Home)").trim();
         const tipOffMinutes =
           typeof g.tipOffMinutes === "number" && !Number.isNaN(g.tipOffMinutes)
             ? g.tipOffMinutes
@@ -428,32 +423,24 @@ export async function POST(req: NextRequest) {
         const dayLabel = String(g.dayLabel || g.day || dates).trim();
         const tipOffIso = buildIsoTipOffTimestamp(g.dateStr, dayLabel, tipOffMinutes);
 
-        await resilientUpsert(
-          dbClient,
-          "games",
-          {
-            ...(tripId ? { trip_id: tripId } : {}),
-            ...(tournamentId ? { tournament_id: tournamentId } : {}),
-            share_slug: shareSlug,
-            game_number: idx + 1,
-            day_label: dayLabel,
-            matchup: String(g.matchup || `${teamName} vs ${opponent}`).trim(),
-            opponent,
-            tip_off: tipOffIso,
-            tipoff_minutes: tipOffMinutes,
-            court,
-            venue_name: venueName,
-            venue_address: venueAddress,
-            city: gameCity,
-            warmup_buffer_min: g.warmupBufferMin ?? 30,
-            hotel_travel_min: g.hotelTravelMin ?? 15,
-            status: String(g.status || "Upcoming").trim(),
-            jersey_color: jerseyColor,
-            telemetry_flag: g.telemetryFlag || undefined,
-            is_placeholder: Boolean(g.isPlaceholder && !hasRealGames),
-          },
-          undefined,
-          schemaDefaults
+        return {
+          tournament_id: tournamentId,
+          opponent,
+          tip_off: tipOffIso,
+          court,
+          venue_name: venueName,
+          venue_address: venueAddress,
+          warmup_buffer_min: g.warmupBufferMin ?? 30,
+          hotel_travel_min: g.hotelTravelMin ?? 15,
+        };
+      });
+
+      const { error: gamesError } = await dbClient.from("games").insert(gameRows);
+      if (gamesError) {
+        console.error("Error inserting games in POST /api/tournaments:", gamesError);
+        return NextResponse.json(
+          { success: false, error: `Failed to save games: ${gamesError.message}` },
+          { status: 500 }
         );
       }
     }
