@@ -4974,7 +4974,11 @@ function RunSheetContent({
                     <div className="flex flex-wrap items-center justify-between gap-2">
                       <div className="flex items-center gap-1.5 flex-wrap min-w-0">
                         <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                          {corridorPlan.recommendedDepartureTitle}
+                          {hasLegOverride
+                            ? activeLegKey === "returnTrip"
+                              ? "MY RETURN DEPARTURE"
+                              : "MY DEPARTURE PLAN"
+                            : corridorPlan.recommendedDepartureTitle}
                         </span>
                         {hasLegOverride && (
                           <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-2 py-0.5">
@@ -5158,22 +5162,72 @@ function RunSheetContent({
               })()}
             </div>
 
-            <div className="text-xs text-[#1D2935] font-semibold leading-relaxed bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] rounded-2xl p-4 flex items-center gap-2.5">
-              <Clock className="w-4 h-4 text-[#0B192C] shrink-0" />
-              <span>{corridorPlan.departureContextNote}</span>
-            </div>
+            {(() => {
+              const isTripHome = corridorDirection === "trip_home";
+              const activeOverride = isTripHome ? personalTrip.returnTrip : personalTrip.outbound;
+              const hasActiveOverride = Boolean(
+                activeOverride?.date || activeOverride?.time || activeOverride?.origin || activeOverride?.notes
+              );
+              const homeDestination = (personalTrip.outbound?.origin || departureOrigin || "Ottawa, ON").trim();
+              const returnOrigin =
+                games[games.length - 1]?.venueAddress ||
+                tournament.hotel.address ||
+                tournament.city ||
+                "Brampton, ON";
 
-            <a
-              href={corridorPlan.destinationMapsUrl || getGoogleMapsSearchUrl(tournament.hotel.address || "150 Westcreek Blvd, Brampton, ON")}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
-            >
-              <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-              </svg>
-              <span>Route to {tournament.hotel.name} in Google Maps</span>
-            </a>
+              let contextNoteText = corridorPlan.departureContextNote;
+              if (hasActiveOverride) {
+                if (isTripHome) {
+                  let etaLabel = "";
+                  if (activeOverride?.time) {
+                    const tm = activeOverride.time.match(/^(\d{1,2}):(\d{2})$/);
+                    if (tm) {
+                      const depMins = parseInt(tm[1], 10) * 60 + parseInt(tm[2], 10);
+                      const etaTotal = (depMins + (corridorPlan.durationMinutes || 260)) % 1440;
+                      const etaH24 = Math.floor(etaTotal / 60);
+                      const etaM = String(etaTotal % 60).padStart(2, "0");
+                      const etaMer = etaH24 >= 12 ? "PM" : "AM";
+                      const etaH12 = etaH24 % 12 || 12;
+                      etaLabel = ` • Est. Home ETA ~${etaH12}:${etaM} ${etaMer}`;
+                    }
+                  }
+                  contextNoteText = `Custom return schedule saved to your device (${corridorPlan.durationLabel} drive to ${homeDestination})${etaLabel}`;
+                } else {
+                  const startNote = activeOverride?.origin ? ` from ${activeOverride.origin}` : "";
+                  contextNoteText = `Custom outbound departure${startNote} saved to your device (${corridorPlan.durationLabel} drive)`;
+                }
+              }
+
+              const mapsHref = isTripHome
+                ? `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(returnOrigin)}&destination=${encodeURIComponent(homeDestination)}&travelmode=driving`
+                : corridorPlan.destinationMapsUrl ||
+                  getGoogleMapsSearchUrl(tournament.hotel.address || "150 Westcreek Blvd, Brampton, ON");
+
+              const mapsLabel = isTripHome
+                ? `Route Home to ${homeDestination} in Google Maps`
+                : `Route to ${tournament.hotel.name} in Google Maps`;
+
+              return (
+                <>
+                  <div className="text-xs text-[#1D2935] font-semibold leading-relaxed bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] rounded-2xl p-4 flex items-center gap-2.5">
+                    <Clock className="w-4 h-4 text-[#0B192C] shrink-0" />
+                    <span>{contextNoteText}</span>
+                  </div>
+
+                  <a
+                    href={mapsHref}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
+                  >
+                    <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                    </svg>
+                    <span>{mapsLabel}</span>
+                  </a>
+                </>
+              );
+            })()}
 
             {/* Live Traffic & Weather Disclaimer */}
             <div className="text-[11px] text-slate-600 italic bg-[#F7F6F2] border border-[#DCE1E7] rounded-xl px-3 py-2 flex items-start gap-2">
