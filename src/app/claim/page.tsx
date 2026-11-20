@@ -461,10 +461,10 @@ function ClaimPageContent() {
         }),
       });
       const createData = await createRes.json().catch(() => ({}));
-      if (!createRes.ok || createData?.success === false) {
-        throw new Error(createData?.error || "Failed to save tournament run sheet to database.");
+      if (!createRes.ok || createData?.success === false || !createData?.slug) {
+        throw new Error(createData?.error || "Failed to save tournament run sheet to Supabase.");
       }
-      const newSlug = (createData?.slug || slug).trim();
+      const newSlug = String(createData.slug).trim();
 
       try {
         const serializedGames = JSON.stringify(mappedGames);

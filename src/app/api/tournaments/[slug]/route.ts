@@ -19,9 +19,19 @@ export async function GET(
       return NextResponse.json({ error: "Missing slug" }, { status: 400 });
     }
 
+    const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+    const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
+    const serviceOrAnonKey =
+      process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+      "";
+    const dbClient = supabaseUrl && serviceOrAnonKey
+      ? createClient(supabaseUrl, serviceOrAnonKey, { auth: { persistSession: false } })
+      : supabase;
+
     // 1. Try looking up tournament by `share_slug` or `slug`
     let tournamentRow: any = null;
-    const { data: shareRow, error: shareErr } = await supabase
+    const { data: shareRow, error: shareErr } = await dbClient
       .from("tournaments")
       .select("*")
       .eq("share_slug", slug)
@@ -30,7 +40,7 @@ export async function GET(
     if (!shareErr && shareRow) {
       tournamentRow = shareRow;
     } else {
-      const { data: slugRow } = await supabase
+      const { data: slugRow } = await dbClient
         .from("tournaments")
         .select("*")
         .eq("slug", slug)
@@ -41,7 +51,7 @@ export async function GET(
     }
 
     // 2. Also look up `team_trips` by `share_slug`
-    const { data: tripRow } = await supabase
+    const { data: tripRow } = await dbClient
       .from("team_trips")
       .select("*, tournaments(*)")
       .eq("share_slug", slug)
@@ -61,7 +71,7 @@ export async function GET(
     // 3. Look up games from `games` table (by share_slug, trip_id, or tournament_id) or fallback to schedule_json
     let rawGameRows: any[] = [];
     try {
-      const { data: bySlugGames } = await supabase
+      const { data: bySlugGames } = await dbClient
         .from("games")
         .select("*")
         .eq("share_slug", slug);
@@ -74,7 +84,7 @@ export async function GET(
 
     if (rawGameRows.length === 0 && tripRow?.id) {
       try {
-        const { data: byTripGames } = await supabase
+        const { data: byTripGames } = await dbClient
           .from("games")
           .select("*")
           .eq("trip_id", tripRow.id);
@@ -88,7 +98,7 @@ export async function GET(
 
     if (rawGameRows.length === 0 && resolvedTourney?.id) {
       try {
-        const { data: byTourneyGames } = await supabase
+        const { data: byTourneyGames } = await dbClient
           .from("games")
           .select("*")
           .eq("tournament_id", resolvedTourney.id);

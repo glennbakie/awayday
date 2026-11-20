@@ -300,9 +300,7 @@ export async function POST(req: NextRequest) {
     const hotelName = (body?.hotel?.name || "Team Hotel").trim();
     const hotelAddress = (body?.hotel?.address || city).trim();
     const requestedSlug = (body?.slug || "").trim();
-    let slug = requestedSlug
-      ? ensureUniqueSuffixedSlug(requestedSlug)
-      : buildSlugFromParts(`${rawName}-${teamName}`);
+    let slug = requestedSlug || buildSlugFromParts(`${rawName}-${teamName}`);
     let shareSlug = slug;
     const rawIncomingGames: any[] = Array.isArray(body?.games) ? body.games : [];
     const incomingGames: any[] = sortGamesChronologically(rawIncomingGames);

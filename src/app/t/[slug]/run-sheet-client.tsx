@@ -392,6 +392,8 @@ function RunSheetContent({
 
   // Step 2: Any-City Travel Corridor Engine Origin & Direction State + Persistence
   const isDemoSlug = slug === "test-team";
+  const [isLoadingSheet, setIsLoadingSheet] = useState<boolean>(() => !isDemoSlug);
+  const [sheetNotFound, setSheetNotFound] = useState<boolean>(false);
   const teamHomeBase = "Ottawa, ON";
   const [departureOrigin, setDepartureOrigin] = useState<string>(teamHomeBase);
   const [corridorDirection, setCorridorDirection] = useState<CorridorDirection>("to_tournament");
@@ -936,6 +938,9 @@ function RunSheetContent({
       // Ignore storage access errors
     } finally {
       hasLoadedCacheRef.current = true;
+      if (loadedFromCache) {
+        setIsLoadingSheet(false);
+      }
     }
 
     // 1. Initial data fetch from Supabase & `/api/tournaments/[slug]`
@@ -947,6 +952,7 @@ function RunSheetContent({
         if (apiRes && apiRes.ok) {
           const apiData = await apiRes.json().catch(() => null);
           if (apiData) {
+            setSheetNotFound(false);
             const apiGames = Array.isArray(apiData.games) ? apiData.games : [];
             const hasRealApiGames = apiGames.some(
               (g: any) => !g?.isPlaceholder && !/tbd|pending/i.test(String(g?.opponent || ""))
@@ -959,7 +965,9 @@ function RunSheetContent({
               const tr = apiData.trip || {};
               const inferredCity = tr.hotel_address
                 ? tr.hotel_address.split(",").slice(-2).join(",").trim() || tr.hotel_address
-                : t.city;
+                : t.hotel_address
+                  ? t.hotel_address.split(",").slice(-2).join(",").trim() || t.hotel_address
+                  : t.city;
               setTournament((prev) => ({
                 ...prev,
                 name: t.name || prev.name,
@@ -967,18 +975,22 @@ function RunSheetContent({
                 city: inferredCity || prev.city,
                 dates: t.dates || prev.dates,
                 schedulePending: hasRealApiGames ? false : Boolean(apiData.schedulePending ?? prev.schedulePending),
-                primaryHub: apiGames[0]?.venueName || tr.hotel_name || prev.primaryHub,
-                primaryHubAddress: apiGames[0]?.venueAddress || tr.hotel_address || prev.primaryHubAddress,
+                primaryHub: apiGames[0]?.venueName || tr.hotel_name || t.hotel_name || prev.primaryHub,
+                primaryHubAddress: apiGames[0]?.venueAddress || tr.hotel_address || t.hotel_address || prev.primaryHubAddress,
                 hotel: {
                   ...prev.hotel,
-                  name: tr.hotel_name || prev.hotel.name,
-                  address: tr.hotel_address || prev.hotel.address,
+                  name: tr.hotel_name || t.hotel_name || prev.hotel.name,
+                  address: tr.hotel_address || t.hotel_address || prev.hotel.address,
+                  breakfastHours: t.hotel_breakfast_hours || prev.hotel.breakfastHours,
+                  checkoutTime: t.hotel_checkout_time || prev.hotel.checkoutTime,
                 },
               }));
             } else if (hasRealApiGames) {
               setTournament((prev) => ({ ...prev, schedulePending: false }));
             }
           }
+        } else if (apiRes && apiRes.status === 404 && !loadedFromCache && !isDemoSlug) {
+          setSheetNotFound(true);
         }
 
         const { data, error } = await supabase
@@ -1014,6 +1026,8 @@ function RunSheetContent({
         }
       } catch (err) {
         console.error("Error fetching initial meal mode:", err);
+      } finally {
+        setIsLoadingSheet(false);
       }
     }
 
@@ -2698,10 +2712,15 @@ function RunSheetContent({
   const handleShareToSquad = async () => {
     try {
       if (typeof navigator !== "undefined" && navigator.share) {
+        const cleanUrl = getCleanTeamUrl();
+        const textWithoutUrl = getShareBroadcastText()
+          .replace(cleanUrl, "")
+          .replace(/\s+\n/g, "\n")
+          .trim();
         await navigator.share({
           title: `${tournament.teamName || "Team"} AwayDay Run-Sheet`,
-          text: getShareBroadcastText(),
-          url: getCleanTeamUrl(),
+          text: textWithoutUrl,
+          url: cleanUrl,
         });
         return;
       }
@@ -2710,6 +2729,42 @@ function RunSheetContent({
     }
     await handleCopyBroadcast();
   };
+
+  if (isLoadingSheet && !isDemoSlug) {
+    return (
+      <div className="min-h-screen font-sans bg-[#F8F7F3] text-[#1D2935] flex flex-col items-center justify-center px-4">
+        <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-6 max-w-sm w-full text-center space-y-3">
+          <Loader2 className="w-6 h-6 text-[#0F2942] animate-spin mx-auto" />
+          <p className="text-sm font-black text-[#0B192C]">Loading AwayDay Run-Sheet...</p>
+          <p className="text-xs font-medium text-[#5C6B7B]">Syncing games, gyms, and team logistics</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (sheetNotFound && !isDemoSlug) {
+    return (
+      <div className="min-h-screen font-sans bg-[#F8F7F3] text-[#1D2935] flex flex-col items-center justify-center px-4">
+        <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-6 max-w-sm w-full text-center space-y-4">
+          <div className="text-2xl font-black italic tracking-tight text-[#0B192C]">
+            Away<span className="text-[#D59B42]">Day.</span>
+          </div>
+          <div className="space-y-1">
+            <h1 className="text-lg font-black text-[#0B192C]">Run-sheet not found</h1>
+            <p className="text-xs font-medium text-[#5C6B7B]">
+              This tournament link hasn&apos;t been saved yet or was deleted.
+            </p>
+          </div>
+          <a
+            href="/claim"
+            className="inline-flex items-center justify-center w-full min-h-[44px] rounded-full bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-sm border border-emerald-500 transition-colors px-4 py-2.5"
+          >
+            + Create New Run Sheet
+          </a>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="stadium-canvas font-sans bg-[#F8F7F3] text-[#1D2935] w-full overflow-x-hidden pb-28">
@@ -5939,9 +5994,13 @@ function RunSheetContent({
                 onClick={async () => {
                   try {
                     if (typeof navigator !== "undefined" && navigator.share) {
+                      const passTextWithoutUrl = shareText
+                        .replace(shareUrl, "")
+                        .replace(/\s+\n/g, "\n")
+                        .trim();
                       await navigator.share({
                         title: "AwayDay Tournament Pass",
-                        text: shareText,
+                        text: passTextWithoutUrl,
                         url: shareUrl,
                       });
                       return;
