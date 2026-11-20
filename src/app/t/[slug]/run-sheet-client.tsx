@@ -316,9 +316,7 @@ function RunSheetContent({
   const cleanSlug = rawSlug.replace(/[\])}[{(]/g, "").trim() || "test-team";
   const slug = cleanSlug;
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    if (searchParams.get("admin") === "false") return false;
-    if (searchParams.get("admin") === "true" || slug === "test-team") return true;
-    return hasStoredAdminSlug(slug);
+    return searchParams.get("admin") === "true";
   });
   const [isManagerToolsOpen, setIsManagerToolsOpen] = useState<boolean>(
     () => searchParams.get("openTools") === "true"
@@ -342,51 +340,14 @@ function RunSheetContent({
     }
   }, [isManagerToolsOpen]);
 
-  // Step 1: Always permit admin on seed slug (`/t/test-team`), ?admin=true, or stored admin tokens
+  // Step 1: Only permit Manager Mode when ?admin=true is explicitly present in the URL
   useEffect(() => {
     const adminParam = searchParams.get("admin");
-    if (adminParam === "false") {
-      setIsAdmin(false);
-      setIsManagerToolsOpen(false);
-      try {
-        window.localStorage.removeItem("awayday_admin");
-        if (slug) {
-          window.localStorage.removeItem(`awayday_is_admin_${slug}`);
-        }
-      } catch {
-        // Ignore storage errors
-      }
-      return;
-    }
-
     if (adminParam === "true") {
       setIsAdmin(true);
-      try {
-        window.localStorage.setItem("awayday_admin", "true");
-        if (slug) {
-          window.localStorage.setItem(`awayday_is_admin_${slug}`, "true");
-        }
-      } catch {
-        // Ignore storage errors
-      }
-      return;
-    }
-
-    if (slug === "test-team") {
-      setIsAdmin(true);
-      return;
-    }
-
-    try {
-      const hasToken = hasStoredAdminSlug(slug);
-      if (hasToken) {
-        setIsAdmin(true);
-      } else {
-        setIsAdmin(false);
-        setIsManagerToolsOpen(false);
-      }
-    } catch {
-      // Ignore storage errors
+    } else {
+      setIsAdmin(false);
+      setIsManagerToolsOpen(false);
     }
   }, [slug, searchParams]);
 
