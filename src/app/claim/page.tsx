@@ -3,7 +3,7 @@
 import React, { useState, useRef, Suspense } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Upload, CheckCircle2, FileText, Loader2, X, CalendarDays, MapPin } from "lucide-react";
+import { Upload, CheckCircle2, FileText, Loader2, X, CalendarDays, MapPin, Share2 } from "lucide-react";
 import {
   mergeAndDedupeGames,
   compressImageForVision,
@@ -98,6 +98,7 @@ function ClaimPageContent() {
 
   const [teamName, setTeamName] = useState("");
   const [contactInfo, setContactInfo] = useState("");
+  const [passCopied, setPassCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const runScheduleExtraction = async (selectedFiles: File[], targetTeam: string) => {
@@ -500,8 +501,39 @@ function ClaimPageContent() {
     }
   };
 
-  const claimUrl = `https://awayday-omega.vercel.app/claim?ref=${encodeURIComponent(ref)}`;
-  const managerSmsBody = `Hey Coach / Manager! Another team passed us a free AwayDay pass for our next two away tournaments. Drop our schedule screenshot or PDF here to set up our team run-sheet: ${claimUrl}`;
+  const handleSharePassWithManager = async () => {
+    const shareUrl =
+      typeof window !== "undefined"
+        ? window.location.href
+        : `https://awayday-omega.vercel.app/claim?ref=${encodeURIComponent(ref)}`;
+    const shareMessage =
+      "Hey Coach / Manager! Another team passed us a free AwayDay pass for our next two away tournaments. Drop our schedule screenshot or PDF here to set up our team run-sheet:";
+
+    if (typeof navigator !== "undefined" && typeof navigator.share === "function") {
+      try {
+        await navigator.share({
+          title: "AwayDay Team Pass",
+          text: shareMessage,
+          url: shareUrl,
+        });
+        return;
+      } catch (err: any) {
+        if (err?.name === "AbortError") {
+          return;
+        }
+      }
+    }
+
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      try {
+        await navigator.clipboard.writeText(`${shareMessage}\n${shareUrl}`);
+        setPassCopied(true);
+        setTimeout(() => setPassCopied(false), 2500);
+      } catch {
+        // Ignore clipboard write errors
+      }
+    }
+  };
 
   return (
     <div className="min-h-screen font-sans bg-[#F8F7F3] text-[#1D2935] pb-16">
@@ -836,13 +868,23 @@ function ClaimPageContent() {
           <p className="text-xs font-semibold text-[#1D2935] leading-relaxed">
             Not the team manager? Send this pass to your manager or head coach so they can upload the schedule for the team.
           </p>
-          <a
-            href={`sms:?&body=${encodeURIComponent(managerSmsBody)}`}
-            className="min-h-[44px] w-full rounded-xl bg-white hover:bg-[#EFEFEA] border-[1.5px] border-[#D1D5DB] text-[#0B192C] font-black text-xs flex items-center justify-center gap-2 px-4 py-2.5 transition-colors shadow-2xs"
+          <button
+            type="button"
+            onClick={handleSharePassWithManager}
+            className="min-h-[44px] w-full rounded-xl bg-white hover:bg-[#EFEFEA] border-[1.5px] border-[#D1D5DB] text-[#0B192C] font-black text-xs flex items-center justify-center gap-2 px-4 py-2.5 transition-colors shadow-2xs cursor-pointer active:scale-[0.99]"
           >
-            <span aria-hidden="true">💬</span>
-            <span>Text Pass to Team Manager</span>
-          </a>
+            {passCopied ? (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-600" aria-hidden="true" />
+                <span>Pass link copied!</span>
+              </>
+            ) : (
+              <>
+                <Share2 className="w-4 h-4" aria-hidden="true" />
+                <span>Share Pass with Team Manager</span>
+              </>
+            )}
+          </button>
         </section>
 
         {/* Subtle Branded Footer */}
