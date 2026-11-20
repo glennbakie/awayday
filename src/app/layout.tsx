@@ -27,16 +27,16 @@ export const viewport: Viewport = {
 export const metadata: Metadata = {
   metadataBase: new URL("https://awayday-omega.vercel.app"),
   title: "AwayDay | Your Team's Travel Planner",
-  description: "Games, gyms, hotels, and team plans in one live link. No app download required.",
+  description: "All your team's tournament travel info in one place.",
   openGraph: {
     title: "AwayDay | Your Team's Travel Planner",
-    description: "Games, gyms, hotels, and team plans in one live link. No app download required.",
+    description: "All your team's tournament travel info in one place.",
     images: ["/awayday-icon.png"],
   },
   twitter: {
     card: "summary",
     title: "AwayDay | Your Team's Travel Planner",
-    description: "Games, gyms, hotels, and team plans in one live link. No app download required.",
+    description: "All your team's tournament travel info in one place.",
     images: ["/awayday-icon.png"],
   },
   icons: {

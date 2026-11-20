@@ -532,7 +532,7 @@ function ClaimPageContent() {
           <h1 className="text-2xl font-black text-[#0B192C] tracking-tight leading-tight">
             {formattedTeamName !== "AwayDay"
               ? `Free for ${formattedTeamName} teams this season.`
-              : "Your team's weekend travel, sorted."}
+              : "All your team's tournament travel info in one place."}
           </h1>
 
           <p className="text-xs sm:text-sm font-semibold text-[#5C6B7B] leading-relaxed">
