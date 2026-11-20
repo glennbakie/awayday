@@ -395,12 +395,12 @@ function RunSheetContent({
   const [isLoadingSheet, setIsLoadingSheet] = useState<boolean>(() => !isDemoSlug);
   const [sheetNotFound, setSheetNotFound] = useState<boolean>(false);
   const [personalTrip, setPersonalTrip] = useState<{
-    departureTime?: string;
-    origin?: string;
-    notes?: string;
+    outbound?: { date?: string; time?: string; origin?: string; notes?: string };
+    returnTrip?: { date?: string; time?: string; origin?: string; notes?: string };
   }>({});
   const [isEditingPersonalTrip, setIsEditingPersonalTrip] = useState(false);
-  const [personalDepInput, setPersonalDepInput] = useState("");
+  const [personalDateInput, setPersonalDateInput] = useState("");
+  const [personalTimeInput, setPersonalTimeInput] = useState("");
   const [personalOriginInput, setPersonalOriginInput] = useState("");
   const [personalNotesInput, setPersonalNotesInput] = useState("");
   const teamHomeBase = "Ottawa, ON";
@@ -947,7 +947,17 @@ function RunSheetContent({
       if (savedPersonalTrip) {
         const parsedPersonal = JSON.parse(savedPersonalTrip);
         if (parsedPersonal && typeof parsedPersonal === "object") {
-          setPersonalTrip(parsedPersonal);
+          if ("outbound" in parsedPersonal || "returnTrip" in parsedPersonal) {
+            setPersonalTrip(parsedPersonal);
+          } else if (parsedPersonal.departureTime || parsedPersonal.origin || parsedPersonal.notes) {
+            setPersonalTrip({
+              outbound: {
+                time: parsedPersonal.departureTime,
+                origin: parsedPersonal.origin,
+                notes: parsedPersonal.notes,
+              },
+            });
+          }
         }
       } else {
         setPersonalTrip({});
@@ -4900,7 +4910,7 @@ function RunSheetContent({
             </div>
 
             {/* Telemetry Summary: Drive Duration & Recommended Departure Call */}
-            <div className="grid grid-cols-2 gap-2 border-t border-[#DCE1E7] pt-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-[#DCE1E7] pt-3">
               <div className="bg-[#F7F6F2] border border-[#DCE1E7] rounded-xl p-2.5">
                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                   Est. Drive Time &amp; Distance
@@ -4915,154 +4925,237 @@ function RunSheetContent({
                 </div>
               </div>
 
-              <div className="bg-[#F7F6F2] border border-[#DCE1E7] rounded-xl p-3 space-y-2">
-                <div className="flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                      {corridorPlan.recommendedDepartureTitle}
-                    </span>
-                    {(personalTrip.departureTime || personalTrip.origin || personalTrip.notes) && (
-                      <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-2 py-0.5">
-                        Saved to your device
-                      </span>
-                    )}
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setPersonalDepInput(personalTrip.departureTime || "");
-                      setPersonalOriginInput(personalTrip.origin || "");
-                      setPersonalNotesInput(personalTrip.notes || "");
-                      setIsEditingPersonalTrip((prev) => !prev);
-                    }}
-                    className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F2942] hover:text-[#1A365D] bg-white border border-[#DCE1E7] rounded-lg px-2 py-1 shadow-2xs cursor-pointer shrink-0"
-                  >
-                    <Pencil className="w-3 h-3" aria-hidden="true" />
-                    <span>Edit My Departure</span>
-                  </button>
-                </div>
+              {(() => {
+                const activeLegKey = corridorDirection === "trip_home" ? "returnTrip" : "outbound";
+                const legOverride = personalTrip[activeLegKey] || {};
+                const hasLegOverride = Boolean(
+                  legOverride.date || legOverride.time || legOverride.origin || legOverride.notes
+                );
+                const defaultLegDate =
+                  activeLegKey === "returnTrip"
+                    ? (games[games.length - 1] as any)?.dateStr || "2026-11-22"
+                    : (games[0] as any)?.dateStr || "2026-11-21";
 
-                {!isEditingPersonalTrip ? (
-                  <div className="space-y-1">
-                    <span className="text-sm sm:text-base font-black text-[#0B192C] block tabular-nums">
-                      {personalTrip.departureTime || corridorPlan.recommendedDepartureLabel}
-                    </span>
-                    {personalTrip.origin && (
-                      <span className="text-xs font-semibold text-[#0F2942] block">
-                        Starting from: {personalTrip.origin}
-                      </span>
-                    )}
-                    {personalTrip.notes && (
-                      <span className="text-xs font-medium text-[#5C6B7B] block">
-                        {personalTrip.notes}
-                      </span>
-                    )}
-                  </div>
-                ) : (
-                  <form
-                    onSubmit={(e) => {
-                      e.preventDefault();
-                      const next = {
-                        departureTime: personalDepInput.trim() || undefined,
-                        origin: personalOriginInput.trim() || undefined,
-                        notes: personalNotesInput.trim() || undefined,
-                      };
-                      const hasAny = Boolean(next.departureTime || next.origin || next.notes);
-                      try {
-                        if (hasAny) {
-                          window.localStorage.setItem(
-                            `awayday_personal_trip_${slug}`,
-                            JSON.stringify(next)
-                          );
-                          setPersonalTrip(next);
-                        } else {
-                          window.localStorage.removeItem(`awayday_personal_trip_${slug}`);
-                          setPersonalTrip({});
-                        }
-                      } catch {
-                        // Ignore storage errors
-                      }
-                      setIsEditingPersonalTrip(false);
-                    }}
-                    className="space-y-2 pt-1"
-                  >
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                        My Departure Time
-                      </label>
-                      <input
-                        type="text"
-                        value={personalDepInput}
-                        onChange={(e) => setPersonalDepInput(e.target.value)}
-                        placeholder={corridorPlan.recommendedDepartureLabel}
-                        className="w-full rounded-lg bg-white border border-[#DCE1E7] px-2.5 py-1.5 text-xs font-bold text-[#0B192C] focus:border-[#0F2942] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                        Starting From (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={personalOriginInput}
-                        onChange={(e) => setPersonalOriginInput(e.target.value)}
-                        placeholder={departureOrigin}
-                        className="w-full rounded-lg bg-white border border-[#DCE1E7] px-2.5 py-1.5 text-xs font-semibold text-[#0B192C] focus:border-[#0F2942] focus:outline-none"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
-                        Notes (Optional)
-                      </label>
-                      <input
-                        type="text"
-                        value={personalNotesInput}
-                        onChange={(e) => setPersonalNotesInput(e.target.value)}
-                        placeholder="e.g., Carpooling with Leo, leaving after school"
-                        className="w-full rounded-lg bg-white border border-[#DCE1E7] px-2.5 py-1.5 text-xs font-medium text-[#0B192C] focus:border-[#0F2942] focus:outline-none"
-                      />
-                    </div>
-                    <p className="text-[10px] font-medium text-slate-500">
-                      Saved to your device — does not change the shared team schedule.
-                    </p>
-                    <div className="flex flex-wrap items-center gap-2 pt-0.5">
-                      <button
-                        type="submit"
-                        className="rounded-lg bg-[#0F2942] hover:bg-[#1A365D] text-white text-xs font-bold px-3 py-1.5 cursor-pointer transition-colors"
-                      >
-                        Save
-                      </button>
-                      {(personalTrip.departureTime || personalTrip.origin || personalTrip.notes) && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            try {
-                              window.localStorage.removeItem(`awayday_personal_trip_${slug}`);
-                            } catch {
-                              // Ignore storage errors
-                            }
-                            setPersonalTrip({});
-                            setPersonalDepInput("");
-                            setPersonalOriginInput("");
-                            setPersonalNotesInput("");
-                            setIsEditingPersonalTrip(false);
-                          }}
-                          className="rounded-lg bg-white hover:bg-slate-100 border border-[#DCE1E7] text-slate-700 text-xs font-bold px-3 py-1.5 cursor-pointer transition-colors"
-                        >
-                          Reset to team default
-                        </button>
-                      )}
+                const formatLegDisplay = () => {
+                  const parts: string[] = [];
+                  if (legOverride.date) {
+                    const d = new Date(`${legOverride.date}T12:00:00`);
+                    if (!Number.isNaN(d.getTime())) {
+                      parts.push(
+                        new Intl.DateTimeFormat("en-US", {
+                          weekday: "short",
+                          month: "short",
+                          day: "numeric",
+                        }).format(d)
+                      );
+                    } else {
+                      parts.push(legOverride.date);
+                    }
+                  }
+                  if (legOverride.time) {
+                    const tm = legOverride.time.match(/^(\d{1,2}):(\d{2})$/);
+                    if (tm) {
+                      const h24 = parseInt(tm[1], 10);
+                      const m = tm[2];
+                      const mer = h24 >= 12 ? "PM" : "AM";
+                      const h12 = h24 % 12 || 12;
+                      parts.push(`${h12}:${m} ${mer}`);
+                    } else {
+                      parts.push(legOverride.time);
+                    }
+                  }
+                  return parts.join(" • ");
+                };
+
+                const formattedOverride = formatLegDisplay();
+
+                return (
+                  <div className="bg-[#F7F6F2] border border-[#DCE1E7] rounded-xl p-3 space-y-2 min-w-0">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-1.5 flex-wrap min-w-0">
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
+                          {corridorPlan.recommendedDepartureTitle}
+                        </span>
+                        {hasLegOverride && (
+                          <span className="inline-flex items-center rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-[9px] font-black uppercase tracking-wider px-2 py-0.5">
+                            Saved to your device
+                          </span>
+                        )}
+                      </div>
                       <button
                         type="button"
-                        onClick={() => setIsEditingPersonalTrip(false)}
-                        className="text-xs font-semibold text-slate-500 hover:text-[#0B192C] px-2 py-1.5 cursor-pointer"
+                        onClick={() => {
+                          setPersonalDateInput(legOverride.date || defaultLegDate);
+                          setPersonalTimeInput(legOverride.time || "");
+                          setPersonalOriginInput(legOverride.origin || "");
+                          setPersonalNotesInput(legOverride.notes || "");
+                          setIsEditingPersonalTrip((prev) => !prev);
+                        }}
+                        className="inline-flex items-center gap-1 text-[11px] font-bold text-[#0F2942] hover:text-[#1A365D] bg-white border border-[#DCE1E7] rounded-lg px-2 py-1 shadow-2xs cursor-pointer shrink-0"
                       >
-                        Cancel
+                        <Pencil className="w-3 h-3" aria-hidden="true" />
+                        <span>Edit My Trip</span>
                       </button>
                     </div>
-                  </form>
-                )}
-              </div>
+
+                    {!isEditingPersonalTrip ? (
+                      <div className="space-y-1">
+                        <span className="text-sm sm:text-base font-black text-[#0B192C] block tabular-nums">
+                          {formattedOverride || corridorPlan.recommendedDepartureLabel}
+                        </span>
+                        {legOverride.origin && (
+                          <span className="text-xs font-semibold text-[#0F2942] block">
+                            Starting from: {legOverride.origin}
+                          </span>
+                        )}
+                        {legOverride.notes && (
+                          <span className="text-xs font-medium text-[#5C6B7B] block">
+                            {legOverride.notes}
+                          </span>
+                        )}
+                      </div>
+                    ) : (
+                      <form
+                        onSubmit={(e) => {
+                          e.preventDefault();
+                          const nextLeg = {
+                            date: personalDateInput.trim() || undefined,
+                            time: personalTimeInput.trim() || undefined,
+                            origin:
+                              activeLegKey === "outbound"
+                                ? personalOriginInput.trim() || undefined
+                                : undefined,
+                            notes: personalNotesInput.trim() || undefined,
+                          };
+                          const hasAny = Boolean(
+                            nextLeg.date || nextLeg.time || nextLeg.origin || nextLeg.notes
+                          );
+                          const updatedTrip = { ...personalTrip };
+                          if (hasAny) {
+                            updatedTrip[activeLegKey] = nextLeg;
+                          } else {
+                            delete updatedTrip[activeLegKey];
+                          }
+                          try {
+                            if (updatedTrip.outbound || updatedTrip.returnTrip) {
+                              window.localStorage.setItem(
+                                `awayday_personal_trip_${slug}`,
+                                JSON.stringify(updatedTrip)
+                              );
+                            } else {
+                              window.localStorage.removeItem(`awayday_personal_trip_${slug}`);
+                            }
+                            setPersonalTrip(updatedTrip);
+                          } catch {
+                            // Ignore storage errors
+                          }
+                          setIsEditingPersonalTrip(false);
+                        }}
+                        className="space-y-2.5 pt-1"
+                      >
+                        <div className="grid grid-cols-2 gap-2">
+                          <div className="min-w-0">
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                              Departure Date
+                            </label>
+                            <input
+                              type="date"
+                              value={personalDateInput}
+                              onChange={(e) => setPersonalDateInput(e.target.value)}
+                              className="w-full rounded-lg bg-white border border-[#DCE1E7] px-2 py-1.5 text-xs font-bold text-[#0B192C] focus:border-[#0F2942] focus:outline-none"
+                            />
+                          </div>
+                          <div className="min-w-0">
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                              Departure Time
+                            </label>
+                            <input
+                              type="time"
+                              value={personalTimeInput}
+                              onChange={(e) => setPersonalTimeInput(e.target.value)}
+                              className="w-full rounded-lg bg-white border border-[#DCE1E7] px-2 py-1.5 text-xs font-bold text-[#0B192C] focus:border-[#0F2942] focus:outline-none"
+                            />
+                          </div>
+                        </div>
+                        {activeLegKey === "outbound" && (
+                          <div>
+                            <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                              Starting From (Optional)
+                            </label>
+                            <input
+                              type="text"
+                              value={personalOriginInput}
+                              onChange={(e) => setPersonalOriginInput(e.target.value)}
+                              placeholder={departureOrigin}
+                              className="w-full rounded-lg bg-white border border-[#DCE1E7] px-2.5 py-1.5 text-xs font-semibold text-[#0B192C] focus:border-[#0F2942] focus:outline-none"
+                            />
+                          </div>
+                        )}
+                        <div>
+                          <label className="block text-[10px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                            Notes (Optional)
+                          </label>
+                          <input
+                            type="text"
+                            value={personalNotesInput}
+                            onChange={(e) => setPersonalNotesInput(e.target.value)}
+                            placeholder="e.g., Arriving Friday night / leaving Monday AM"
+                            className="w-full rounded-lg bg-white border border-[#DCE1E7] px-2.5 py-1.5 text-xs font-medium text-[#0B192C] focus:border-[#0F2942] focus:outline-none"
+                          />
+                        </div>
+                        <p className="text-[10px] font-medium text-slate-500">
+                          Saved to your device — does not change the shared team schedule.
+                        </p>
+                        <div className="flex flex-wrap items-center gap-2 pt-0.5">
+                          <button
+                            type="submit"
+                            className="rounded-lg bg-[#0F2942] hover:bg-[#1A365D] text-white text-xs font-bold px-3 py-1.5 cursor-pointer transition-colors"
+                          >
+                            Save
+                          </button>
+                          {hasLegOverride && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                const updatedTrip = { ...personalTrip };
+                                delete updatedTrip[activeLegKey];
+                                try {
+                                  if (updatedTrip.outbound || updatedTrip.returnTrip) {
+                                    window.localStorage.setItem(
+                                      `awayday_personal_trip_${slug}`,
+                                      JSON.stringify(updatedTrip)
+                                    );
+                                  } else {
+                                    window.localStorage.removeItem(`awayday_personal_trip_${slug}`);
+                                  }
+                                } catch {
+                                  // Ignore storage errors
+                                }
+                                setPersonalTrip(updatedTrip);
+                                setPersonalDateInput("");
+                                setPersonalTimeInput("");
+                                setPersonalOriginInput("");
+                                setPersonalNotesInput("");
+                                setIsEditingPersonalTrip(false);
+                              }}
+                              className="text-xs font-bold text-[#0F2942] hover:underline px-2 py-1.5 cursor-pointer"
+                            >
+                              Reset to team default
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => setIsEditingPersonalTrip(false)}
+                            className="text-xs font-semibold text-slate-500 hover:text-[#0B192C] px-2 py-1.5 cursor-pointer"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="text-xs text-[#1D2935] font-semibold leading-relaxed bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] rounded-2xl p-4 flex items-center gap-2.5">
