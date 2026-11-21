@@ -2789,7 +2789,7 @@ function RunSheetContent({
   if (isLoadingSheet && !isDemoSlug) {
     return (
       <div className="min-h-screen font-sans bg-[#F8F7F3] text-[#1D2935] flex flex-col items-center justify-center px-4">
-        <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-6 max-w-sm w-full text-center space-y-3">
+        <div className="bg-white rounded-[26px] border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] p-6 max-w-sm w-full text-center space-y-3">
           <Loader2 className="w-6 h-6 text-[#0F2942] animate-spin mx-auto" />
           <p className="text-sm font-black text-[#0B192C]">Loading AwayDay Run-Sheet...</p>
           <p className="text-xs font-medium text-[#5C6B7B]">Syncing games, gyms, and team logistics</p>
@@ -2801,7 +2801,7 @@ function RunSheetContent({
   if (sheetNotFound && !isDemoSlug) {
     return (
       <div className="min-h-screen font-sans bg-[#F8F7F3] text-[#1D2935] flex flex-col items-center justify-center px-4">
-        <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-6 max-w-sm w-full text-center space-y-4">
+        <div className="bg-white rounded-[26px] border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] p-6 max-w-sm w-full text-center space-y-4">
           <div className="text-2xl font-black italic tracking-tight text-[#0B192C]">
             Away<span className="text-[#D59B42]">Day.</span>
           </div>
@@ -2896,7 +2896,7 @@ function RunSheetContent({
         {activeTab === "schedule" && (
           <div key="schedule" className="animate-in fade-in-50 duration-200 ease-out">
         {/* Tournament Header Card ("YOUR NEXT AWAY DAY") */}
-        <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3">
+        <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] mb-3">
           <div className="flex items-center gap-3.5">
             {/* Left: Vintage collegiate city badge */}
             <VintageCityBadge city={tournament.city || tournament.location} />
@@ -3230,7 +3230,7 @@ function RunSheetContent({
                 </div>
 
                 {/* Prominent Locked Hotel Base Camp Card with Direct Google Maps Deep-Link */}
-                <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3 space-y-3">
+                <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] mb-3 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <span className="inline-flex items-center gap-1.5 rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5">
@@ -3284,7 +3284,7 @@ function RunSheetContent({
           const nextGame = nextGameIndex >= 0 ? games[nextGameIndex] : undefined;
           if (!nextGame) {
             return (
-              <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3 space-y-2.5">
+              <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] mb-3 space-y-2.5">
                 <div className="flex items-center justify-between gap-3">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200/60 text-[11px] font-bold uppercase tracking-wider px-2.5 py-1">
                     <CheckCircle2 className="w-3.5 h-3.5 text-[#10B981]" aria-hidden="true" /> Session Wrap
@@ -3412,7 +3412,7 @@ function RunSheetContent({
           return (
             <>
               {/* Active Hero Game Card (Crisp White Surface, Neutral Depth & Sport-Neutral Monogram) */}
-              <section className="hero-card-bloom relative rounded-[28px] bg-white border-[1.5px] border-[#DCE1E7] p-4 shadow-[0_12px_36px_-6px_rgba(11,25,44,0.09),0_4px_16px_rgba(11,25,44,0.03)] mb-3">
+              <section className="hero-card-bloom relative rounded-[28px] bg-white border-2 border-[#0F1E36] p-4 shadow-[0_3px_0_0_#0F1E36] mb-3">
                 {/* Top Row (Pill Badge) */}
                 <div className="flex items-center justify-between gap-2 mb-3.5">
                   <span className="bg-[#EFEFEA] border border-[#D1D5DB] text-[11px] font-black tracking-wide text-[#0B192C] uppercase px-3 py-1 rounded-full">
@@ -3711,7 +3711,7 @@ function RunSheetContent({
                     const cardEl = document.getElementById(`game-card-${followingGame.id}`);
                     cardEl?.scrollIntoView({ behavior: "smooth", block: "center" });
                   }}
-                  className="w-full text-left bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm mb-3 flex items-center justify-between cursor-pointer hover:border-[#0F2942]/30 active:scale-[0.99] transition-all"
+                  className="w-full text-left bg-white rounded-[26px] p-4 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] mb-3 flex items-center justify-between cursor-pointer hover:border-[#0F2942]/30 active:scale-[0.99] transition-all"
                 >
                   <div className="flex items-center gap-3 min-w-0 pr-2">
                     <div className="w-10 h-10 rounded-xl bg-[#F1F3F5] border border-[#DCE1E7] text-[#0F2942] flex items-center justify-center shrink-0">
@@ -3839,7 +3839,7 @@ function RunSheetContent({
                     </span>
                   </div>
                 )}
-              <div id={`game-card-${game.id}`} className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm overflow-hidden scroll-mt-20">
+              <div id={`game-card-${game.id}`} className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] overflow-hidden scroll-mt-20">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -4134,7 +4134,7 @@ function RunSheetContent({
           </div>
 
           {/* Downtime Window Card with Corrected Timestamps */}
-          <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-4">
+          <div className="bg-white rounded-[26px] border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] p-4">
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-black tracking-tight uppercase text-[#0B192C] flex items-center gap-1.5">
                 {isLunch ? <Salad className="w-4 h-4 text-[#0B192C]" /> : <Utensils className="w-4 h-4 text-[#0B192C]" />}
@@ -4171,7 +4171,7 @@ function RunSheetContent({
 
           {/* LUNCH: GRAB & GO */}
           {isLunch ? (
-            <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-4 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3">
+            <div className="bg-white rounded-[26px] border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] p-4 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3">
               <div className="flex items-center justify-between gap-2">
                 <div>
                   <h4 className="text-xs font-black tracking-tight uppercase text-[#0B192C] flex items-center gap-1.5">
@@ -4215,7 +4215,7 @@ function RunSheetContent({
             </div>
           ) : (
             /* DINNER: FORMAL CONSENSUS & RESERVATION POLL */
-            <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-4 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3.5">
+            <div className="bg-white rounded-[26px] border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] p-4 transition-all duration-300 ease-out animate-in fade-in-50 slide-in-from-bottom-2 space-y-3.5">
               {/* Manager "Poll Time-Travel" Dev Toggle */}
               {isAdmin && (
                 <div className="bg-[#F7F6F2] border border-[#DCE1E7] rounded-xl p-2.5 space-y-1.5">
@@ -4705,7 +4705,7 @@ function RunSheetContent({
         </section>
 
         {/* Sideline Fuel / Coffee Radar */}
-        <section id="section-coffee" className="bg-white rounded-[26px] p-4 shadow-tactile-sm border-[1.5px] border-[#DCE1E7] space-y-3">
+        <section id="section-coffee" className="bg-white rounded-[26px] p-4 shadow-[0_2px_0_0_rgba(15,30,54,0.08)] border-[1.5px] border-[#CFC7B8] space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C]">
@@ -4753,7 +4753,7 @@ function RunSheetContent({
         </section>
 
         {/* Hwy 401 Corridor Team Food Stops */}
-        <section id="section-corridor-food" className="bg-white rounded-[26px] p-4 shadow-tactile-sm border-[1.5px] border-[#DCE1E7] space-y-3">
+        <section id="section-corridor-food" className="bg-white rounded-[26px] p-4 shadow-[0_2px_0_0_rgba(15,30,54,0.08)] border-[1.5px] border-[#CFC7B8] space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <span className="p-1.5 rounded-lg bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C]">
@@ -4823,7 +4823,7 @@ function RunSheetContent({
             </span>
           </div>
 
-          <div className="bg-white rounded-[26px] border-[1.5px] border-[#DCE1E7] shadow-tactile-sm p-4 space-y-3.5">
+          <div className="bg-white rounded-[26px] border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] p-4 space-y-3.5">
             {/* Inline 2-Way Direction Segmented Control: [ ➔ To Tournament | ↺ Trip Home ] */}
             <div className="grid grid-cols-2 gap-1 bg-[#F7F6F2] border border-[#DCE1E7] p-1 rounded-xl">
               <button
@@ -5323,7 +5323,7 @@ function RunSheetContent({
         </section>
 
         {/* Hotel Base Camp */}
-        <section id="section-hotel" className="bg-white rounded-[26px] p-4 shadow-tactile-sm border-[1.5px] border-[#DCE1E7] space-y-3">
+        <section id="section-hotel" className="bg-white rounded-[26px] p-4 shadow-[0_2px_0_0_rgba(15,30,54,0.08)] border-[1.5px] border-[#CFC7B8] space-y-3">
           <div>
             <span className="inline-flex items-center gap-1 rounded-full bg-[#F1F3F5] text-[#5C6B7B] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5">
               <Hotel className="w-3 h-3 text-[#0F2942]" aria-hidden="true" /> Team Hotel Base Camp

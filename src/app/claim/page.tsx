@@ -562,7 +562,7 @@ function ClaimPageContent() {
         </div>
 
         {/* 1. Header Card */}
-        <section className="bg-white rounded-[26px] p-5 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm space-y-2.5">
+        <section className="bg-white rounded-[26px] p-5 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] space-y-2.5">
           <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#F7F6F2] border border-[#D1D5DB] text-[#0B192C] text-xs font-black tracking-tight">
             From the {formattedTeamName} Fam
           </span>
@@ -580,7 +580,7 @@ function ClaimPageContent() {
 
         {/* 2. Upload Schedule Box & 3. Minimal Team Details Form */}
         <form onSubmit={handleBuildRunSheet} className="space-y-4">
-          <section className="bg-white rounded-[26px] p-5 border-[1.5px] border-[#DCE1E7] shadow-tactile-sm space-y-3.5">
+          <section className="bg-white rounded-[26px] p-5 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] space-y-3.5">
             <div>
               <h2 className="text-base font-black text-[#0B192C] tracking-tight">
                 Set Up Your Weekend Run-Sheet
@@ -864,7 +864,7 @@ function ClaimPageContent() {
         </form>
 
         {/* 4. Parent Option ("Pass to Manager") */}
-        <section className="bg-[#F7F6F2] rounded-[26px] p-5 border-[1.5px] border-[#DCE1E7] shadow-xs space-y-3">
+        <section className="bg-[#F7F6F2] rounded-[26px] p-5 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] space-y-3">
           <p className="text-xs font-semibold text-[#1D2935] leading-relaxed">
             Not the team manager? Send this pass to your manager or head coach so they can upload the schedule for the team.
           </p>
