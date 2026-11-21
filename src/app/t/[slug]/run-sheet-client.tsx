@@ -353,6 +353,17 @@ function RunSheetContent({
     }
   }, [slug, searchParams]);
 
+  // Persist last-visited non-demo run-sheet slug for Home Screen PWA launches
+  useEffect(() => {
+    if (slug && slug !== "test-team") {
+      try {
+        localStorage.setItem("awayday_last_slug", slug);
+      } catch {
+        // Ignore storage access errors
+      }
+    }
+  }, [slug]);
+
   // Step 2: Any-City Travel Corridor Engine Origin & Direction State + Persistence
   const isDemoSlug = slug === "test-team";
   const [isLoadingSheet, setIsLoadingSheet] = useState<boolean>(() => !isDemoSlug);
