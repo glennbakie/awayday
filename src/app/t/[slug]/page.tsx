@@ -2,8 +2,28 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 import { Suspense } from "react";
+import type { Metadata } from "next";
 import { supabase } from "@/lib/supabase";
 import RunSheetClient from "./run-sheet-client";
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ slug: string }> | { slug: string };
+}): Promise<Metadata> {
+  const resolvedParams = await Promise.resolve(params);
+  let rawSlug = resolvedParams?.slug || "test-team";
+  try {
+    rawSlug = decodeURIComponent(rawSlug);
+  } catch {
+    // Keep rawSlug if URI decoding fails
+  }
+  const cleanSlug = rawSlug.replace(/[\])}[{(]/g, "").trim() || "test-team";
+
+  return {
+    manifest: `/api/manifest?slug=${encodeURIComponent(cleanSlug)}`,
+  };
+}
 
 const SEED_OAKVILLE_FALLBACK = {
   slug: "test-team",
