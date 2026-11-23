@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     short_name: "AwayDay",
     description: "Games, gyms, hotels, and team plans in one live link. No app download required.",
     start_url: slug ? `/t/${encodeURIComponent(slug)}` : "/",
+    scope: "/",
     display: "standalone",
     background_color: "#F8F6F1",
     theme_color: "#0F1E36",

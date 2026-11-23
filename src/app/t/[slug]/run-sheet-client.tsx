@@ -103,6 +103,16 @@ interface Game {
   isPlaceholder?: boolean;
 }
 
+interface SavedSquadSheet {
+  slug: string;
+  teamName: string;
+  tournamentName: string;
+  location: string;
+  dates: string;
+  nextGameTipOffMs: number | null;
+  lastVisitedMs: number;
+}
+
 interface MealOption {
   id: string;
   name: string;
@@ -328,6 +338,11 @@ function RunSheetContent({
   const [showPassModal, setShowPassModal] = useState<boolean>(false);
   const [passCopied, setPassCopied] = useState<boolean>(false);
   const [passShareCopied, setPassShareCopied] = useState<boolean>(false);
+  const [savedSheets, setSavedSheets] = useState<SavedSquadSheet[]>([]);
+  const [showSquadModal, setShowSquadModal] = useState<boolean>(false);
+  const [addSquadInput, setAddSquadInput] = useState<string>("");
+  const [addSquadError, setAddSquadError] = useState<string | null>(null);
+  const [isAddingSquad, setIsAddingSquad] = useState<boolean>(false);
   const passDialogRef = useRef<HTMLDialogElement | null>(null);
   const [syncStatus, setSyncStatus] = useState<"connecting" | "live" | "degraded" | "offline">("connecting");
   const realtimeChannelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
@@ -365,6 +380,25 @@ function RunSheetContent({
       }
     }
   }, [slug]);
+
+  // Load saved squads from localStorage on mount
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem("awayday_saved_sheets");
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+          setSavedSheets(
+            parsed.filter(
+              (s: any) => s && typeof s.slug === "string" && s.slug.trim() && s.slug !== "test-team"
+            )
+          );
+        }
+      }
+    } catch {
+      // Ignore storage access errors
+    }
+  }, []);
 
   // Step 2: Any-City Travel Corridor Engine Origin & Direction State + Persistence
   const isDemoSlug = slug === "test-team";
@@ -1705,6 +1739,121 @@ function RunSheetContent({
     ).getTime();
     const gameEndMs = gameStartMs + 75 * 60 * 1000;
     return currentMs >= gameEndMs;
+  };
+
+  // Auto-upsert current valid run-sheet into "awayday_saved_sheets"
+  useEffect(() => {
+    if (!slug || slug === "test-team" || isLoadingSheet || sheetNotFound || !tournament.name) {
+      return;
+    }
+    const nextUnfinished = games.find((g) => !g.isPlaceholder && !isGameElapsedByClock(g, nowMs));
+    let nextGameTipOffMs: number | null = null;
+    if (nextUnfinished) {
+      const parsedDate = parseGameCalendarDate(nextUnfinished.dayLabel, new Date(nowMs).getFullYear());
+      if (parsedDate) {
+        nextGameTipOffMs = new Date(
+          parsedDate.year,
+          parsedDate.monthIndex,
+          parsedDate.day,
+          Math.floor(nextUnfinished.tipOffMinutes / 60),
+          nextUnfinished.tipOffMinutes % 60,
+          0,
+          0
+        ).getTime();
+      }
+    }
+
+    const entry: SavedSquadSheet = {
+      slug,
+      teamName: (tournament.teamName || "My Team").trim(),
+      tournamentName: tournament.name.trim(),
+      location: (tournament.city || tournament.location || "").trim(),
+      dates: (tournament.dates || "").trim(),
+      nextGameTipOffMs,
+      lastVisitedMs: Date.now(),
+    };
+
+    try {
+      const raw = localStorage.getItem("awayday_saved_sheets");
+      const existing: SavedSquadSheet[] = raw ? JSON.parse(raw) : [];
+      const filtered = Array.isArray(existing)
+        ? existing.filter((s) => s && s.slug && s.slug !== "test-team" && s.slug !== slug)
+        : [];
+      const nextList = [entry, ...filtered];
+      localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextList));
+      setSavedSheets(nextList);
+    } catch {
+      // Ignore storage access errors
+    }
+  }, [slug, isLoadingSheet, sheetNotFound, tournament.name, tournament.teamName, tournament.city, tournament.location, tournament.dates, games, nowMs]);
+
+  const handleAddSquadLink = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const raw = addSquadInput.trim();
+    if (!raw) return;
+    setAddSquadError(null);
+
+    let extractedSlug = "";
+    const urlMatch = raw.match(/\/t\/([^/?#\s]+)/i);
+    if (urlMatch?.[1]) {
+      extractedSlug = decodeURIComponent(urlMatch[1]).replace(/[\])}[{(]/g, "").trim();
+    } else if (/^[a-z0-9-]+$/i.test(raw)) {
+      extractedSlug = raw;
+    }
+
+    if (!extractedSlug || extractedSlug === "test-team") {
+      setAddSquadError("Paste a valid AwayDay /t/... team link.");
+      return;
+    }
+
+    setIsAddingSquad(true);
+    try {
+      const res = await fetch(`/api/tournaments/${encodeURIComponent(extractedSlug)}`, {
+        cache: "no-store",
+      });
+      if (!res.ok) {
+        setAddSquadError("Could not find a run-sheet for that link.");
+        setIsAddingSquad(false);
+        return;
+      }
+      const data = await res.json().catch(() => null);
+      const t = data?.tournament || {};
+      const tr = data?.trip || {};
+      const newEntry: SavedSquadSheet = {
+        slug: extractedSlug,
+        teamName: (tr.team_name || t.team_name || extractedSlug).trim(),
+        tournamentName: (t.name || "Tournament Run-Sheet").trim(),
+        location: (t.city || tr.hotel_address || t.hotel_address || "").trim(),
+        dates: (t.dates || "").trim(),
+        nextGameTipOffMs: null,
+        lastVisitedMs: Date.now(),
+      };
+      const rawExisting = localStorage.getItem("awayday_saved_sheets");
+      const existing: SavedSquadSheet[] = rawExisting ? JSON.parse(rawExisting) : [];
+      const filtered = Array.isArray(existing)
+        ? existing.filter((s) => s && s.slug && s.slug !== "test-team" && s.slug !== extractedSlug)
+        : [];
+      const nextList = [newEntry, ...filtered];
+      localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextList));
+      setSavedSheets(nextList);
+      setAddSquadInput("");
+      setShowSquadModal(false);
+      router.push(`/t/${encodeURIComponent(extractedSlug)}`);
+    } catch {
+      setAddSquadError("Network error checking that team link.");
+    } finally {
+      setIsAddingSquad(false);
+    }
+  };
+
+  const handleRemoveSavedSquad = (targetSlug: string) => {
+    try {
+      const nextList = savedSheets.filter((s) => s.slug !== targetSlug);
+      localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextList));
+      setSavedSheets(nextList);
+    } catch {
+      // Ignore storage access errors
+    }
   };
 
   const isSameCalendarDay = (a?: Game, b?: Game) => {
@@ -3082,6 +3231,59 @@ function RunSheetContent({
       <main className="max-w-md mx-auto w-full px-3 sm:px-4 pb-28 pt-1">
         {activeTab === "schedule" && (
           <div key="schedule" className="animate-in fade-in-50 duration-200 ease-out">
+        {savedSheets.length >= 2 && (
+          <section aria-label="My Squads" className="mb-3">
+            <div className="flex items-center justify-between px-1 mb-1.5">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#5C6B7B]">
+                My Squads
+              </span>
+              <span className="text-[10px] font-bold text-[#5C6B7B]">
+                {savedSheets.length} Teams
+              </span>
+            </div>
+            <div className="flex items-center gap-2 overflow-x-auto pb-1">
+              {savedSheets.map((sheet) => {
+                const isActive = sheet.slug === slug;
+                const shortCity = sheet.location ? sheet.location.split(",")[0].trim() : "";
+                return (
+                  <button
+                    key={sheet.slug}
+                    type="button"
+                    onClick={() => {
+                      if (!isActive) {
+                        router.push(`/t/${encodeURIComponent(sheet.slug)}`);
+                      }
+                    }}
+                    className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-bold border-[1.5px] transition-all cursor-pointer active:scale-[0.98] flex items-center gap-1.5 ${
+                      isActive
+                        ? "bg-[#0F1E36] text-white border-[#0F1E36] shadow-[0_2px_0_0_rgba(15,30,54,0.2)]"
+                        : "bg-white hover:bg-[#F7F6F2] text-[#0F1E36] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.06)]"
+                    }`}
+                  >
+                    <span className="truncate max-w-[160px]">{sheet.teamName || sheet.tournamentName}</span>
+                    {shortCity && (
+                      <span className={`text-[10px] font-semibold ${isActive ? "text-slate-300" : "text-[#5C6B7B]"}`}>
+                        • {shortCity}
+                      </span>
+                    )}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                onClick={() => {
+                  setAddSquadError(null);
+                  setShowSquadModal(true);
+                }}
+                className="shrink-0 rounded-full px-3 py-1.5 text-xs font-bold bg-[#F7F6F2] hover:bg-[#EFEFEA] text-[#0F1E36] border-[1.5px] border-[#CFC7B8] transition-colors cursor-pointer inline-flex items-center gap-1"
+              >
+                <Plus className="w-3.5 h-3.5" aria-hidden="true" />
+                <span>Add Team</span>
+              </button>
+            </div>
+          </section>
+        )}
+
         {/* Tournament Header Card ("YOUR NEXT AWAY DAY") */}
         <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] mb-3">
           <div className="flex items-center gap-3.5">
@@ -6778,6 +6980,105 @@ function RunSheetContent({
           </div>
         </div>
       </dialog>
+
+      {showSquadModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="my-squads-modal-title"
+          onClick={() => setShowSquadModal(false)}
+        >
+          <div
+            className="bg-white border-[1.5px] border-[#CFC7B8] rounded-[26px] p-5 shadow-tactile max-w-md w-full text-[#1D2935] space-y-4"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#5C6B7B]">
+                  Multi-Team Switcher
+                </span>
+                <h2 id="my-squads-modal-title" className="text-lg font-black text-[#0F1E36] leading-tight">
+                  My Squads
+                </h2>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSquadModal(false)}
+                aria-label="Close My Squads"
+                className="p-1.5 rounded-full bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0B192C] transition-colors cursor-pointer shrink-0"
+              >
+                <X className="w-4 h-4" aria-hidden="true" />
+              </button>
+            </div>
+
+            <form onSubmit={handleAddSquadLink} className="space-y-2">
+              <label className="block text-xs font-bold text-[#0F1E36]">
+                Paste another team&apos;s AwayDay link
+              </label>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={addSquadInput}
+                  onChange={(e) => setAddSquadInput(e.target.value)}
+                  placeholder="https://awayday-omega.vercel.app/t/..."
+                  className="flex-1 min-w-0 rounded-xl bg-[#F7F6F2] border-[1.5px] border-[#CFC7B8] px-3 py-2 text-xs font-semibold text-[#0F1E36] placeholder:text-slate-400 focus:border-[#0F1E36] focus:bg-white focus:outline-none"
+                />
+                <button
+                  type="submit"
+                  disabled={isAddingSquad || !addSquadInput.trim()}
+                  className="rounded-xl bg-[#0F1E36] hover:bg-[#1A365D] disabled:opacity-50 text-white text-xs font-bold px-3.5 py-2 transition-colors cursor-pointer shrink-0"
+                >
+                  {isAddingSquad ? "Adding..." : "Add"}
+                </button>
+              </div>
+              {addSquadError && (
+                <p className="text-[11px] font-semibold text-rose-600">{addSquadError}</p>
+              )}
+            </form>
+
+            <div className="space-y-2 max-h-60 overflow-y-auto pt-1 border-t border-[#DCE1E7]">
+              {savedSheets.map((sheet) => (
+                <div
+                  key={sheet.slug}
+                  className="flex items-center justify-between gap-2 rounded-2xl bg-[#F7F6F2] border border-[#CFC7B8] px-3 py-2.5"
+                >
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowSquadModal(false);
+                      if (sheet.slug !== slug) {
+                        router.push(`/t/${encodeURIComponent(sheet.slug)}`);
+                      }
+                    }}
+                    className="min-w-0 flex-1 text-left cursor-pointer"
+                  >
+                    <div className="text-xs font-black text-[#0F1E36] truncate">
+                      {sheet.teamName || sheet.tournamentName}
+                      {sheet.slug === slug && (
+                        <span className="ml-1.5 text-[10px] font-bold text-emerald-700">• Active</span>
+                      )}
+                    </div>
+                    <div className="text-[11px] font-medium text-[#5C6B7B] truncate">
+                      {sheet.tournamentName}{sheet.location ? ` • ${sheet.location}` : ""}
+                    </div>
+                  </button>
+                  {sheet.slug !== slug && (
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveSavedSquad(sheet.slug)}
+                      aria-label={`Remove ${sheet.teamName || sheet.slug}`}
+                      className="text-[11px] font-bold text-[#5C6B7B] hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-white transition-colors cursor-pointer shrink-0"
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
