@@ -679,10 +679,18 @@ function RunSheetContent({
   const [nowMs, setNowMs] = useState<number>(() => Date.now());
 
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setNowMs(Date.now());
-    }, 30000);
-    return () => window.clearInterval(timer);
+    const refreshClock = () => setNowMs(Date.now());
+    const timer = window.setInterval(refreshClock, 30000);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") refreshClock();
+    };
+    document.addEventListener("visibilitychange", handleVisibility);
+    window.addEventListener("focus", refreshClock);
+    return () => {
+      window.clearInterval(timer);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      window.removeEventListener("focus", refreshClock);
+    };
   }, []);
 
   // Manager Suite State: Quick-Edit Game Drawer & Schedule Ingestion Modal
@@ -1046,6 +1054,18 @@ function RunSheetContent({
           }
         }
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "tournaments",
+          filter: `slug=eq.${slug}`,
+        },
+        () => {
+          fetchInitialMealMode();
+        }
+      )
       .on("broadcast", { event: "meal_mode_sync" }, ({ payload }: any) => {
         const nextMode = payload?.mealMode || payload?.mealType;
         if (nextMode === "lunch" || nextMode === "dinner") {
@@ -1153,6 +1173,17 @@ function RunSheetContent({
     };
     window.addEventListener("storage", handleStorage);
 
+    const handleVisibilityRefresh = () => {
+      if (document.visibilityState === "visible") {
+        fetchInitialMealMode();
+      }
+    };
+    const handleFocusRefresh = () => {
+      fetchInitialMealMode();
+    };
+    document.addEventListener("visibilitychange", handleVisibilityRefresh);
+    window.addEventListener("focus", handleFocusRefresh);
+
     // 4. Clean up subscriptions on component unmount
     return () => {
       realtimeChannelRef.current = null;
@@ -1161,6 +1192,8 @@ function RunSheetContent({
       window.removeEventListener("storage", handleStorage);
       window.removeEventListener("online", handleOnline);
       window.removeEventListener("offline", handleOffline);
+      document.removeEventListener("visibilitychange", handleVisibilityRefresh);
+      window.removeEventListener("focus", handleFocusRefresh);
     };
   }, [slug]);
 
@@ -1512,13 +1545,27 @@ function RunSheetContent({
     return `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}&travelmode=driving`;
   };
 
+  const persistGamesToSupabase = async (updatedGames: Game[]) => {
+    await broadcastGamesSync(updatedGames);
+    if (isDemoSlug) return;
+    try {
+      await fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ games: updatedGames }),
+      });
+    } catch (err) {
+      console.warn("PATCH /api/tournaments/[slug] games sync warning:", err);
+    }
+  };
+
   const shiftGameTime = (gameId: string, deltaMinutes: number) => {
     setGames(prev => {
       const updated = prev.map(g => {
         if (g.id !== gameId) return g;
         return { ...g, tipOffMinutes: g.tipOffMinutes + deltaMinutes };
       });
-      broadcastGamesSync(updated);
+      void persistGamesToSupabase(updated);
       return updated;
     });
   };
@@ -1590,26 +1637,122 @@ function RunSheetContent({
     }
   };
 
+  const parseGameCalendarDate = (
+    dayLabel: string | undefined,
+    fallbackYear: number
+  ): { year: number; monthIndex: number; day: number } | null => {
+    const raw = (dayLabel || "").trim();
+    if (!raw) return null;
+
+    const isoMatch = raw.match(/(\d{4})-(\d{1,2})-(\d{1,2})/);
+    if (isoMatch) {
+      return {
+        year: parseInt(isoMatch[1], 10),
+        monthIndex: parseInt(isoMatch[2], 10) - 1,
+        day: parseInt(isoMatch[3], 10),
+      };
+    }
+
+    const monthMap: Record<string, number> = {
+      jan: 0, january: 0,
+      feb: 1, february: 1,
+      mar: 2, march: 2,
+      apr: 3, april: 3,
+      may: 4,
+      jun: 5, june: 5,
+      jul: 6, july: 6,
+      aug: 7, august: 7,
+      sep: 8, sept: 8, september: 8,
+      oct: 9, october: 9,
+      nov: 10, november: 10,
+      dec: 11, december: 11,
+    };
+
+    const mMatch = raw.match(/\b(Jan(?:uary)?|Feb(?:ruary)?|Mar(?:ch)?|Apr(?:il)?|May|Jun(?:e)?|Jul(?:y)?|Aug(?:ust)?|Sep(?:t(?:ember)?)?|Oct(?:ober)?|Nov(?:ember)?|Dec(?:ember)?)\s+(\d{1,2})(?:,?\s+(\d{4}))?/i);
+    if (!mMatch) return null;
+
+    const monthIndex = monthMap[mMatch[1].toLowerCase()];
+    const day = parseInt(mMatch[2], 10);
+    const yearMatch = mMatch[3] || (tournament.dates || "").match(/\b(20\d{2})\b/)?.[1];
+    const year = yearMatch ? parseInt(yearMatch, 10) : fallbackYear;
+
+    if (monthIndex === undefined || isNaN(day)) return null;
+    return { year, monthIndex, day };
+  };
+
   const isGameElapsedByClock = (game: Game, currentMs: number) => {
-    if (game.status === "Final") return true;
+    if (game.status === "Final" || Boolean((game as any).isFinished)) return true;
 
     const nowDate = new Date(currentMs);
-    const currentMonth = nowDate.getMonth(); // 9 = Oct
-    const currentDay = nowDate.getDate();
-    const currentMinutesOfDay = nowDate.getHours() * 60 + nowDate.getMinutes();
+    const parsed = parseGameCalendarDate(game.dayLabel, nowDate.getFullYear());
+    if (!parsed) return false;
 
-    const dayMatch = (game.dayLabel || "").match(/Oct\s+(\d+)/i);
-    if (!dayMatch) return false;
+    const tipHours = Math.floor(game.tipOffMinutes / 60);
+    const tipMins = game.tipOffMinutes % 60;
+    const gameStartMs = new Date(
+      parsed.year,
+      parsed.monthIndex,
+      parsed.day,
+      tipHours,
+      tipMins,
+      0,
+      0
+    ).getTime();
+    const gameEndMs = gameStartMs + 75 * 60 * 1000;
+    return currentMs >= gameEndMs;
+  };
 
-    const gameDay = parseInt(dayMatch[1], 10);
-    // Only auto-expire by clock when the live date is one of the active tournament days (Oct 24 or Oct 25)
-    if (currentMonth === 9 && (currentDay === 24 || currentDay === 25)) {
-      if (currentDay > gameDay) return true;
-      if (currentDay === gameDay && currentMinutesOfDay >= game.tipOffMinutes + 75) {
-        return true;
-      }
+  const isSameCalendarDay = (a?: Game, b?: Game) => {
+    if (!a || !b) return false;
+    const labelA = (a.dayLabel || "").trim().toLowerCase();
+    const labelB = (b.dayLabel || "").trim().toLowerCase();
+    if (labelA && labelB) return labelA === labelB;
+    const dateA = parseGameCalendarDate(a.dayLabel, new Date().getFullYear());
+    const dateB = parseGameCalendarDate(b.dayLabel, new Date().getFullYear());
+    if (!dateA || !dateB) return false;
+    return dateA.year === dateB.year && dateA.monthIndex === dateB.monthIndex && dateA.day === dateB.day;
+  };
+
+  const formatDowntimeDuration = (minutes: number) => {
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    if (h > 0 && m > 0) return `${h}h ${m}m`;
+    if (h > 0) return `${h}h`;
+    return `${m}m`;
+  };
+
+  const getInterGameDowntime = (
+    currentGame: Game,
+    nextGameInList?: Game,
+    nextGameDisplayNum?: number
+  ) => {
+    if (
+      !currentGame ||
+      !nextGameInList ||
+      currentGame.isPlaceholder ||
+      nextGameInList.isPlaceholder ||
+      !isSameCalendarDay(currentGame, nextGameInList)
+    ) {
+      return null;
     }
-    return false;
+    const prevGameEndMinutes = currentGame.tipOffMinutes + 75;
+    const downtimeMinutes = nextGameInList.tipOffMinutes - prevGameEndMinutes;
+    if (downtimeMinutes <= 0) return null;
+
+    const duration = formatDowntimeDuration(downtimeMinutes);
+    const isShort = downtimeMinutes < 90;
+    const targetLabel = nextGameDisplayNum ? `Game ${nextGameDisplayNum}` : "next game";
+
+    return {
+      downtimeMinutes,
+      duration,
+      label: `${duration} downtime`,
+      isShort,
+      type: isShort ? "Quick Turnaround" : "Lunch & Recovery Break",
+      note: isShort
+        ? `Quick court-side snack, hydration & stretch before ${targetLabel}.`
+        : `Full meal & rest window near ${currentGame.venueName || "the gym"} before ${targetLabel}.`,
+    };
   };
 
   const handleMarkFinalAndAdvance = async (gameId: string) => {
@@ -1617,22 +1760,23 @@ function RunSheetContent({
       g.id === gameId ? { ...g, status: "Final" as GameStatus } : g
     );
     setGames(updatedGames);
-    await broadcastGamesSync(updatedGames);
+    await persistGamesToSupabase(updatedGames);
+  };
 
-    try {
-      await supabase
-        .from("games")
-        .update({ status: "Final" })
-        .eq("id", gameId);
-    } catch (err) {
-      console.error("Supabase mark final fallback:", err);
-    }
+  const handleToggleGameFinished = async (gameId: string) => {
+    const updatedGames = games.map((g) => {
+      if (g.id !== gameId) return g;
+      const nextStatus: GameStatus = g.status === "Final" ? "Upcoming" : "Final";
+      return { ...g, status: nextStatus };
+    });
+    setGames(updatedGames);
+    await persistGamesToSupabase(updatedGames);
   };
 
   const handleResetGamesStatus = async () => {
     const updatedGames = games.map((g) => ({ ...g, status: "Upcoming" as GameStatus }));
     setGames(updatedGames);
-    await broadcastGamesSync(updatedGames);
+    await persistGamesToSupabase(updatedGames);
   };
 
   const openEditDrawer = (game: Game) => {
@@ -1673,22 +1817,7 @@ function RunSheetContent({
 
     setGames(updatedGames);
     setEditingGame(null);
-    await broadcastGamesSync(updatedGames);
-
-    try {
-      await supabase
-        .from("games")
-        .update({
-          opponent: editOpponent.trim() || editingGame.opponent,
-          court: nextCourt,
-          venue_name: nextVenue,
-          status: editStatus,
-          jersey_color: editJerseyColor
-        })
-        .eq("id", editingGame.id);
-    } catch (err) {
-      console.error("Supabase game update fallback:", err);
-    }
+    await persistGamesToSupabase(updatedGames);
   };
 
   const handleParseSchedule = async () => {
@@ -2927,21 +3056,45 @@ function RunSheetContent({
                 )}
               </div>
 
-              <a
-                href={getMapsUrl(tournament.primaryHubAddress)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1.5 text-xs font-semibold text-slate-600 hover:text-[#0F2942] transition-colors mt-1"
-              >
-                <svg
-                  aria-hidden="true"
-                  className="w-3.5 h-3.5 text-[#0F2942] fill-current shrink-0"
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                </svg>
-                <span className="truncate">{tournament.city}</span>
-              </a>
+              {(() => {
+                const firstRealGame = games.find((g) => !g.isPlaceholder) || games[0];
+                const headerHubName = (tournament.primaryHub || firstRealGame?.venueName || "").trim();
+                const headerHubAddress = (tournament.primaryHubAddress || firstRealGame?.venueAddress || "").trim();
+                const hasDistinctAddress =
+                  Boolean(headerHubAddress) &&
+                  !/^(tbd|away|pending)$/i.test(headerHubAddress) &&
+                  headerHubAddress.toLowerCase() !== headerHubName.toLowerCase();
+                let headerLocationLabel = tournament.city || "";
+                if (headerHubName && hasDistinctAddress) {
+                  headerLocationLabel = headerHubAddress.toLowerCase().includes(headerHubName.toLowerCase())
+                    ? headerHubAddress
+                    : `${headerHubName} • ${headerHubAddress}`;
+                } else if (hasDistinctAddress) {
+                  headerLocationLabel = headerHubAddress;
+                } else if (headerHubName) {
+                  headerLocationLabel = tournament.city && !headerHubName.toLowerCase().includes(tournament.city.toLowerCase())
+                    ? `${headerHubName} • ${tournament.city}`
+                    : headerHubName;
+                }
+                const headerMapsQuery = headerHubAddress || headerLocationLabel || tournament.city;
+                return (
+                  <a
+                    href={getMapsUrl(headerMapsQuery)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-1.5 text-xs font-semibold text-slate-600 hover:text-[#0F2942] transition-colors mt-1"
+                  >
+                    <svg
+                      aria-hidden="true"
+                      className="w-3.5 h-3.5 text-[#0F2942] fill-current shrink-0 mt-0.5"
+                      viewBox="0 0 24 24"
+                    >
+                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                    </svg>
+                    <span className="leading-snug break-words">{headerLocationLabel}</span>
+                  </a>
+                );
+              })()}
 
               <div className="flex items-center gap-1.5 text-xs font-medium text-[#5C6B7B] mt-0.5">
                 <CalendarDays className="w-3.5 h-3.5 text-[#0F2942] shrink-0" aria-hidden="true" />
@@ -3351,8 +3504,24 @@ function RunSheetContent({
             isQuickTurnaround?: boolean;
           }> = [];
 
-          // Inject Quick Turnaround (or inter-game downtime window) as the top featured tip inside Hub Tips
-          if (nextGame.downtimeAfter) {
+          // Inject dynamic inter-game downtime window as the top featured tip inside Hub Tips
+          const heroDynamicDowntime = getInterGameDowntime(
+            nextGame,
+            followingSameDayGame,
+            followingSameDayGame?.gameNumber || nextGameIndex + 2
+          );
+          if (heroDynamicDowntime) {
+            activeHeroTips.push({
+              id: `turnaround-${nextGame.id}`,
+              tag: heroDynamicDowntime.isShort ? "QUICK TURNAROUND" : "FUEL WINDOW",
+              durationBadge: heroDynamicDowntime.duration,
+              title: heroDynamicDowntime.isShort
+                ? "Quick Turnaround — Stay On-Site"
+                : `${heroDynamicDowntime.duration} — ${heroDynamicDowntime.type}`,
+              content: heroDynamicDowntime.note,
+              isQuickTurnaround: heroDynamicDowntime.isShort,
+            });
+          } else if (nextGame.downtimeAfter) {
             const isQuickTurnaroundWindow = /quick turnaround|stay on-site/i.test(
               `${nextGame.downtimeAfter.type} ${nextGame.downtimeAfter.note}`
             );
@@ -3826,6 +3995,14 @@ function RunSheetContent({
               game.venueAddress ||
               game.venueName;
 
+            const isElapsed = isGameElapsedByClock(game, nowMs);
+            const effectiveStatus: GameStatus | undefined = isElapsed ? "Final" : game.status;
+            const interGameDowntime = getInterGameDowntime(
+              game,
+              games[index + 1],
+              games[index + 1]?.gameNumber || index + 2
+            );
+
             return (
               <React.Fragment key={game.id}>
                 {showDayHeader && game.dayLabel && (
@@ -3839,7 +4016,7 @@ function RunSheetContent({
                     </span>
                   </div>
                 )}
-              <div id={`game-card-${game.id}`} className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] overflow-hidden scroll-mt-20">
+              <div id={`game-card-${game.id}`} className={`bg-white rounded-[26px] p-4 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] overflow-hidden scroll-mt-20 transition-opacity ${isElapsed ? "opacity-75" : ""}`}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-1.5">
@@ -3854,15 +4031,17 @@ function RunSheetContent({
                           {game.telemetryFlag}
                         </span>
                       )}
-                      {game.status && (
+                      {effectiveStatus && (
                         <span className={`inline-flex items-center rounded-full text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 ${
-                          game.status === "Live"
+                          effectiveStatus === "Final"
+                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+                            : effectiveStatus === "Live"
                             ? "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/25"
-                            : game.status === "Delayed"
+                            : effectiveStatus === "Delayed"
                             ? "bg-[#EFEFEA] text-[#0B192C] border border-[#D1D5DB]"
                             : "bg-white text-[#0B192C] border border-[#D1D5DB]"
                         }`}>
-                          {game.status}
+                          {effectiveStatus}
                         </span>
                       )}
                       {game.jerseyColor && !isPlaceholderGame && (
@@ -3877,15 +4056,29 @@ function RunSheetContent({
                   </div>
 
                   {isAdmin && (
-                    <button
-                      type="button"
-                      onClick={() => openEditDrawer(game)}
-                      title="Quick-Edit Game"
-                      aria-label={`Edit Game ${index + 1}`}
-                      className="p-1.5 rounded-lg bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] border border-[#DCE1E7] transition-colors cursor-pointer shrink-0"
-                    >
-                      <Pencil className="w-3.5 h-3.5" />
-                    </button>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => handleToggleGameFinished(game.id)}
+                        className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold border transition-colors cursor-pointer ${
+                          game.status === "Final"
+                            ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                            : "bg-[#F1F3F5] border-[#DCE1E7] text-[#0F2942] hover:bg-[#E2E8F0]"
+                        }`}
+                      >
+                        <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+                        <span>{game.status === "Final" ? "Reopen" : "Mark Finished"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => openEditDrawer(game)}
+                        title="Quick-Edit Game"
+                        aria-label={`Edit Game ${index + 1}`}
+                        className="p-1.5 rounded-lg bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] border border-[#DCE1E7] transition-colors cursor-pointer shrink-0"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                    </div>
                   )}
                 </div>
 
@@ -4098,6 +4291,30 @@ function RunSheetContent({
                   </div>
                 )}
               </div>
+              {interGameDowntime && (
+                <div className="rounded-2xl bg-[#F7F6F2] border-[1.5px] border-[#CFC7B8] px-3.5 py-2.5 shadow-[0_2px_0_0_rgba(15,30,54,0.06)] flex items-start gap-2.5">
+                  <span className="mt-0.5 p-1 rounded-lg bg-white border border-[#CFC7B8] text-[#0F2942] shrink-0">
+                    {interGameDowntime.isShort ? (
+                      <Timer className="w-3.5 h-3.5" aria-hidden="true" />
+                    ) : (
+                      <Utensils className="w-3.5 h-3.5" aria-hidden="true" />
+                    )}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="inline-flex items-center rounded-full bg-[#0F1E36] text-white text-[10px] font-black tracking-wide uppercase px-2 py-0.5 tabular-nums">
+                        {interGameDowntime.label}
+                      </span>
+                      <span className="text-[11px] font-extrabold text-[#0F2942] uppercase tracking-wide">
+                        {interGameDowntime.type}
+                      </span>
+                    </div>
+                    <p className="text-xs font-semibold text-[#5C6B7B] leading-snug mt-1">
+                      {interGameDowntime.note}
+                    </p>
+                  </div>
+                </div>
+              )}
               </React.Fragment>
             );
           })}
