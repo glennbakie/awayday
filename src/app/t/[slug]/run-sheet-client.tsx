@@ -369,6 +369,7 @@ function RunSheetContent({
   const [showPassModal, setShowPassModal] = useState<boolean>(false);
   const [passCopied, setPassCopied] = useState<boolean>(false);
   const [passShareCopied, setPassShareCopied] = useState<boolean>(false);
+  const [syncLinkCopied, setSyncLinkCopied] = useState<boolean>(false);
   const [savedSheets, setSavedSheets] = useState<SavedSquadSheet[]>([]);
   const [showSquadModal, setShowSquadModal] = useState<boolean>(false);
   const [addSquadInput, setAddSquadInput] = useState<string>("");
@@ -430,6 +431,101 @@ function RunSheetContent({
       // Ignore storage access errors
     }
   }, []);
+
+  // Sync manager/team workspace slugs passed via ?sync_slugs=slug1,slug2
+  useEffect(() => {
+    const rawSyncSlugs = searchParams.get("sync_slugs");
+    if (!rawSyncSlugs) return;
+
+    const incomingSlugs = Array.from(
+      new Set(
+        rawSyncSlugs
+          .split(",")
+          .map((s) => s.trim())
+          .filter((s) => s && s !== "test-team")
+      )
+    );
+    if (incomingSlugs.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const rawExisting = localStorage.getItem("awayday_saved_sheets");
+        const existing: SavedSquadSheet[] = rawExisting ? JSON.parse(rawExisting) : [];
+        const bySlug = new Map<string, SavedSquadSheet>();
+        if (Array.isArray(existing)) {
+          existing.forEach((s) => {
+            if (s?.slug && s.slug !== "test-team") bySlug.set(s.slug, s);
+          });
+        }
+
+        // Un-hide any synced slugs from local deleted list
+        const deletedSet = getDeletedSlugsSet();
+        incomingSlugs.forEach((s) => deletedSet.delete(s));
+        localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
+
+        for (const targetSlug of incomingSlugs) {
+          if (cancelled) return;
+          if (!bySlug.has(targetSlug) || !localStorage.getItem(`awayday_cache_${targetSlug}`)) {
+            try {
+              const res = await fetch(`/api/tournaments/${encodeURIComponent(targetSlug)}`, {
+                cache: "no-store",
+              });
+              if (res.ok) {
+                const data = await res.json().catch(() => null);
+                const t = data?.tournament || {};
+                const tr = data?.trip || {};
+                const entry: SavedSquadSheet = {
+                  slug: targetSlug,
+                  teamName: (tr.team_name || t.team_name || targetSlug).trim(),
+                  tournamentName: (t.name || "Tournament Run-Sheet").trim(),
+                  location: (t.city || tr.hotel_address || t.hotel_address || "").trim(),
+                  dates: (t.dates || "").trim(),
+                  nextGameTipOffMs: null,
+                  lastVisitedMs: Date.now(),
+                };
+                bySlug.set(targetSlug, entry);
+                localStorage.setItem(
+                  `awayday_cache_${targetSlug}`,
+                  JSON.stringify({
+                    tournament: {
+                      slug: targetSlug,
+                      name: entry.tournamentName,
+                      teamName: entry.teamName,
+                      city: entry.location || "Brampton, ON",
+                      dates: entry.dates,
+                      is_archived: Boolean(t.is_archived),
+                    },
+                    games: Array.isArray(data?.games) ? data.games : [],
+                  })
+                );
+              }
+            } catch {
+              // Ignore individual fetch errors
+            }
+          }
+        }
+
+        if (cancelled) return;
+        const mergedList = Array.from(bySlug.values());
+        localStorage.setItem("awayday_saved_sheets", JSON.stringify(mergedList));
+        setSavedSheets(mergedList);
+        await refreshVaultTournaments();
+      } catch {
+        // Ignore sync errors
+      } finally {
+        if (typeof window !== "undefined") {
+          const nextUrl = new URL(window.location.href);
+          nextUrl.searchParams.delete("sync_slugs");
+          window.history.replaceState(null, "", nextUrl.pathname + nextUrl.search + nextUrl.hash);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [searchParams]);
 
   // Step 2: Any-City Travel Corridor Engine Origin & Direction State + Persistence
   const isDemoSlug = slug === "test-team";
@@ -1507,6 +1603,63 @@ function RunSheetContent({
     }
 
     await refreshVaultTournaments(targetSlug === slug ? nextArchived : undefined);
+  };
+
+  const handleRemoveVaultTournamentFromDevice = (target: VaultTournament) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Remove this tournament from this device's list? The shared link itself will remain active."
+      )
+    ) {
+      return;
+    }
+
+    const targetSlug = target.slug;
+    const deletedSet = getDeletedSlugsSet();
+    deletedSet.add(targetSlug);
+    if (target.id) {
+      deletedSet.add(target.id);
+    }
+
+    try {
+      window.localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
+      window.localStorage.removeItem(`awayday_cache_${targetSlug}`);
+      const rawSaved = window.localStorage.getItem("awayday_saved_sheets");
+      if (rawSaved) {
+        const parsedSaved = JSON.parse(rawSaved);
+        if (Array.isArray(parsedSaved)) {
+          const nextSaved = parsedSaved.filter((s: any) => s && s.slug !== targetSlug);
+          window.localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextSaved));
+          setSavedSheets(nextSaved);
+        }
+      }
+    } catch {
+      // Ignore storage errors
+    }
+
+    setVaultTournaments((prev) =>
+      prev.filter((t) => t.slug !== targetSlug && !(target.id && t.id === target.id))
+    );
+  };
+
+  const handleCopyWorkspaceSyncLink = async () => {
+    if (typeof window === "undefined") return;
+    const slugs = Array.from(
+      new Set(
+        [slug, ...activeVaultTournaments.map((t) => t.slug)].filter(
+          (s) => s && s !== "test-team"
+        )
+      )
+    );
+    const syncUrl = `${window.location.origin}/t/${encodeURIComponent(slug)}?admin=true&sync_slugs=${encodeURIComponent(slugs.join(","))}`;
+    try {
+      await navigator.clipboard.writeText(syncUrl);
+      setSyncLinkCopied(true);
+      window.setTimeout(() => setSyncLinkCopied(false), 2500);
+    } catch {
+      // Ignore clipboard errors
+    }
   };
 
   const handleDeleteVaultTournament = async (target: VaultTournament) => {
@@ -3603,27 +3756,43 @@ function RunSheetContent({
                                   </span>
                                 </div>
                               </button>
-                              <div className="flex items-center gap-1 shrink-0">
+                              <div className="flex items-center shrink-0">
                                 {!isCurrent && (
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      handleDeleteVaultTournament(t);
+                                      handleRemoveVaultTournamentFromDevice(t);
                                     }}
                                     aria-label={`Remove ${t.name}`}
                                     title={`Remove ${t.name}`}
-                                    className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                    className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                                   >
                                     <X className="w-3.5 h-3.5" aria-hidden="true" />
                                   </button>
                                 )}
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                               </div>
                             </div>
                           );
                         })}
                       </div>
+                      <button
+                        type="button"
+                        onClick={handleCopyWorkspaceSyncLink}
+                        className="w-full min-h-[38px] mt-1.5 rounded-xl bg-[#F7F6F2] hover:bg-[#EFEFEA] border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        {syncLinkCopied ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+                            <span>Sync link copied!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
+                            <span>Copy Sync Link for Mobile/Desktop</span>
+                          </>
+                        )}
+                      </button>
                     </div>
 
                     {archivedVaultTournaments.length > 0 && (
@@ -3665,22 +3834,21 @@ function RunSheetContent({
                                     </span>
                                   </div>
                                 </button>
-                                <div className="flex items-center gap-1 shrink-0">
+                                <div className="flex items-center shrink-0">
                                   {!isCurrent && (
                                     <button
                                       type="button"
                                       onClick={(e) => {
                                         e.stopPropagation();
-                                        handleDeleteVaultTournament(t);
+                                        handleRemoveVaultTournamentFromDevice(t);
                                       }}
                                       aria-label={`Remove ${t.name}`}
                                       title={`Remove ${t.name}`}
-                                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                      className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                                     >
                                       <X className="w-3.5 h-3.5" aria-hidden="true" />
                                     </button>
                                   )}
-                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                 </div>
                               </div>
                             );
@@ -6865,24 +7033,43 @@ function RunSheetContent({
                             </span>
                           </div>
                         </a>
-                        <div className="flex items-center gap-1 shrink-0">
+                        <div className="flex items-center shrink-0">
                           {!isCurrent && (
                             <button
                               type="button"
-                              onClick={() => handleDeleteVaultTournament(t)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveVaultTournamentFromDevice(t);
+                              }}
                               aria-label={`Remove ${t.name}`}
                               title={`Remove ${t.name}`}
-                              className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                              className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                             >
                               <X className="w-3.5 h-3.5" aria-hidden="true" />
                             </button>
                           )}
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         </div>
                       </div>
                     );
                   })}
                 </div>
+                <button
+                  type="button"
+                  onClick={handleCopyWorkspaceSyncLink}
+                  className="w-full min-h-[38px] mt-1.5 rounded-xl bg-[#F7F6F2] hover:bg-[#EFEFEA] border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  {syncLinkCopied ? (
+                    <>
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+                      <span>Sync link copied!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-3.5 h-3.5" aria-hidden="true" />
+                      <span>Copy Sync Link for Mobile/Desktop</span>
+                    </>
+                  )}
+                </button>
               </div>
 
               {archivedVaultTournaments.length > 0 && (
@@ -6920,19 +7107,21 @@ function RunSheetContent({
                               </span>
                             </div>
                           </a>
-                          <div className="flex items-center gap-1 shrink-0">
+                          <div className="flex items-center shrink-0">
                             {!isCurrent && (
                               <button
                                 type="button"
-                                onClick={() => handleDeleteVaultTournament(t)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRemoveVaultTournamentFromDevice(t);
+                                }}
                                 aria-label={`Remove ${t.name}`}
                                 title={`Remove ${t.name}`}
-                                className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                               >
                                 <X className="w-3.5 h-3.5" aria-hidden="true" />
                               </button>
                             )}
-                            <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           </div>
                         </div>
                       );
