@@ -2223,6 +2223,23 @@ function RunSheetContent({
     await persistGamesToSupabase(updatedGames);
   };
 
+  const getTeamMonogram = (name?: string): string => {
+    const cleaned = (name || "")
+      .trim()
+      .replace(/^(the|a|an)\s+/i, "")
+      .replace(/^\d+\s+/, "");
+    const words = cleaned.split(/\s+/).filter(Boolean);
+    for (const word of words) {
+      const letters = word.replace(/[^a-zA-Z]/g, "").toUpperCase();
+      if (letters.length >= 3) {
+        return letters.slice(0, 3);
+      }
+    }
+    const allLetters = cleaned.replace(/[^a-zA-Z]/g, "").toUpperCase();
+    if (allLetters.length >= 3) return allLetters.slice(0, 3);
+    return (allLetters + "AWY").slice(0, 3);
+  };
+
   const formatVenueSubAddress = (venueAddress?: string, city?: string) => {
     const rawParts = [venueAddress, city]
       .filter(Boolean)
@@ -4773,24 +4790,43 @@ function RunSheetContent({
                     )}
                   </div>
 
-                  {/* Full-Width Bold Matchup Headline */}
+                  {/* Full-Name Varsity Matchup Lockup */}
                   {(() => {
-                    const rawMatchup = game.matchup || `vs. ${game.opponent}`;
+                    const rawMatchup = game.matchup || "";
                     const splitMatch = rawMatchup.match(/^(.*?)\s+(vs\.?|at)\s+(.*)$/i);
+                    const ourTeamName = (splitMatch?.[1]?.trim() || tournament.teamName || "Our Squad").trim();
+                    const oppTeamName = (splitMatch?.[3]?.trim() || game.opponent || "Opponent").trim();
+                    const matchupSep = (splitMatch?.[2] || (isAwayCard ? "at" : "vs"))
+                      .replace(/\.$/, "")
+                      .toLowerCase();
                     return (
-                      <h3 className="w-full mt-3 mb-4 text-2xl sm:text-3xl font-black tracking-tight leading-[1.1] text-[#0F1E36]">
-                        {splitMatch ? (
-                          <>
-                            <span>{splitMatch[1]}</span>
-                            <span className="text-[#7A8494] font-extrabold text-lg sm:text-xl mx-1.5">
-                              {splitMatch[2].toLowerCase()}
+                      <div className="w-full mt-3 mb-4 space-y-2">
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            aria-hidden="true"
+                            className="w-11 h-8 rounded-lg bg-[#0F1E36] text-white font-black text-xs tracking-widest flex items-center justify-center shrink-0"
+                          >
+                            {getTeamMonogram(ourTeamName)}
+                          </span>
+                          <span className="text-[18px] sm:text-xl font-black tracking-tight text-[#0F1E36] leading-tight min-w-0">
+                            {ourTeamName}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2.5">
+                          <span
+                            aria-hidden="true"
+                            className="w-11 h-8 rounded-lg bg-[#F3EFEA] border-[1.5px] border-[#CFC7B8] text-[#0F1E36] font-black text-xs tracking-widest flex items-center justify-center shrink-0"
+                          >
+                            {getTeamMonogram(oppTeamName)}
+                          </span>
+                          <h3 className="text-[18px] sm:text-xl font-black tracking-tight text-[#0F1E36] leading-tight min-w-0">
+                            <span className="text-[#7A8494] font-extrabold text-sm mr-1.5">
+                              {matchupSep}
                             </span>
-                            <span>{splitMatch[3]}</span>
-                          </>
-                        ) : (
-                          rawMatchup
-                        )}
-                      </h3>
+                            <span>{oppTeamName}</span>
+                          </h3>
+                        </div>
+                      </div>
                     );
                   })()}
                 </div>
