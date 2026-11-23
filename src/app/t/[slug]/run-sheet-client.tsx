@@ -95,6 +95,8 @@ interface Game {
   warmupBufferMin: number;
   hotelTravelMin: number;
   status?: GameStatus;
+  teamScore?: number | null;
+  opponentScore?: number | null;
   jerseyColor?: JerseyColor;
   telemetryFlag?: string;
   downtimeAfter?: DowntimeWindow;
@@ -701,6 +703,9 @@ function RunSheetContent({
   const [editStatus, setEditStatus] = useState<GameStatus>("Upcoming");
   const [editJerseyColor, setEditJerseyColor] = useState<JerseyColor>("White (Home)");
   const [editWarmupBuffer, setEditWarmupBuffer] = useState<number>(30);
+  const [editingScoreGameId, setEditingScoreGameId] = useState<string | null>(null);
+  const [scoreTeamInput, setScoreTeamInput] = useState<string>("");
+  const [scoreOppInput, setScoreOppInput] = useState<string>("");
 
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
   const [ingestModalMode, setIngestModalMode] = useState<"update" | "create">("update");
@@ -1770,6 +1775,59 @@ function RunSheetContent({
       return { ...g, status: nextStatus };
     });
     setGames(updatedGames);
+    await persistGamesToSupabase(updatedGames);
+  };
+
+  const getScoreBadgeMeta = (game: Game) => {
+    if (typeof game.teamScore !== "number" || typeof game.opponentScore !== "number") {
+      return null;
+    }
+    if (game.teamScore > game.opponentScore) {
+      return {
+        label: `W ${game.teamScore}–${game.opponentScore}`,
+        className: "bg-emerald-50 text-emerald-900 border border-emerald-200",
+      };
+    }
+    if (game.teamScore < game.opponentScore) {
+      return {
+        label: `L ${game.teamScore}–${game.opponentScore}`,
+        className: "bg-[#F3EFEA] text-[#0F1E36] border border-[#CFC7B8]",
+      };
+    }
+    return {
+      label: `T ${game.teamScore}–${game.opponentScore}`,
+      className: "bg-[#F3EFEA] text-[#0F1E36] border border-[#CFC7B8]",
+    };
+  };
+
+  const openScoreEditor = (game: Game) => {
+    setEditingScoreGameId(game.id);
+    setScoreTeamInput(typeof game.teamScore === "number" ? String(game.teamScore) : "");
+    setScoreOppInput(typeof game.opponentScore === "number" ? String(game.opponentScore) : "");
+  };
+
+  const handleSaveGameScore = async (gameId: string) => {
+    const teamScore = parseInt(scoreTeamInput.trim(), 10);
+    const opponentScore = parseInt(scoreOppInput.trim(), 10);
+    if (isNaN(teamScore) || teamScore < 0 || isNaN(opponentScore) || opponentScore < 0) {
+      return;
+    }
+    const updatedGames = games.map((g) =>
+      g.id === gameId
+        ? { ...g, teamScore, opponentScore, status: "Final" as GameStatus }
+        : g
+    );
+    setGames(updatedGames);
+    setEditingScoreGameId(null);
+    await persistGamesToSupabase(updatedGames);
+  };
+
+  const handleClearGameScore = async (gameId: string) => {
+    const updatedGames = games.map((g) =>
+      g.id === gameId ? { ...g, teamScore: null, opponentScore: null } : g
+    );
+    setGames(updatedGames);
+    setEditingScoreGameId(null);
     await persistGamesToSupabase(updatedGames);
   };
 
@@ -3997,6 +4055,9 @@ function RunSheetContent({
 
             const isElapsed = isGameElapsedByClock(game, nowMs);
             const effectiveStatus: GameStatus | undefined = isElapsed ? "Final" : game.status;
+            const scoreBadge = getScoreBadgeMeta(game);
+            const hasSavedScore = Boolean(scoreBadge);
+            const isEditingThisScore = isAdmin && editingScoreGameId === game.id;
             const interGameDowntime = getInterGameDowntime(
               game,
               games[index + 1],
@@ -4044,6 +4105,11 @@ function RunSheetContent({
                           {effectiveStatus}
                         </span>
                       )}
+                      {scoreBadge && (
+                        <span className={`inline-flex items-center rounded-full text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 tabular-nums ${scoreBadge.className}`}>
+                          {scoreBadge.label}
+                        </span>
+                      )}
                       {game.jerseyColor && !isPlaceholderGame && (
                         <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
                           {isAwayCard ? "Away" : "Home"} • {cardJerseyShort}
@@ -4056,7 +4122,15 @@ function RunSheetContent({
                   </div>
 
                   {isAdmin && (
-                    <div className="flex items-center gap-1.5 shrink-0">
+                    <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
+                      <button
+                        type="button"
+                        onClick={() => (isEditingThisScore ? setEditingScoreGameId(null) : openScoreEditor(game))}
+                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold border bg-[#F1F3F5] border-[#DCE1E7] text-[#0F2942] hover:bg-[#E2E8F0] transition-colors cursor-pointer"
+                      >
+                        <Trophy className="w-3 h-3" aria-hidden="true" />
+                        <span>{hasSavedScore ? "Edit Score" : "Log Score"}</span>
+                      </button>
                       <button
                         type="button"
                         onClick={() => handleToggleGameFinished(game.id)}
@@ -4081,6 +4155,78 @@ function RunSheetContent({
                     </div>
                   )}
                 </div>
+
+                {isEditingThisScore && (
+                  <div className="mt-3 rounded-2xl bg-[#F7F6F2] border border-[#CFC7B8] p-3 space-y-2.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-[11px] font-black uppercase tracking-wider text-[#0F2942]">
+                        Final Score
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setEditingScoreGameId(null)}
+                        className="text-[11px] font-bold text-[#5C6B7B] hover:text-[#0F2942] cursor-pointer"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                    <div className="grid grid-cols-[1fr_auto_1fr] items-end gap-2">
+                      <label className="block min-w-0">
+                        <span className="block text-[10px] font-bold text-[#5C6B7B] uppercase truncate mb-1">
+                          {tournament.teamName || "Us"}
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={scoreTeamInput}
+                          onChange={(e) => setScoreTeamInput(e.target.value)}
+                          placeholder="0"
+                          className="w-full rounded-xl bg-white border border-[#CFC7B8] px-2.5 py-1.5 text-sm font-black text-center text-[#0F2942] tabular-nums focus:border-[#0F2942] focus:outline-none"
+                        />
+                      </label>
+                      <span className="pb-2 text-xs font-black text-[#5C6B7B]">vs</span>
+                      <label className="block min-w-0">
+                        <span className="block text-[10px] font-bold text-[#5C6B7B] uppercase truncate mb-1">
+                          {game.opponent || "Opponent"}
+                        </span>
+                        <input
+                          type="number"
+                          inputMode="numeric"
+                          min={0}
+                          value={scoreOppInput}
+                          onChange={(e) => setScoreOppInput(e.target.value)}
+                          placeholder="0"
+                          className="w-full rounded-xl bg-white border border-[#CFC7B8] px-2.5 py-1.5 text-sm font-black text-center text-[#0F2942] tabular-nums focus:border-[#0F2942] focus:outline-none"
+                        />
+                      </label>
+                    </div>
+                    <div className="flex items-center justify-end gap-2">
+                      {hasSavedScore && (
+                        <button
+                          type="button"
+                          onClick={() => handleClearGameScore(game.id)}
+                          className="rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#5C6B7B] text-xs font-bold px-3 py-1.5 transition-colors cursor-pointer"
+                        >
+                          Clear
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => handleSaveGameScore(game.id)}
+                        disabled={
+                          scoreTeamInput.trim() === "" ||
+                          scoreOppInput.trim() === "" ||
+                          isNaN(parseInt(scoreTeamInput, 10)) ||
+                          isNaN(parseInt(scoreOppInput, 10))
+                        }
+                        className="rounded-xl bg-[#0F2942] hover:bg-[#1A365D] disabled:opacity-50 text-white text-xs font-bold px-3.5 py-1.5 transition-colors cursor-pointer"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Three-Column Timing Display */}
                 <div className="divide-x divide-[#E9ECEF] flex items-start text-center py-1 mt-3 border-t border-[#E9ECEF] pt-3">

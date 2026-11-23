@@ -68,18 +68,29 @@ export async function GET(
       return NextResponse.json({ error: "Tournament not found" }, { status: 404 });
     }
 
-    // 3. Look up games from `games` table (by share_slug, trip_id, or tournament_id) or fallback to schedule_json
+    // 3. Prefer `schedule_json` when present (it holds full game metadata: status, scores, jerseyColor),
+    // and fall back to `games` table rows if `schedule_json` is empty.
     let rawGameRows: any[] = [];
-    try {
-      const { data: bySlugGames } = await dbClient
-        .from("games")
-        .select("*")
-        .eq("share_slug", slug);
-      if (Array.isArray(bySlugGames) && bySlugGames.length > 0) {
-        rawGameRows = bySlugGames;
+    const jsonGames =
+      resolvedTourney?.schedule_json ||
+      resolvedTourney?.games ||
+      tripRow?.schedule_json;
+    if (Array.isArray(jsonGames) && jsonGames.length > 0) {
+      rawGameRows = jsonGames;
+    }
+
+    if (rawGameRows.length === 0) {
+      try {
+        const { data: bySlugGames } = await dbClient
+          .from("games")
+          .select("*")
+          .eq("share_slug", slug);
+        if (Array.isArray(bySlugGames) && bySlugGames.length > 0) {
+          rawGameRows = bySlugGames;
+        }
+      } catch {
+        // Ignore if share_slug column is absent
       }
-    } catch {
-      // Ignore if share_slug column is absent
     }
 
     if (rawGameRows.length === 0 && tripRow?.id) {
@@ -107,16 +118,6 @@ export async function GET(
         }
       } catch {
         // Ignore query error
-      }
-    }
-
-    if (rawGameRows.length === 0) {
-      const jsonGames =
-        resolvedTourney?.schedule_json ||
-        resolvedTourney?.games ||
-        tripRow?.schedule_json;
-      if (Array.isArray(jsonGames) && jsonGames.length > 0) {
-        rawGameRows = jsonGames;
       }
     }
 
@@ -160,6 +161,18 @@ export async function GET(
           warmupBufferMin: row.warmup_buffer_min ?? row.warmupBufferMin ?? 30,
           hotelTravelMin: row.hotel_travel_min ?? row.hotelTravelMin ?? 15,
           status: row.status || "Upcoming",
+          teamScore:
+            typeof row.teamScore === "number"
+              ? row.teamScore
+              : typeof row.team_score === "number"
+                ? row.team_score
+                : null,
+          opponentScore:
+            typeof row.opponentScore === "number"
+              ? row.opponentScore
+              : typeof row.opponent_score === "number"
+                ? row.opponent_score
+                : null,
           jerseyColor,
           telemetryFlag: row.telemetry_flag || row.telemetryFlag || undefined,
           isPlaceholder: Boolean(row.is_placeholder ?? row.isPlaceholder),
