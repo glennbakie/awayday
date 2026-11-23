@@ -164,11 +164,42 @@ function getCityTriCode(cityRaw?: string): { code: string; full: string } {
     return { code: "BRA", full: "Brampton, ON" };
   }
   const primarySegment = cityRaw.split("/")[0].trim();
-  const firstCity = primarySegment.split(",")[0].trim();
-  const lower = firstCity.toLowerCase();
+  const rawParts = primarySegment
+    .split(/[•,]/)
+    .map((p) => p.trim())
+    .filter(Boolean);
 
-  const code = KNOWN_TRICODES[lower] || firstCity.substring(0, 3).toUpperCase();
-  const full = /,/.test(primarySegment) ? primarySegment : `${firstCity}, ON`;
+  const isRegionOrPostal = (part: string) =>
+    /^(ON|QC|BC|AB|MB|SK|NS|NB|PE|NL|YT|NT|NU|NY|OH|MI|PA|IL|IN|TX|FL|GA|NC|SC|VA|MD|MA|NJ|CT|WA|OR|CA|NV|AZ|CO|MN|WI|MO|TN|KY|AL|LA|OK|KS|IA|NE|UT|NM|ID|MT|WY|ND|SD|ME|NH|VT|RI|DE|DC|HI|AK|CANADA|USA|US)$/i.test(
+      part
+    ) ||
+    /^[A-Z]\d[A-Z]\s*\d[A-Z]\d$/i.test(part) ||
+    /^\d{5}(-\d{4})?$/.test(part);
+
+  const isStreetAddress = (part: string) =>
+    /^\d/.test(part) ||
+    /\b(st|street|ave|avenue|blvd|boulevard|rd|road|dr|drive|ln|lane|ct|court|way|pkwy|parkway|cres|crescent|pl|place|hwy|highway)\b\.?$/i.test(
+      part
+    );
+
+  const cityCandidates = rawParts.filter(
+    (part) => !isStreetAddress(part) && !isRegionOrPostal(part) && /[a-zA-Z]{2,}/.test(part)
+  );
+
+  const knownMatch = cityCandidates.find((part) => KNOWN_TRICODES[part.toLowerCase()]);
+  const chosenCity =
+    knownMatch ||
+    cityCandidates[cityCandidates.length - 1] ||
+    rawParts.find((p) => !isRegionOrPostal(p) && /[a-zA-Z]{3,}/.test(p)) ||
+    "Brampton";
+
+  const lettersOnly = chosenCity.replace(/[^a-zA-Z]/g, "").toUpperCase();
+  const code =
+    KNOWN_TRICODES[chosenCity.toLowerCase()] ||
+    (lettersOnly.length >= 3 ? lettersOnly.slice(0, 3) : (lettersOnly + "AWY").slice(0, 3));
+
+  const regionPart = rawParts.find((p) => /^[A-Z]{2}$/i.test(p))?.toUpperCase() || "ON";
+  const full = `${chosenCity}, ${regionPart}`;
   return { code, full };
 }
 
@@ -1505,6 +1536,15 @@ function RunSheetContent({
         if (archivedMap && typeof archivedMap === "object" && targetSlug in archivedMap) {
           delete archivedMap[targetSlug];
           window.localStorage.setItem("awayday_archived_slugs", JSON.stringify(archivedMap));
+        }
+      }
+      const rawSaved = window.localStorage.getItem("awayday_saved_sheets");
+      if (rawSaved) {
+        const parsedSaved = JSON.parse(rawSaved);
+        if (Array.isArray(parsedSaved)) {
+          const nextSaved = parsedSaved.filter((s: any) => s && s.slug !== targetSlug);
+          window.localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextSaved));
+          setSavedSheets(nextSaved);
         }
       }
     } catch {
@@ -3525,25 +3565,27 @@ function RunSheetContent({
                           const tri = getCityTriCode(t.city);
                           const isCurrent = t.slug === slug;
                           return (
-                            <button
+                            <div
                               key={t.slug}
-                              type="button"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                if (t.slug !== slug) {
-                                  window.localStorage.setItem("awayday_active_slug", t.slug);
-                                  router.push(`/t/${t.slug}?admin=true`);
-                                } else {
-                                  setSelectedVaultTournament(t);
-                                }
-                              }}
-                              className={`w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-xl border text-xs transition-all cursor-pointer ${
+                              className={`w-full flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl border text-xs transition-all ${
                                 isCurrent
                                   ? "border-[#0B192C] bg-[#F7F6F2] font-bold text-[#0B192C]"
                                   : "border-slate-200 bg-white hover:bg-slate-50 text-[#1D2935]"
                               }`}
                             >
-                              <div className="flex items-center gap-2.5 min-w-0">
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  if (t.slug !== slug) {
+                                    window.localStorage.setItem("awayday_active_slug", t.slug);
+                                    router.push(`/t/${t.slug}?admin=true`);
+                                  } else {
+                                    setSelectedVaultTournament(t);
+                                  }
+                                }}
+                                className="flex-1 min-w-0 text-left flex items-center gap-2.5 cursor-pointer"
+                              >
                                 <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-[#0B192C] text-[#F9F7F1] text-[10px] font-black tracking-wider">
                                   {tri.code}
                                 </span>
@@ -3560,9 +3602,25 @@ function RunSheetContent({
                                     {t.dates} • {tri.full}
                                   </span>
                                 </div>
+                              </button>
+                              <div className="flex items-center gap-1 shrink-0">
+                                {!isCurrent && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleDeleteVaultTournament(t);
+                                    }}
+                                    aria-label={`Remove ${t.name}`}
+                                    title={`Remove ${t.name}`}
+                                    className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                  >
+                                    <X className="w-3.5 h-3.5" aria-hidden="true" />
+                                  </button>
+                                )}
+                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                               </div>
-                              <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                            </button>
+                            </div>
                           );
                         })}
                       </div>
@@ -3578,16 +3636,18 @@ function RunSheetContent({
                             const tri = getCityTriCode(t.city);
                             const isCurrent = t.slug === slug;
                             return (
-                              <button
+                              <div
                                 key={t.slug}
-                                type="button"
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedVaultTournament(t);
-                                }}
-                                className="w-full text-left flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100/70 text-xs text-slate-600 transition-all cursor-pointer"
+                                className="w-full flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-slate-100/70 text-xs text-slate-600 transition-all"
                               >
-                                <div className="flex items-center gap-2.5 min-w-0">
+                                <button
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedVaultTournament(t);
+                                  }}
+                                  className="flex-1 min-w-0 text-left flex items-center gap-2.5 cursor-pointer"
+                                >
                                   <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-slate-200 text-slate-700 text-[10px] font-black tracking-wider">
                                     {tri.code}
                                   </span>
@@ -3604,9 +3664,25 @@ function RunSheetContent({
                                       {t.dates} • {tri.full}
                                     </span>
                                   </div>
+                                </button>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  {!isCurrent && (
+                                    <button
+                                      type="button"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        handleDeleteVaultTournament(t);
+                                      }}
+                                      aria-label={`Remove ${t.name}`}
+                                      title={`Remove ${t.name}`}
+                                      className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                    >
+                                      <X className="w-3.5 h-3.5" aria-hidden="true" />
+                                    </button>
+                                  )}
+                                  <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                                 </div>
-                                <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              </button>
+                              </div>
                             );
                           })}
                         </div>
@@ -6764,12 +6840,14 @@ function RunSheetContent({
                     const tri = getCityTriCode(t.city);
                     const isCurrent = t.slug === slug;
                     return (
-                      <a
+                      <div
                         key={t.slug}
-                        href={`/t/${t.slug}?admin=true`}
-                        className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs text-slate-800 transition-all"
+                        className="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs text-slate-800 transition-all"
                       >
-                        <div className="flex items-center gap-2.5 min-w-0">
+                        <a
+                          href={`/t/${t.slug}?admin=true`}
+                          className="flex-1 min-w-0 flex items-center gap-2.5"
+                        >
                           <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-[#0B192C] text-[#F9F7F1] text-[10px] font-black tracking-wider">
                             {tri.code}
                           </span>
@@ -6786,9 +6864,22 @@ function RunSheetContent({
                               {t.dates} • {tri.full}
                             </span>
                           </div>
+                        </a>
+                        <div className="flex items-center gap-1 shrink-0">
+                          {!isCurrent && (
+                            <button
+                              type="button"
+                              onClick={() => handleDeleteVaultTournament(t)}
+                              aria-label={`Remove ${t.name}`}
+                              title={`Remove ${t.name}`}
+                              className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                            >
+                              <X className="w-3.5 h-3.5" aria-hidden="true" />
+                            </button>
+                          )}
+                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                         </div>
-                        <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      </a>
+                      </div>
                     );
                   })}
                 </div>
@@ -6804,12 +6895,14 @@ function RunSheetContent({
                       const tri = getCityTriCode(t.city);
                       const isCurrent = t.slug === slug;
                       return (
-                        <a
+                        <div
                           key={t.slug}
-                          href={`/t/${t.slug}?admin=true`}
-                          className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs text-slate-600 transition-all"
+                          className="flex items-center justify-between gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs text-slate-600 transition-all"
                         >
-                          <div className="flex items-center gap-2.5 min-w-0">
+                          <a
+                            href={`/t/${t.slug}?admin=true`}
+                            className="flex-1 min-w-0 flex items-center gap-2.5"
+                          >
                             <span className="shrink-0 inline-flex items-center justify-center w-8 h-6 rounded-md bg-slate-200 text-slate-700 text-[10px] font-black tracking-wider">
                               {tri.code}
                             </span>
@@ -6826,9 +6919,22 @@ function RunSheetContent({
                                 {t.dates} • {tri.full}
                               </span>
                             </div>
+                          </a>
+                          <div className="flex items-center gap-1 shrink-0">
+                            {!isCurrent && (
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteVaultTournament(t)}
+                                aria-label={`Remove ${t.name}`}
+                                title={`Remove ${t.name}`}
+                                className="p-1 rounded-md text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                              >
+                                <X className="w-3.5 h-3.5" aria-hidden="true" />
+                              </button>
+                            )}
+                            <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
                           </div>
-                          <ChevronRight className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                        </a>
+                        </div>
                       );
                     })}
                   </div>
