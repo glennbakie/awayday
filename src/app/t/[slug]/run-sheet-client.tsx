@@ -370,6 +370,7 @@ function RunSheetContent({
   const [passCopied, setPassCopied] = useState<boolean>(false);
   const [passShareCopied, setPassShareCopied] = useState<boolean>(false);
   const [syncLinkCopied, setSyncLinkCopied] = useState<boolean>(false);
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
   const [savedSheets, setSavedSheets] = useState<SavedSquadSheet[]>([]);
   const [showSquadModal, setShowSquadModal] = useState<boolean>(false);
   const [addSquadInput, setAddSquadInput] = useState<string>("");
@@ -1160,25 +1161,23 @@ function RunSheetContent({
         } else if (apiRes && apiRes.status === 404 && !isDemoSlug) {
           if (loadedFromCache) {
             setSheetNotFound(false);
-            if (searchParams.get("admin") === "true" || isAdmin) {
-              try {
-                const rawCached = window.localStorage.getItem(storageCacheKey);
-                const parsedCached = rawCached ? JSON.parse(rawCached) : null;
-                if (parsedCached?.tournament) {
-                  fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
-                    method: "PATCH",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      tournament: parsedCached.tournament,
-                      games: Array.isArray(parsedCached.games) ? parsedCached.games : [],
-                      schedule_pending: Boolean(parsedCached.tournament?.schedulePending),
-                      is_archived: Boolean(parsedCached.tournament?.is_archived),
-                    }),
-                  }).catch(() => {});
-                }
-              } catch {
-                // Ignore auto-heal errors
+            try {
+              const rawCached = window.localStorage.getItem(storageCacheKey);
+              const parsedCached = rawCached ? JSON.parse(rawCached) : null;
+              if (parsedCached?.tournament) {
+                fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    tournament: parsedCached.tournament,
+                    games: Array.isArray(parsedCached.games) ? parsedCached.games : [],
+                    schedule_pending: Boolean(parsedCached.tournament?.schedulePending),
+                    is_archived: Boolean(parsedCached.tournament?.is_archived),
+                  }),
+                }).catch(() => {});
               }
+            } catch {
+              // Ignore auto-heal errors
             }
           } else {
             setSheetNotFound(true);
@@ -1808,10 +1807,43 @@ function RunSheetContent({
       await fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ games: updatedGames }),
+        body: JSON.stringify({
+          tournament,
+          games: updatedGames,
+          schedule_pending: Boolean(tournament.schedulePending),
+          is_archived: Boolean(tournament.is_archived),
+        }),
       });
     } catch (err) {
       console.warn("PATCH /api/tournaments/[slug] games sync warning:", err);
+    }
+  };
+
+  const handleManualCloudSync = async () => {
+    if (isDemoSlug) return;
+    setCloudSyncStatus("syncing");
+    try {
+      const res = await fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          tournament,
+          games,
+          schedule_pending: Boolean(tournament.schedulePending),
+          is_archived: Boolean(tournament.is_archived),
+        }),
+      });
+      if (res.ok) {
+        setCloudSyncStatus("synced");
+        await refreshVaultTournaments();
+        window.setTimeout(() => setCloudSyncStatus("idle"), 2500);
+      } else {
+        setCloudSyncStatus("error");
+        window.setTimeout(() => setCloudSyncStatus("idle"), 3000);
+      }
+    } catch {
+      setCloudSyncStatus("error");
+      window.setTimeout(() => setCloudSyncStatus("idle"), 3000);
     }
   };
 
@@ -3817,6 +3849,30 @@ function RunSheetContent({
                           </>
                         )}
                       </button>
+                      {!isDemoSlug && (
+                        <button
+                          type="button"
+                          onClick={handleManualCloudSync}
+                          disabled={cloudSyncStatus === "syncing"}
+                          className="w-full min-h-[38px] mt-1.5 rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+                        >
+                          {cloudSyncStatus === "syncing" ? (
+                            <>
+                              <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                              <span>Syncing Sheet to Cloud...</span>
+                            </>
+                          ) : cloudSyncStatus === "synced" ? (
+                            <>
+                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+                              <span>Synced to Cloud!</span>
+                            </>
+                          ) : cloudSyncStatus === "error" ? (
+                            <span>Sync failed — Retry</span>
+                          ) : (
+                            <span>Sync Sheet to Cloud</span>
+                          )}
+                        </button>
+                      )}
                     </div>
 
                     {archivedVaultTournaments.length > 0 && (
@@ -7094,6 +7150,30 @@ function RunSheetContent({
                     </>
                   )}
                 </button>
+                {!isDemoSlug && (
+                  <button
+                    type="button"
+                    onClick={handleManualCloudSync}
+                    disabled={cloudSyncStatus === "syncing"}
+                    className="w-full min-h-[38px] mt-1.5 rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-60"
+                  >
+                    {cloudSyncStatus === "syncing" ? (
+                      <>
+                        <Loader2 className="w-3.5 h-3.5 animate-spin" aria-hidden="true" />
+                        <span>Syncing Sheet to Cloud...</span>
+                      </>
+                    ) : cloudSyncStatus === "synced" ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" aria-hidden="true" />
+                        <span>Synced to Cloud!</span>
+                      </>
+                    ) : cloudSyncStatus === "error" ? (
+                      <span>Sync failed — Retry</span>
+                    ) : (
+                      <span>Sync Sheet to Cloud</span>
+                    )}
+                  </button>
+                )}
               </div>
 
               {archivedVaultTournaments.length > 0 && (

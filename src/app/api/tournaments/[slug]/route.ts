@@ -268,11 +268,20 @@ export async function PATCH(
         .eq("share_slug", slug)
         .maybeSingle();
 
-      const { data: tourneyRow } = await dbClient
+      let { data: tourneyRow } = await dbClient
         .from("tournaments")
         .select("*")
         .eq("share_slug", slug)
         .maybeSingle();
+
+      if (!tourneyRow) {
+        const { data: bySlugTourney } = await dbClient
+          .from("tournaments")
+          .select("*")
+          .eq("slug", slug)
+          .maybeSingle();
+        if (bySlugTourney) tourneyRow = bySlugTourney;
+      }
 
       let tournamentId = tripRow?.tournament_id || tourneyRow?.id;
 
@@ -287,26 +296,59 @@ export async function PATCH(
         const upsertHotelName = String(meta.hotel?.name || body.hotel?.name || "Team Hotel").trim();
         const upsertHotelAddress = String(meta.hotel?.address || body.hotel?.address || upsertCity).trim();
 
-        const { data: insertedTourney, error: insertTourneyErr } = await dbClient
-          .from("tournaments")
-          .insert({
-            name: upsertName,
-            slug,
-            share_slug: slug,
-            team_name: upsertTeamName,
-            city: upsertCity,
-            dates: upsertDates,
-            start_date: String(meta.startDate || body.startDate || todayIso),
-            end_date: String(meta.endDate || body.endDate || todayIso),
-            schedule_pending: nextPending,
-            schedule_json: sortedGames,
-            is_archived: Boolean(body.is_archived ?? meta.is_archived ?? false),
-          })
-          .select("id")
-          .maybeSingle();
+        const candidatePayload: Record<string, any> = {
+          name: upsertName,
+          slug,
+          share_slug: slug,
+          team_name: upsertTeamName,
+          city: upsertCity,
+          location: upsertCity,
+          dates: upsertDates,
+          start_date: String(meta.startDate || body.startDate || todayIso),
+          end_date: String(meta.endDate || body.endDate || todayIso),
+          hotel_name: upsertHotelName,
+          hotel_address: upsertHotelAddress,
+          schedule_pending: nextPending,
+          schedule_json: sortedGames,
+          is_archived: Boolean(body.is_archived ?? meta.is_archived ?? false),
+        };
 
-        if (insertTourneyErr) {
-          console.error("Auto-heal tournament insert error in PATCH /api/tournaments/[slug]:", insertTourneyErr);
+        let insertedTourney: { id?: any } | null = null;
+        let lastInsertErr: any = null;
+        for (let attempt = 0; attempt < 10; attempt++) {
+          const { data, error } = await dbClient
+            .from("tournaments")
+            .insert(candidatePayload)
+            .select("id")
+            .maybeSingle();
+
+          if (!error && data?.id) {
+            insertedTourney = data;
+            lastInsertErr = null;
+            break;
+          }
+          lastInsertErr = error;
+          const msg = error?.message || "";
+          const missingMatch = msg.match(/Could not find the '([^']+)' column/i);
+          if (missingMatch?.[1] && missingMatch[1] in candidatePayload) {
+            delete candidatePayload[missingMatch[1]];
+            continue;
+          }
+          const nullMatch = msg.match(/null value in column "([^"]+)"/i);
+          if (nullMatch?.[1] && !(nullMatch[1] in candidatePayload)) {
+            const col = nullMatch[1];
+            candidatePayload[col] = col.includes("date")
+              ? todayIso
+              : col.includes("slug")
+                ? slug
+                : upsertName;
+            continue;
+          }
+          break;
+        }
+
+        if (lastInsertErr) {
+          console.error("Auto-heal tournament insert error in PATCH /api/tournaments/[slug]:", lastInsertErr);
         } else if (insertedTourney?.id) {
           tournamentId = insertedTourney.id;
           await dbClient
