@@ -866,6 +866,7 @@ function RunSheetContent({
   const [editJerseyColor, setEditJerseyColor] = useState<JerseyColor>("White (Home)");
   const [editWarmupBuffer, setEditWarmupBuffer] = useState<number>(30);
   const [editingScoreGameId, setEditingScoreGameId] = useState<string | null>(null);
+  const [openManageMenuGameId, setOpenManageMenuGameId] = useState<string | null>(null);
   const [scoreTeamInput, setScoreTeamInput] = useState<string>("");
   const [scoreOppInput, setScoreOppInput] = useState<string>("");
   const [scoreSaveFeedback, setScoreSaveFeedback] = useState<{
@@ -3586,7 +3587,7 @@ function RunSheetContent({
         </div>
       </header>
 
-      <main className="max-w-md mx-auto w-full px-3 sm:px-4 pb-28 pt-1">
+      <main className="max-w-md mx-auto w-full px-3 sm:px-4 pb-32 pt-1">
         {activeTab === "schedule" && (
           <div key="schedule" className="animate-in fade-in-50 duration-200 ease-out">
         {savedSheets.length >= 2 && (
@@ -4690,9 +4691,11 @@ function RunSheetContent({
 
             const isElapsed = isGameElapsedByClock(game, nowMs);
             const effectiveStatus: GameStatus | undefined = isElapsed ? "Final" : game.status;
+            const isFinalCard = effectiveStatus === "Final";
             const scoreBadge = getScoreBadgeMeta(game);
             const hasSavedScore = Boolean(scoreBadge);
             const isEditingThisScore = isAdmin && editingScoreGameId === game.id;
+            const isManageMenuOpen = isAdmin && openManageMenuGameId === game.id;
             const interGameDowntime = getInterGameDowntime(
               game,
               games[index + 1],
@@ -4712,79 +4715,118 @@ function RunSheetContent({
                     </span>
                   </div>
                 )}
-              <div id={`game-card-${game.id}`} className={`bg-white rounded-[26px] p-4 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] overflow-hidden scroll-mt-20 transition-opacity ${isElapsed ? "opacity-75" : ""}`}>
+              <div
+                id={`game-card-${game.id}`}
+                className={`rounded-2xl p-4 border-2 overflow-hidden scroll-mt-20 transition-colors ${
+                  isFinalCard
+                    ? "border-[#BFB6A6] bg-[#FAF8F5]"
+                    : "border-[#0F1E36] bg-white"
+                }`}
+              >
                 <div className="space-y-2">
-                  {/* Top Row: Game Metadata + Manager Actions */}
+                  {/* Top Row: Game Metadata + Consolidated Manage Menu */}
                   <div className="w-full flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-[#0F2942] text-xs font-extrabold tracking-tight">
+                    <span className="text-[#0F1E36] text-xs font-extrabold tracking-tight">
                       Game {game.gameNumber || index + 1}{game.dayLabel ? <span className="text-[#5C6B7B] font-semibold">{` • ${game.dayLabel}`}</span> : ""}
                     </span>
 
                     {isAdmin && (
-                      <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
-                        <button
-                          type="button"
-                          onClick={() => (isEditingThisScore ? setEditingScoreGameId(null) : openScoreEditor(game))}
-                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold border bg-[#F1F3F5] border-[#DCE1E7] text-[#0F2942] hover:bg-[#E2E8F0] transition-colors cursor-pointer"
-                        >
-                          <Trophy className="w-3 h-3" aria-hidden="true" />
-                          <span>{hasSavedScore ? "Edit Score" : "Log Score"}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleToggleGameFinished(game.id)}
-                          className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold border transition-colors cursor-pointer ${
-                            game.status === "Final"
-                              ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                              : "bg-[#F1F3F5] border-[#DCE1E7] text-[#0F2942] hover:bg-[#E2E8F0]"
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setOpenManageMenuGameId(isManageMenuOpen ? null : game.id)
+                        }
+                        aria-expanded={isManageMenuOpen}
+                        className="border-[1.5px] border-[#CFC7B8] bg-white hover:bg-[#F7F4EF] text-[#0F1E36] text-xs font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                      >
+                        <span>Manage</span>
+                        <ChevronDown
+                          className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                            isManageMenuOpen ? "rotate-180" : ""
                           }`}
-                        >
-                          <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
-                          <span>{game.status === "Final" ? "Reopen" : "Mark Finished"}</span>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => openEditDrawer(game)}
-                          title="Quick-Edit Game"
-                          aria-label={`Edit Game ${index + 1}`}
-                          className="p-1.5 rounded-lg bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] border border-[#DCE1E7] transition-colors cursor-pointer shrink-0"
-                        >
-                          <Pencil className="w-3.5 h-3.5" />
-                        </button>
-                      </div>
+                          aria-hidden="true"
+                        />
+                      </button>
                     )}
                   </div>
 
+                  {isManageMenuOpen && (
+                    <div className="rounded-xl border-[1.5px] border-[#CFC7B8] bg-[#F7F4EF] p-2 flex flex-wrap items-center gap-1.5">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenManageMenuGameId(null);
+                          if (isEditingThisScore) {
+                            setEditingScoreGameId(null);
+                          } else {
+                            openScoreEditor(game);
+                          }
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold border border-[#CFC7B8] bg-white hover:bg-[#FAF8F5] text-[#0F1E36] transition-colors cursor-pointer"
+                      >
+                        <Trophy className="w-3 h-3" aria-hidden="true" />
+                        <span>{hasSavedScore ? "Edit Score" : "Log Score"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenManageMenuGameId(null);
+                          handleToggleGameFinished(game.id);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold border border-[#CFC7B8] bg-white hover:bg-[#FAF8F5] text-[#0F1E36] transition-colors cursor-pointer"
+                      >
+                        <CheckCircle2 className="w-3 h-3 text-emerald-600" aria-hidden="true" />
+                        <span>{game.status === "Final" ? "Reopen" : "Mark Final"}</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenManageMenuGameId(null);
+                          openEditDrawer(game);
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg px-2.5 py-1.5 text-[11px] font-bold border border-[#CFC7B8] bg-white hover:bg-[#FAF8F5] text-[#0F1E36] transition-colors cursor-pointer"
+                      >
+                        <Pencil className="w-3 h-3" aria-hidden="true" />
+                        <span>Edit Game Details</span>
+                      </button>
+                    </div>
+                  )}
+
                   {/* Full-Width Horizontal Badge Strip */}
                   <div className="w-full flex flex-wrap items-center gap-2">
-                    <span className="inline-flex items-center rounded-md bg-[#0F2942] text-white text-[10px] font-black tracking-wide uppercase px-2 py-0.5 shadow-2xs">
-                      {cardCourtLabel}
-                    </span>
-                    {game.telemetryFlag && (
-                      <span className="inline-flex items-center rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
-                        {game.telemetryFlag}
+                    {isFinalCard && scoreBadge && (
+                      <span className={`inline-flex items-center rounded-lg text-xs font-black tracking-wide uppercase px-3 py-1 tabular-nums ${scoreBadge.className}`}>
+                        {scoreBadge.label}
                       </span>
                     )}
                     {effectiveStatus && (
-                      <span className={`inline-flex items-center rounded-full text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 ${
+                      <span className={`inline-flex items-center rounded-lg text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 ${
                         effectiveStatus === "Final"
-                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
                           : effectiveStatus === "Live"
                           ? "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/25"
                           : effectiveStatus === "Delayed"
-                          ? "bg-[#EFEFEA] text-[#0B192C] border border-[#D1D5DB]"
-                          : "bg-white text-[#0B192C] border border-[#D1D5DB]"
+                          ? "bg-[#F3EFEA] text-[#0F1E36] border border-[#CFC7B8]"
+                          : "bg-white text-[#0F1E36] border border-[#CFC7B8]"
                       }`}>
                         {effectiveStatus}
                       </span>
                     )}
-                    {scoreBadge && (
-                      <span className={`inline-flex items-center rounded-full text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 tabular-nums ${scoreBadge.className}`}>
+                    {!isFinalCard && scoreBadge && (
+                      <span className={`inline-flex items-center rounded-lg text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 tabular-nums ${scoreBadge.className}`}>
                         {scoreBadge.label}
                       </span>
                     )}
+                    <span className="inline-flex items-center rounded-lg bg-[#0F1E36] text-white text-[10px] font-black tracking-wide uppercase px-2.5 py-0.5">
+                      {cardCourtLabel}
+                    </span>
+                    {game.telemetryFlag && (
+                      <span className="inline-flex items-center rounded-lg bg-[#F3EFEA] border border-[#CFC7B8] text-[#0F1E36] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
+                        {game.telemetryFlag}
+                      </span>
+                    )}
                     {game.jerseyColor && !isPlaceholderGame && (
-                      <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
+                      <span className="inline-flex items-center rounded-lg bg-white border border-[#CFC7B8] text-[#0F1E36] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
                         {isAwayCard ? "Away" : "Home"} • {cardJerseyShort}
                       </span>
                     )}
@@ -4928,111 +4970,92 @@ function RunSheetContent({
                   </div>
                 )}
 
-                {/* Three-Column Timing Display */}
-                <div className="divide-x divide-[#E9ECEF] flex items-start text-center py-1 mt-3 border-t border-[#E9ECEF] pt-3">
-                  <div className="flex-1 px-1 flex flex-col items-center">
-                    <svg
-                      aria-hidden="true"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1 shrink-0"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v9c0 .55.45 1 1 1h1.5c.55 0 1-.45 1-1v-1h11v1c0 .55.45 1 1 1H20c.55 0 1-.45 1-1v-9l-2.08-5.99zM6.5 6h11l1.04 3H5.46l1.04-3zM7.5 16c-.83 0-1.5-.67-1.5-1.5S6.67 13 7.5 13s1.5.67 1.5 1.5S8.33 16 7.5 16zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
-                    </svg>
-                    <span className="text-xs font-semibold text-slate-600">Depart</span>
-                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
-                      {isPlaceholderGame ? "TBD" : formatTime(departMinutes)}
-                    </span>
+                {isFinalCard ? (
+                  <div className="mt-2 rounded-xl border border-[#E4DEC9] bg-[#F7F4EF] px-3 py-2 text-[11px] font-semibold text-[#5C6B7B] flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span>Departed {isPlaceholderGame ? "TBD" : formatTime(departMinutes)}</span>
+                    <span aria-hidden="true">•</span>
+                    <span>Tip-Off {isPlaceholderGame ? "Pending" : formatTime(game.tipOffMinutes)}</span>
+                    <span aria-hidden="true">•</span>
+                    <span className="text-[#0F1E36] font-bold">{game.venueName}</span>
                   </div>
-                  <div className="flex-1 px-1 flex flex-col items-center">
-                    <svg
-                      aria-hidden="true"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1 shrink-0"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 7.12 11.45 7.42 11.71.34.3.82.3 1.16 0C12.88 21.45 20 15.25 20 10c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
-                    </svg>
-                    <span className="text-xs font-semibold text-slate-600">Arrive</span>
-                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
-                      {isPlaceholderGame ? "TBD" : formatTime(arrivalMinutes)}
-                    </span>
-                    <span className="text-[11px] font-medium text-slate-500 mt-0.5">({bufferMins} min buffer)</span>
-                  </div>
-                  <div className="flex-1 px-1 flex flex-col items-center">
-                    {/* Authentic Referee Whistle with Sound Burst Rays */}
-                    <svg
-                      viewBox="0 0 76 64"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#C2A26F] fill-none stroke-current stroke-[4] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      {/* Sound Burst Rays */}
-                      <path d="M28 11V4" strokeWidth="3.5" />
-                      <path d="M22 13l-3-5" strokeWidth="3.5" />
-                      <path d="M34 13l3-5" strokeWidth="3.5" />
+                ) : (
+                  <>
+                    {/* Unified 3-Column Timing Display */}
+                    <div className="divide-x divide-[#E4DEC9] flex items-stretch text-center mt-3 border-t border-[#E4DEC9] pt-3">
+                      <div className="flex-1 px-1.5 flex flex-col items-center">
+                        <div className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-[#5C6B7B]">
+                          <Car className="w-4 h-4 text-[#0F1E36]" strokeWidth={2.2} aria-hidden="true" />
+                          <span>Depart</span>
+                        </div>
+                        <span className="text-xl sm:text-2xl font-black text-[#0F1E36] tabular-nums mt-1 leading-none">
+                          {isPlaceholderGame ? "TBD" : formatTime(departMinutes)}
+                        </span>
+                      </div>
+                      <div className="flex-1 px-1.5 flex flex-col items-center">
+                        <div className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-[#5C6B7B]">
+                          <MapPin className="w-4 h-4 text-[#0F1E36]" strokeWidth={2.2} aria-hidden="true" />
+                          <span>Arrive</span>
+                        </div>
+                        <span className="text-xl sm:text-2xl font-black text-[#0F1E36] tabular-nums mt-1 leading-none">
+                          {isPlaceholderGame ? "TBD" : formatTime(arrivalMinutes)}
+                        </span>
+                        <span className="text-[11px] text-[#6B7280] font-medium mt-1">
+                          ({bufferMins} min buffer)
+                        </span>
+                      </div>
+                      <div className="flex-1 px-1.5 flex flex-col items-center border-t-2 border-t-[#D49A2A] -mt-3 pt-3">
+                        <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[#B8821E]">
+                          <Clock className="w-4 h-4 text-[#B8821E]" strokeWidth={2.2} aria-hidden="true" />
+                          <span>Tip-Off</span>
+                        </div>
+                        <span className="text-xl sm:text-2xl font-black text-[#0F1E36] tabular-nums mt-1 leading-none">
+                          {isPlaceholderGame ? "Pending" : formatTime(game.tipOffMinutes)}
+                        </span>
+                      </div>
+                    </div>
 
-                      {/* Lanyard Eyelet */}
-                      <path d="M8 27l-4 3 4 3" />
+                    {/* Nested Travel Footnote */}
+                    <div className="mt-2.5 pt-2 border-t border-[#E4DEC9] flex items-center justify-between gap-2 text-[11px] text-[#5C6B7B] font-medium">
+                      <span className="flex items-center gap-1 font-bold text-[#0F1E36] shrink-0 tabular-nums">
+                        <span aria-hidden="true">🚗</span> {game.hotelTravelMin || 15}m drive
+                      </span>
+                      <span className="italic truncate">Check Maps for live traffic &amp; weather</span>
+                    </div>
 
-                      {/* Whistle Barrel & Body */}
-                      <path d="M28 22H25a16 16 0 1 0 6 13v-2h32v-11H32v3.5h-4V22z" />
+                    {/* Simplified Medium Venue Container */}
+                    <div className="mt-3 rounded-xl border-[1.5px] border-[#CFC7B8] bg-[#F7F4EF] p-3 flex items-center justify-between gap-3">
+                      <div className="flex items-start gap-2 min-w-0 flex-1">
+                        <MapPin className="w-4 h-4 text-[#0F1E36] shrink-0 mt-0.5" aria-hidden="true" />
+                        <div className="min-w-0">
+                          <div className="font-bold text-[#0F1E36] text-xs leading-snug">
+                            {game.venueName}
+                          </div>
+                          <div className="text-[#5C6B7B] text-[11px] font-medium leading-snug mt-0.5">
+                            {formatVenueSubAddress(game.venueAddress, game.city)}
+                          </div>
+                        </div>
+                      </div>
+                      {(() => {
+                        const destinationQuery = encodeURIComponent(
+                          [game.venueName, game.venueAddress, game.city].filter(Boolean).join(", ")
+                        );
+                        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}&travelmode=driving`;
+                        return (
+                          <a
+                            href={mapsUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="shrink-0 rounded-lg bg-[#0F1E36] hover:bg-[#1A365D] text-white text-xs font-bold px-3 py-2 inline-flex items-center gap-1 transition-colors"
+                          >
+                            <span>Directions ↗</span>
+                          </a>
+                        );
+                      })()}
+                    </div>
+                  </>
+                )}
 
-                      {/* Inner Pea Rim */}
-                      <circle cx="20" cy="38" r="8" />
-                    </svg>
-                    <span className="text-xs font-semibold text-slate-600">Tip-Off</span>
-                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
-                      {isPlaceholderGame ? "Pending" : formatTime(game.tipOffMinutes)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Nested Travel Footnote */}
-                <div className="mt-2 pt-2 border-t border-[#E9ECEF] flex items-center justify-between gap-2 text-[11px] text-[#5C6B7B] font-medium">
-                  <span className="flex items-center gap-1 font-bold text-[#0F2942] shrink-0 tabular-nums">
-                    <span aria-hidden="true">🚗</span> {game.hotelTravelMin || 15}m drive
-                  </span>
-                  <span className="italic truncate">Check Maps for live traffic &amp; weather</span>
-                </div>
-
-                {/* Venue Details & Streamlined Google Maps Action Button */}
-                <div className="mt-3 rounded-2xl bg-[#F1F3F5] border border-[#DCE1E7] p-3">
-                  <div className="flex items-center gap-1.5">
-                    <svg
-                      aria-hidden="true"
-                      className="w-3.5 h-3.5 text-[#0F2942] fill-current shrink-0"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                    </svg>
-                    <span className="font-bold text-[#0F2942] text-xs truncate">{game.venueName}</span>
-                  </div>
-                  <span className="text-[#5C6B7B] text-[11px] font-medium truncate block ml-5 mt-0.5">
-                    {formatVenueSubAddress(game.venueAddress, game.city)}
-                  </span>
-
-                  {(() => {
-                    const destinationQuery = encodeURIComponent(
-                      [game.venueName, game.venueAddress, game.city].filter(Boolean).join(", ")
-                    );
-                    const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}&travelmode=driving`;
-                    return (
-                      <a
-                        href={mapsUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="mt-3 min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
-                      >
-                        <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
-                          <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
-                        </svg>
-                        <span>Open Directions in Google Maps</span>
-                      </a>
-                    );
-                  })()}
-                </div>
-
-                <div className="border-t border-[#DCE1E7] mt-3 pt-3 text-xs">
+                <div className="border-t border-[#E4DEC9] mt-3 pt-3 text-xs">
                   <button
                     type="button"
                     onClick={() => setOpenTipsGameId(openTipsGameId === game.id ? null : game.id)}
@@ -5099,37 +5122,37 @@ function RunSheetContent({
                 </div>
 
                 {isAdmin && (
-                  <div className="border-t border-[#DCE1E7] bg-[#F1F3F5] -mx-4 -mb-4 mt-3 px-4 py-3 flex items-center justify-between gap-2 text-[11px]">
+                  <div className="border-t border-[#E4DEC9] bg-[#F7F4EF] -mx-4 -mb-4 mt-3 px-4 py-3 flex items-center justify-between gap-2 text-[11px]">
                     <div className="flex items-center gap-1.5 font-bold tracking-wider uppercase text-[#5C6B7B]">
-                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#0F2942]" />
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-[#0F1E36]" />
                       <span>Quick-Shift</span>
                     </div>
                     <div className="flex gap-1.5">
                       <button 
                         type="button"
                         onClick={() => shiftGameTime(game.id, -30)} 
-                        className="bg-white border border-[#DCE1E7] text-[#0F2942] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
+                        className="bg-white border border-[#CFC7B8] text-[#0F1E36] hover:bg-[#FAF8F5] font-bold rounded-lg py-1.5 px-2.5 text-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         -30m
                       </button>
                       <button 
                         type="button"
                         onClick={() => shiftGameTime(game.id, -15)} 
-                        className="bg-white border border-[#DCE1E7] text-[#0F2942] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
+                        className="bg-white border border-[#CFC7B8] text-[#0F1E36] hover:bg-[#FAF8F5] font-bold rounded-lg py-1.5 px-2.5 text-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         -15m
                       </button>
                       <button 
                         type="button"
                         onClick={() => shiftGameTime(game.id, 15)} 
-                        className="bg-white border border-[#DCE1E7] text-[#0F2942] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
+                        className="bg-white border border-[#CFC7B8] text-[#0F1E36] hover:bg-[#FAF8F5] font-bold rounded-lg py-1.5 px-2.5 text-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         +15m
                       </button>
                       <button 
                         type="button"
                         onClick={() => shiftGameTime(game.id, 30)} 
-                        className="bg-white border border-[#DCE1E7] text-[#0F2942] hover:bg-slate-50 font-bold rounded-lg py-1.5 px-2.5 text-xs shadow-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
+                        className="bg-white border border-[#CFC7B8] text-[#0F1E36] hover:bg-[#FAF8F5] font-bold rounded-lg py-1.5 px-2.5 text-xs active:scale-[0.96] transition-all cursor-pointer tabular-nums"
                       >
                         +30m
                       </button>
