@@ -2267,18 +2267,18 @@ function RunSheetContent({
     if (game.teamScore > game.opponentScore) {
       return {
         label: `W ${game.teamScore}–${game.opponentScore}`,
-        className: "bg-emerald-50 text-emerald-900 border border-emerald-200",
+        className: "bg-[#DCFCE7] text-[#15803D]",
       };
     }
     if (game.teamScore < game.opponentScore) {
       return {
         label: `L ${game.teamScore}–${game.opponentScore}`,
-        className: "bg-[#F3EFEA] text-[#0F1E36] border border-[#CFC7B8]",
+        className: "bg-[#EFECE6] text-[#4B5563]",
       };
     }
     return {
       label: `T ${game.teamScore}–${game.opponentScore}`,
-      className: "bg-[#F3EFEA] text-[#0F1E36] border border-[#CFC7B8]",
+      className: "bg-[#EFECE6] text-[#4B5563]",
     };
   };
 
@@ -4717,37 +4717,55 @@ function RunSheetContent({
                 )}
               <div
                 id={`game-card-${game.id}`}
-                className={`rounded-2xl p-4 border-2 overflow-hidden scroll-mt-20 transition-colors ${
-                  isFinalCard
-                    ? "border-[#BFB6A6] bg-[#FAF8F5]"
-                    : "border-[#0F1E36] bg-white"
-                }`}
+                className="rounded-2xl p-4 border-2 border-[#0F1E36] bg-white overflow-hidden scroll-mt-20"
               >
-                <div className="space-y-2">
-                  {/* Top Row: Game Metadata + Consolidated Manage Menu */}
-                  <div className="w-full flex items-center justify-between flex-wrap gap-2">
-                    <span className="text-[#0F1E36] text-xs font-extrabold tracking-tight">
-                      Game {game.gameNumber || index + 1}{game.dayLabel ? <span className="text-[#5C6B7B] font-semibold">{` • ${game.dayLabel}`}</span> : ""}
-                    </span>
+                <div className="space-y-2.5">
+                  {/* Top Row: GAME N + Day Label on Left, Status Pill + Manage on Right */}
+                  <div className="w-full flex items-start justify-between gap-2">
+                    <div>
+                      <div className="text-xs font-black uppercase tracking-wider text-[#0F1E36]">
+                        GAME {game.gameNumber || index + 1}
+                      </div>
+                      {game.dayLabel && (
+                        <div className="text-xs font-medium text-[#7A8494] mt-0.5">
+                          {game.dayLabel.replace(/,\s*/g, " · ")}
+                        </div>
+                      )}
+                    </div>
 
-                    {isAdmin && (
-                      <button
-                        type="button"
-                        onClick={() =>
-                          setOpenManageMenuGameId(isManageMenuOpen ? null : game.id)
-                        }
-                        aria-expanded={isManageMenuOpen}
-                        className="border-[1.5px] border-[#CFC7B8] bg-white hover:bg-[#F7F4EF] text-[#0F1E36] text-xs font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0"
-                      >
-                        <span>Manage</span>
-                        <ChevronDown
-                          className={`w-3.5 h-3.5 transition-transform duration-150 ${
-                            isManageMenuOpen ? "rotate-180" : ""
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {effectiveStatus && (
+                        <span
+                          className={`inline-flex items-center rounded-md text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 ${
+                            effectiveStatus === "Final"
+                              ? "bg-[#EFECE6] text-[#4B5563]"
+                              : effectiveStatus === "Live"
+                                ? "bg-[#2563EB]/10 text-[#2563EB]"
+                                : "bg-[#EFECE6] text-[#4B5563]"
                           }`}
-                          aria-hidden="true"
-                        />
-                      </button>
-                    )}
+                        >
+                          {effectiveStatus}
+                        </span>
+                      )}
+                      {isAdmin && (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenManageMenuGameId(isManageMenuOpen ? null : game.id)
+                          }
+                          aria-expanded={isManageMenuOpen}
+                          className="border-[1.5px] border-[#CFC7B8] bg-white hover:bg-[#F7F4EF] text-[#0F1E36] text-xs font-bold px-2.5 py-1 rounded-lg inline-flex items-center gap-1 transition-colors cursor-pointer shrink-0"
+                        >
+                          <span>Manage</span>
+                          <ChevronDown
+                            className={`w-3.5 h-3.5 transition-transform duration-150 ${
+                              isManageMenuOpen ? "rotate-180" : ""
+                            }`}
+                            aria-hidden="true"
+                          />
+                        </button>
+                      )}
+                    </div>
                   </div>
 
                   {isManageMenuOpen && (
@@ -4792,81 +4810,71 @@ function RunSheetContent({
                     </div>
                   )}
 
-                  {/* Full-Width Horizontal Badge Strip */}
-                  <div className="w-full flex flex-wrap items-center gap-2">
-                    {isFinalCard && scoreBadge && (
-                      <span className={`inline-flex items-center rounded-lg text-xs font-black tracking-wide uppercase px-3 py-1 tabular-nums ${scoreBadge.className}`}>
-                        {scoreBadge.label}
-                      </span>
-                    )}
-                    {effectiveStatus && (
-                      <span className={`inline-flex items-center rounded-lg text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 ${
-                        effectiveStatus === "Final"
-                          ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
-                          : effectiveStatus === "Live"
-                          ? "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/25"
-                          : effectiveStatus === "Delayed"
-                          ? "bg-[#F3EFEA] text-[#0F1E36] border border-[#CFC7B8]"
-                          : "bg-white text-[#0F1E36] border border-[#CFC7B8]"
-                      }`}>
-                        {effectiveStatus}
-                      </span>
-                    )}
-                    {!isFinalCard && scoreBadge && (
-                      <span className={`inline-flex items-center rounded-lg text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 tabular-nums ${scoreBadge.className}`}>
-                        {scoreBadge.label}
-                      </span>
-                    )}
-                    <span className="inline-flex items-center rounded-lg bg-[#0F1E36] text-white text-[10px] font-black tracking-wide uppercase px-2.5 py-0.5">
+                  {/* Second Row: Unified Low-Profile Pills */}
+                  <div className="w-full flex flex-wrap items-center gap-1.5">
+                    <span className="inline-flex items-center rounded-md bg-[#EFECE6] text-[#4B5563] text-[11px] font-bold uppercase tracking-wide px-2.5 py-1">
                       {cardCourtLabel}
                     </span>
+                    {scoreBadge && (
+                      <span
+                        className={`inline-flex items-center rounded-md text-[11px] font-bold uppercase tracking-wide px-2.5 py-1 tabular-nums ${scoreBadge.className}`}
+                      >
+                        {scoreBadge.label}
+                      </span>
+                    )}
                     {game.telemetryFlag && (
-                      <span className="inline-flex items-center rounded-lg bg-[#F3EFEA] border border-[#CFC7B8] text-[#0F1E36] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
+                      <span className="inline-flex items-center rounded-md bg-[#EFECE6] text-[#4B5563] text-[11px] font-bold uppercase tracking-wide px-2.5 py-1">
                         {game.telemetryFlag}
                       </span>
                     )}
                     {game.jerseyColor && !isPlaceholderGame && (
-                      <span className="inline-flex items-center rounded-lg bg-white border border-[#CFC7B8] text-[#0F1E36] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
-                        {isAwayCard ? "Away" : "Home"} • {cardJerseyShort}
+                      <span className="inline-flex items-center rounded-md bg-[#EFECE6] text-[#4B5563] text-[11px] font-bold uppercase tracking-wide px-2.5 py-1">
+                        {isAwayCard ? "AWAY" : "HOME"} · {cardJerseyShort}
                       </span>
                     )}
                   </div>
 
-                  {/* Full-Name Varsity Matchup Lockup */}
+                  {/* Varsity Matchup Block with HOME / AWAY Sub-Labels */}
                   {(() => {
                     const rawMatchup = game.matchup || "";
                     const splitMatch = rawMatchup.match(/^(.*?)\s+(vs\.?|at)\s+(.*)$/i);
                     const ourTeamName = (splitMatch?.[1]?.trim() || tournament.teamName || "Our Squad").trim();
                     const oppTeamName = (splitMatch?.[3]?.trim() || game.opponent || "Opponent").trim();
-                    const matchupSep = (splitMatch?.[2] || (isAwayCard ? "at" : "vs"))
-                      .replace(/\.$/, "")
-                      .toLowerCase();
+                    const ourRoleLabel = isAwayCard ? "AWAY" : "HOME";
+                    const oppRoleLabel = isAwayCard ? "HOME" : "AWAY";
                     return (
-                      <div className="w-full mt-3 mb-4 space-y-2">
-                        <div className="flex items-center gap-2.5">
+                      <div className="w-full pt-1 space-y-2.5">
+                        <div className="flex items-center gap-3">
                           <span
                             aria-hidden="true"
-                            className="w-11 h-8 rounded-lg bg-[#0F1E36] text-white font-black text-xs tracking-widest flex items-center justify-center shrink-0"
+                            className="w-11 h-11 rounded-xl bg-[#4A5568] text-white font-black text-xs tracking-widest flex items-center justify-center shrink-0"
                           >
                             {getTeamMonogram(ourTeamName)}
                           </span>
-                          <span className="text-[18px] sm:text-xl font-black tracking-tight text-[#0F1E36] leading-tight min-w-0">
-                            {ourTeamName}
-                          </span>
+                          <div className="min-w-0">
+                            <div className="text-[18px] font-extrabold text-[#0F1E36] leading-tight">
+                              {ourTeamName}
+                            </div>
+                            <div className="text-[11px] font-bold tracking-wider text-[#8C95A4] mt-0.5">
+                              {ourRoleLabel}
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2.5">
+                        <div className="flex items-center gap-3">
                           <span
                             aria-hidden="true"
-                            className="w-11 h-8 rounded-lg bg-[#F3EFEA] border-[1.5px] border-[#CFC7B8] text-[#0F1E36] font-black text-xs tracking-widest flex items-center justify-center shrink-0"
+                            className="w-11 h-11 rounded-xl bg-[#F3EFEA] text-[#4B5563] font-black text-xs tracking-widest flex items-center justify-center shrink-0"
                           >
                             {getTeamMonogram(oppTeamName)}
                           </span>
-                          <h3 className="text-[18px] sm:text-xl font-black tracking-tight text-[#0F1E36] leading-tight min-w-0">
-                            <span className="text-[#7A8494] font-extrabold text-sm mr-1.5">
-                              {matchupSep}
-                            </span>
-                            <span>{oppTeamName}</span>
-                          </h3>
+                          <div className="min-w-0">
+                            <h3 className="text-[18px] font-extrabold text-[#0F1E36] leading-tight">
+                              {oppTeamName}
+                            </h3>
+                            <div className="text-[11px] font-bold tracking-wider text-[#8C95A4] mt-0.5">
+                              {oppRoleLabel}
+                            </div>
+                          </div>
                         </div>
                       </div>
                     );
@@ -4970,90 +4978,110 @@ function RunSheetContent({
                   </div>
                 )}
 
-                {isFinalCard ? (
-                  <div className="mt-2 rounded-xl border border-[#E4DEC9] bg-[#F7F4EF] px-3 py-2 text-[11px] font-semibold text-[#5C6B7B] flex flex-wrap items-center gap-x-2 gap-y-1">
-                    <span>Departed {isPlaceholderGame ? "TBD" : formatTime(departMinutes)}</span>
-                    <span aria-hidden="true">•</span>
-                    <span>Tip-Off {isPlaceholderGame ? "Pending" : formatTime(game.tipOffMinutes)}</span>
-                    <span aria-hidden="true">•</span>
-                    <span className="text-[#0F1E36] font-bold">{game.venueName}</span>
-                  </div>
-                ) : (
-                  <>
-                    {/* Unified 3-Column Timing Display */}
-                    <div className="divide-x divide-[#E4DEC9] flex items-stretch text-center mt-3 border-t border-[#E4DEC9] pt-3">
-                      <div className="flex-1 px-1.5 flex flex-col items-center">
-                        <div className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-[#5C6B7B]">
-                          <Car className="w-4 h-4 text-[#0F1E36]" strokeWidth={2.2} aria-hidden="true" />
-                          <span>Depart</span>
-                        </div>
-                        <span className="text-xl sm:text-2xl font-black text-[#0F1E36] tabular-nums mt-1 leading-none">
-                          {isPlaceholderGame ? "TBD" : formatTime(departMinutes)}
-                        </span>
-                      </div>
-                      <div className="flex-1 px-1.5 flex flex-col items-center">
-                        <div className="flex items-center gap-1 text-[10px] font-extrabold uppercase tracking-wider text-[#5C6B7B]">
-                          <MapPin className="w-4 h-4 text-[#0F1E36]" strokeWidth={2.2} aria-hidden="true" />
-                          <span>Arrive</span>
-                        </div>
-                        <span className="text-xl sm:text-2xl font-black text-[#0F1E36] tabular-nums mt-1 leading-none">
-                          {isPlaceholderGame ? "TBD" : formatTime(arrivalMinutes)}
-                        </span>
-                        <span className="text-[11px] text-[#6B7280] font-medium mt-1">
-                          ({bufferMins} min buffer)
-                        </span>
-                      </div>
-                      <div className="flex-1 px-1.5 flex flex-col items-center border-t-2 border-t-[#D49A2A] -mt-3 pt-3">
-                        <div className="flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-[#B8821E]">
-                          <Clock className="w-4 h-4 text-[#B8821E]" strokeWidth={2.2} aria-hidden="true" />
-                          <span>Tip-Off</span>
-                        </div>
-                        <span className="text-xl sm:text-2xl font-black text-[#0F1E36] tabular-nums mt-1 leading-none">
-                          {isPlaceholderGame ? "Pending" : formatTime(game.tipOffMinutes)}
-                        </span>
-                      </div>
-                    </div>
+                {(() => {
+                  const splitFormattedTime = (mins: number) => {
+                    const formatted = formatTime(mins);
+                    const match = formatted.match(/^(\d{1,2}:\d{2})\s*(AM|PM)$/i);
+                    return match
+                      ? { time: match[1], meridiem: match[2].toUpperCase() }
+                      : { time: formatted, meridiem: "" };
+                  };
+                  const departParts = splitFormattedTime(departMinutes);
+                  const arriveParts = splitFormattedTime(arrivalMinutes);
+                  const tipParts = splitFormattedTime(game.tipOffMinutes);
+                  const destinationQuery = encodeURIComponent(
+                    [game.venueName, game.venueAddress, game.city].filter(Boolean).join(", ")
+                  );
+                  const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}&travelmode=driving`;
 
-                    {/* Nested Travel Footnote */}
-                    <div className="mt-2.5 pt-2 border-t border-[#E4DEC9] flex items-center justify-between gap-2 text-[11px] text-[#5C6B7B] font-medium">
-                      <span className="flex items-center gap-1 font-bold text-[#0F1E36] shrink-0 tabular-nums">
-                        <span aria-hidden="true">🚗</span> {game.hotelTravelMin || 15}m drive
-                      </span>
-                      <span className="italic truncate">Check Maps for live traffic &amp; weather</span>
-                    </div>
+                  return (
+                    <>
+                      {/* Full 3-Column Time Grid (Always Visible Across All Game States) */}
+                      <div className="border-y border-[#E6E0D6] py-4 my-4 grid grid-cols-3 text-center">
+                        <div className="px-1 flex flex-col items-center">
+                          <div className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-[#6B7280] uppercase">
+                            <Car className="w-4 h-4 text-[#6B7280]" strokeWidth={2} aria-hidden="true" />
+                            <span>DEPART</span>
+                          </div>
+                          <span className="text-2xl font-black text-[#0F1E36] tracking-tight tabular-nums mt-1 leading-none">
+                            {isPlaceholderGame ? "TBD" : departParts.time}
+                          </span>
+                          {!isPlaceholderGame && departParts.meridiem && (
+                            <span className="text-[11px] font-semibold text-[#6B7280] mt-1">
+                              {departParts.meridiem}
+                            </span>
+                          )}
+                        </div>
 
-                    {/* Simplified Medium Venue Container */}
-                    <div className="mt-3 rounded-xl border-[1.5px] border-[#CFC7B8] bg-[#F7F4EF] p-3 flex items-center justify-between gap-3">
-                      <div className="flex items-start gap-2 min-w-0 flex-1">
-                        <MapPin className="w-4 h-4 text-[#0F1E36] shrink-0 mt-0.5" aria-hidden="true" />
-                        <div className="min-w-0">
-                          <div className="font-bold text-[#0F1E36] text-xs leading-snug">
-                            {game.venueName}
+                        <div className="px-1 flex flex-col items-center">
+                          <div className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-[#6B7280] uppercase">
+                            <MapPin className="w-4 h-4 text-[#6B7280]" strokeWidth={2} aria-hidden="true" />
+                            <span>ARRIVE</span>
                           </div>
-                          <div className="text-[#5C6B7B] text-[11px] font-medium leading-snug mt-0.5">
-                            {formatVenueSubAddress(game.venueAddress, game.city)}
+                          <span className="text-2xl font-black text-[#0F1E36] tracking-tight tabular-nums mt-1 leading-none">
+                            {isPlaceholderGame ? "TBD" : arriveParts.time}
+                          </span>
+                          <span className="bg-[#EFECE6] text-[#4B5563] text-[10px] font-bold px-2 py-0.5 rounded-md mt-1">
+                            {bufferMins}m buffer
+                          </span>
+                        </div>
+
+                        <div className="px-1 flex flex-col items-center">
+                          <div className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-[#6B7280] uppercase">
+                            <Timer className="w-4 h-4 text-[#C58B2A]" strokeWidth={2} aria-hidden="true" />
+                            <span>TIP-OFF</span>
                           </div>
+                          <span className="text-2xl font-black text-[#0F1E36] tracking-tight tabular-nums mt-1 leading-none">
+                            {isPlaceholderGame ? "Pending" : tipParts.time}
+                          </span>
+                          {!isPlaceholderGame && tipParts.meridiem && (
+                            <span className="text-[11px] font-semibold text-[#6B7280] mt-1">
+                              {tipParts.meridiem}
+                            </span>
+                          )}
                         </div>
                       </div>
-                      {(() => {
-                        const destinationQuery = encodeURIComponent(
-                          [game.venueName, game.venueAddress, game.city].filter(Boolean).join(", ")
-                        );
-                        const mapsUrl = `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}&travelmode=driving`;
-                        return (
-                          <a
-                            href={mapsUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="shrink-0 rounded-lg bg-[#0F1E36] hover:bg-[#1A365D] text-white text-xs font-bold px-3 py-2 inline-flex items-center gap-1 transition-colors"
-                          >
-                            <span>Directions ↗</span>
-                          </a>
-                        );
-                      })()}
-                    </div>
-                  </>
-                )}
+
+                      {/* Drive Strip */}
+                      <div className="flex items-center justify-between gap-2 text-xs">
+                        <span className="font-bold text-[#0F1E36] tabular-nums">
+                          {game.hotelTravelMin || 15} min drive
+                        </span>
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="italic text-[#6B7280] hover:text-[#0F1E36] transition-colors"
+                        >
+                          Check live traffic
+                        </a>
+                      </div>
+
+                      {/* Clean Venue Card */}
+                      <div className="mt-3 bg-[#F7F5F0] border border-[#E2DCD0] rounded-xl p-3.5">
+                        <div className="flex items-start gap-2">
+                          <MapPin className="w-4 h-4 text-[#0F1E36] shrink-0 mt-0.5" aria-hidden="true" />
+                          <div className="min-w-0">
+                            <div className="font-extrabold text-[#0F1E36] text-[15px] leading-snug">
+                              {game.venueName}
+                            </div>
+                            <div className="text-xs text-[#6B7280] mt-0.5 mb-3">
+                              {formatVenueSubAddress(game.venueAddress, game.city)}
+                            </div>
+                          </div>
+                        </div>
+                        <a
+                          href={mapsUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block w-full py-2.5 rounded-lg bg-[#475569] hover:bg-[#334155] text-white font-bold text-sm text-center transition-colors"
+                        >
+                          Open in Google Maps ↗
+                        </a>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 <div className="border-t border-[#E4DEC9] mt-3 pt-3 text-xs">
                   <button
