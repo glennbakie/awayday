@@ -256,7 +256,21 @@ export async function PATCH(
 
     // 2. Games / schedule update (if provided)
     if (Array.isArray(body.games)) {
-      const sortedGames = sortGamesChronologically(body.games);
+      const sortedGames = sortGamesChronologically(body.games).map((g: any) => ({
+        ...g,
+        teamScore:
+          typeof g?.teamScore === "number"
+            ? g.teamScore
+            : typeof g?.team_score === "number"
+              ? g.team_score
+              : null,
+        opponentScore:
+          typeof g?.opponentScore === "number"
+            ? g.opponentScore
+            : typeof g?.opponent_score === "number"
+              ? g.opponent_score
+              : null,
+      }));
       const hasRealGames = sortedGames.some(
         (g: any) => !g?.isPlaceholder && !/tbd|pending/i.test(String(g?.opponent || ""))
       );
@@ -364,15 +378,28 @@ export async function PATCH(
         }
       }
 
-      // Best-effort update on tournaments JSON/pending columns
+      // Schema-adaptive update on tournaments JSON/pending columns
       if (tournamentId) {
-        try {
-          await dbClient
+        const updatePayload: Record<string, any> = {
+          schedule_pending: nextPending,
+          schedule_json: sortedGames,
+        };
+        for (let attempt = 0; attempt < 4; attempt++) {
+          const { error: tourneyUpdateErr } = await dbClient
             .from("tournaments")
-            .update({ schedule_pending: nextPending, schedule_json: sortedGames })
+            .update(updatePayload)
             .eq("id", tournamentId);
-        } catch {
-          // Ignore if optional columns do not exist
+          if (!tourneyUpdateErr) break;
+          const missingMatch = (tourneyUpdateErr.message || "").match(
+            /Could not find the '([^']+)' column/i
+          );
+          if (missingMatch?.[1] && missingMatch[1] in updatePayload) {
+            delete updatePayload[missingMatch[1]];
+            if (Object.keys(updatePayload).length === 0) break;
+            continue;
+          }
+          console.error("Error updating tournaments in PATCH /api/tournaments/[slug]:", tourneyUpdateErr);
+          break;
         }
       }
 
@@ -413,15 +440,40 @@ export async function PATCH(
           venue_address: venueAddress,
           warmup_buffer_min: g.warmupBufferMin ?? 30,
           hotel_travel_min: g.hotelTravelMin ?? 15,
+          status: g.status || "Upcoming",
+          team_score: typeof g.teamScore === "number" ? g.teamScore : null,
+          opponent_score: typeof g.opponentScore === "number" ? g.opponentScore : null,
         };
       });
 
       if (gameRows.length > 0) {
-        const { error: gamesError } = await dbClient.from("games").insert(gameRows);
-        if (gamesError) {
-          console.error("Error inserting games in PATCH /api/tournaments/[slug]:", gamesError);
+        let rowsToInsert: Record<string, any>[] = gameRows;
+        let lastGamesErr: any = null;
+        for (let attempt = 0; attempt < 5; attempt++) {
+          const { error: gamesError } = await dbClient.from("games").insert(rowsToInsert);
+          if (!gamesError) {
+            lastGamesErr = null;
+            break;
+          }
+          lastGamesErr = gamesError;
+          const missingMatch = (gamesError.message || "").match(
+            /Could not find the '([^']+)' column/i
+          );
+          if (missingMatch?.[1] && rowsToInsert[0] && missingMatch[1] in rowsToInsert[0]) {
+            const missingCol = missingMatch[1];
+            rowsToInsert = rowsToInsert.map((r) => {
+              const copy = { ...r };
+              delete copy[missingCol];
+              return copy;
+            });
+            continue;
+          }
+          break;
+        }
+        if (lastGamesErr) {
+          console.error("Error inserting games in PATCH /api/tournaments/[slug]:", lastGamesErr);
           return NextResponse.json(
-            { error: `Failed to save games: ${gamesError.message}` },
+            { error: `Failed to save games: ${lastGamesErr.message}` },
             { status: 500 }
           );
         }

@@ -1801,10 +1801,26 @@ function RunSheetContent({
   };
 
   const persistGamesToSupabase = async (updatedGames: Game[]) => {
+    try {
+      const cacheKey = `awayday_cache_${slug}`;
+      const rawCache = window.localStorage.getItem(cacheKey);
+      const parsedCache = rawCache ? JSON.parse(rawCache) : {};
+      window.localStorage.setItem(
+        cacheKey,
+        JSON.stringify({
+          ...(parsedCache && typeof parsedCache === "object" ? parsedCache : {}),
+          tournament,
+          games: updatedGames,
+        })
+      );
+    } catch {
+      // Ignore local cache write errors
+    }
+
     await broadcastGamesSync(updatedGames);
     if (isDemoSlug) return;
     try {
-      await fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
+      const res = await fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1814,8 +1830,12 @@ function RunSheetContent({
           is_archived: Boolean(tournament.is_archived),
         }),
       });
+      if (!res.ok) {
+        const errText = await res.text().catch(() => "");
+        console.error(`PATCH /api/tournaments/${slug} failed (${res.status}):`, errText);
+      }
     } catch (err) {
-      console.warn("PATCH /api/tournaments/[slug] games sync warning:", err);
+      console.error("PATCH /api/tournaments/[slug] games sync error:", err);
     }
   };
 
