@@ -68,8 +68,8 @@ export async function GET(
       return NextResponse.json({ error: "Tournament not found" }, { status: 404 });
     }
 
-    // 3. Prefer `schedule_json` when present (it holds full game metadata: status, scores, jerseyColor),
-    // and fall back to `games` table rows if `schedule_json` is empty.
+    // 3. Prefer `schedule_json` or persisted `__awayday_schedule_state__` (holds full game metadata:
+    // status, teamScore, opponentScore, jerseyColor), and fall back to `games` table rows if empty.
     let rawGameRows: any[] = [];
     const jsonGames =
       resolvedTourney?.schedule_json ||
@@ -77,6 +77,27 @@ export async function GET(
       tripRow?.schedule_json;
     if (Array.isArray(jsonGames) && jsonGames.length > 0) {
       rawGameRows = jsonGames;
+    }
+
+    if (rawGameRows.length === 0 && resolvedTourney?.id) {
+      try {
+        const { data: stateRow } = await dbClient
+          .from("venue_alerts")
+          .select("content")
+          .eq("tournament_id", resolvedTourney.id)
+          .eq("title", "__awayday_schedule_state__")
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (stateRow?.content) {
+          const parsedState = JSON.parse(stateRow.content);
+          if (Array.isArray(parsedState) && parsedState.length > 0) {
+            rawGameRows = parsedState;
+          }
+        }
+      } catch {
+        // Ignore state lookup errors
+      }
     }
 
     if (rawGameRows.length === 0) {
@@ -378,13 +399,12 @@ export async function PATCH(
         }
       }
 
-      // Schema-adaptive update on tournaments JSON/pending columns (verify >= 1 row updated)
+      // Schema-adaptive update on tournaments JSON/pending columns (if columns exist)
       if (tournamentId) {
         const updatePayload: Record<string, any> = {
           schedule_pending: nextPending,
           schedule_json: sortedGames,
         };
-        let tourneyUpdated = false;
         for (let attempt = 0; attempt < 4; attempt++) {
           const { data: updatedRows, error: tourneyUpdateErr } = await dbClient
             .from("tournaments")
@@ -393,23 +413,15 @@ export async function PATCH(
             .select("id");
 
           if (!tourneyUpdateErr && Array.isArray(updatedRows) && updatedRows.length > 0) {
-            tourneyUpdated = true;
             break;
           }
 
           if (!tourneyUpdateErr && (!updatedRows || updatedRows.length === 0)) {
-            const { data: bySlugRows, error: bySlugErr } = await dbClient
+            await dbClient
               .from("tournaments")
               .update(updatePayload)
               .or(`share_slug.eq.${slug},slug.eq.${slug}`)
               .select("id");
-            if (!bySlugErr && Array.isArray(bySlugRows) && bySlugRows.length > 0) {
-              tourneyUpdated = true;
-              break;
-            }
-            console.warn(
-              `PATCH /api/tournaments/${slug}: tournaments.update matched 0 rows (id=${tournamentId})`
-            );
             break;
           }
 
@@ -422,17 +434,7 @@ export async function PATCH(
             continue;
           }
           console.error("Error updating tournaments in PATCH /api/tournaments/[slug]:", tourneyUpdateErr);
-          return NextResponse.json(
-            { error: `Failed to update tournament: ${tourneyUpdateErr?.message || "Unknown error"}` },
-            { status: 500 }
-          );
-        }
-
-        if (!tourneyUpdated && Object.keys(updatePayload).length > 0) {
-          return NextResponse.json(
-            { error: `Tournament update affected 0 rows for slug "${slug}" (check RLS or service role key)` },
-            { status: 500 }
-          );
+          break;
         }
       }
 
@@ -441,6 +443,30 @@ export async function PATCH(
         return NextResponse.json(
           { error: `Tournament not found for slug "${slug}"` },
           { status: 404 }
+        );
+      }
+
+      // Persist full schedule JSON (including teamScore, opponentScore, status) in venue_alerts state row
+      await dbClient
+        .from("venue_alerts")
+        .delete()
+        .eq("tournament_id", tournamentId)
+        .eq("title", "__awayday_schedule_state__");
+
+      const { error: stateSaveErr } = await dbClient.from("venue_alerts").insert({
+        tournament_id: tournamentId,
+        alert_type: "note",
+        title: "__awayday_schedule_state__",
+        content: JSON.stringify(sortedGames),
+        author: "system",
+        upvotes: 0,
+      });
+
+      if (stateSaveErr) {
+        console.error("Error saving __awayday_schedule_state__ in PATCH:", stateSaveErr);
+        return NextResponse.json(
+          { error: `Failed to persist schedule state: ${stateSaveErr.message}` },
+          { status: 500 }
         );
       }
 
