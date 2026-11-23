@@ -2223,6 +2223,25 @@ function RunSheetContent({
     await persistGamesToSupabase(updatedGames);
   };
 
+  const formatVenueSubAddress = (venueAddress?: string, city?: string) => {
+    const rawParts = [venueAddress, city]
+      .filter(Boolean)
+      .join(",")
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    const deduped: string[] = [];
+    const seen = new Set<string>();
+    for (const part of rawParts) {
+      const key = part.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        deduped.push(part);
+      }
+    }
+    return deduped.join(", ");
+  };
+
   const getScoreBadgeMeta = (game: Game) => {
     if (typeof game.teamScore !== "number" || typeof game.opponentScore !== "number") {
       return null;
@@ -4677,82 +4696,103 @@ function RunSheetContent({
                   </div>
                 )}
               <div id={`game-card-${game.id}`} className={`bg-white rounded-[26px] p-4 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] overflow-hidden scroll-mt-20 transition-opacity ${isElapsed ? "opacity-75" : ""}`}>
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0 space-y-1.5">
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="text-[#0F2942] text-xs font-extrabold tracking-tight">
-                        Game {game.gameNumber || index + 1}{game.dayLabel ? <span className="text-[#5C6B7B] font-semibold">{` • ${game.dayLabel}`}</span> : ""}
-                      </span>
-                      <span className="inline-flex items-center rounded-md bg-[#0F2942] text-white text-[10px] font-black tracking-wide uppercase px-2 py-0.5 shadow-2xs">
-                        {cardCourtLabel}
-                      </span>
-                      {game.telemetryFlag && (
-                        <span className="inline-flex items-center rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
-                          {game.telemetryFlag}
-                        </span>
-                      )}
-                      {effectiveStatus && (
-                        <span className={`inline-flex items-center rounded-full text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 ${
-                          effectiveStatus === "Final"
-                            ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
-                            : effectiveStatus === "Live"
-                            ? "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/25"
-                            : effectiveStatus === "Delayed"
-                            ? "bg-[#EFEFEA] text-[#0B192C] border border-[#D1D5DB]"
-                            : "bg-white text-[#0B192C] border border-[#D1D5DB]"
-                        }`}>
-                          {effectiveStatus}
-                        </span>
-                      )}
-                      {scoreBadge && (
-                        <span className={`inline-flex items-center rounded-full text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 tabular-nums ${scoreBadge.className}`}>
-                          {scoreBadge.label}
-                        </span>
-                      )}
-                      {game.jerseyColor && !isPlaceholderGame && (
-                        <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
-                          {isAwayCard ? "Away" : "Home"} • {cardJerseyShort}
-                        </span>
-                      )}
-                    </div>
-                    <h3 className="text-lg font-extrabold tracking-tight text-[#0F2942] leading-snug">
-                      {game.matchup || `vs. ${game.opponent}`}
-                    </h3>
+                <div className="space-y-2">
+                  {/* Top Row: Game Metadata + Manager Actions */}
+                  <div className="w-full flex items-center justify-between flex-wrap gap-2">
+                    <span className="text-[#0F2942] text-xs font-extrabold tracking-tight">
+                      Game {game.gameNumber || index + 1}{game.dayLabel ? <span className="text-[#5C6B7B] font-semibold">{` • ${game.dayLabel}`}</span> : ""}
+                    </span>
+
+                    {isAdmin && (
+                      <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
+                        <button
+                          type="button"
+                          onClick={() => (isEditingThisScore ? setEditingScoreGameId(null) : openScoreEditor(game))}
+                          className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold border bg-[#F1F3F5] border-[#DCE1E7] text-[#0F2942] hover:bg-[#E2E8F0] transition-colors cursor-pointer"
+                        >
+                          <Trophy className="w-3 h-3" aria-hidden="true" />
+                          <span>{hasSavedScore ? "Edit Score" : "Log Score"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleToggleGameFinished(game.id)}
+                          className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold border transition-colors cursor-pointer ${
+                            game.status === "Final"
+                              ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
+                              : "bg-[#F1F3F5] border-[#DCE1E7] text-[#0F2942] hover:bg-[#E2E8F0]"
+                          }`}
+                        >
+                          <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
+                          <span>{game.status === "Final" ? "Reopen" : "Mark Finished"}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => openEditDrawer(game)}
+                          title="Quick-Edit Game"
+                          aria-label={`Edit Game ${index + 1}`}
+                          className="p-1.5 rounded-lg bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] border border-[#DCE1E7] transition-colors cursor-pointer shrink-0"
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    )}
                   </div>
 
-                  {isAdmin && (
-                    <div className="flex flex-wrap items-center justify-end gap-1.5 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => (isEditingThisScore ? setEditingScoreGameId(null) : openScoreEditor(game))}
-                        className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold border bg-[#F1F3F5] border-[#DCE1E7] text-[#0F2942] hover:bg-[#E2E8F0] transition-colors cursor-pointer"
-                      >
-                        <Trophy className="w-3 h-3" aria-hidden="true" />
-                        <span>{hasSavedScore ? "Edit Score" : "Log Score"}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleToggleGameFinished(game.id)}
-                        className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold border transition-colors cursor-pointer ${
-                          game.status === "Final"
-                            ? "bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100"
-                            : "bg-[#F1F3F5] border-[#DCE1E7] text-[#0F2942] hover:bg-[#E2E8F0]"
-                        }`}
-                      >
-                        <CheckCircle2 className="w-3 h-3" aria-hidden="true" />
-                        <span>{game.status === "Final" ? "Reopen" : "Mark Finished"}</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => openEditDrawer(game)}
-                        title="Quick-Edit Game"
-                        aria-label={`Edit Game ${index + 1}`}
-                        className="p-1.5 rounded-lg bg-[#F1F3F5] hover:bg-[#E2E8F0] text-[#0F2942] border border-[#DCE1E7] transition-colors cursor-pointer shrink-0"
-                      >
-                        <Pencil className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-                  )}
+                  {/* Full-Width Horizontal Badge Strip */}
+                  <div className="w-full flex flex-wrap items-center gap-2">
+                    <span className="inline-flex items-center rounded-md bg-[#0F2942] text-white text-[10px] font-black tracking-wide uppercase px-2 py-0.5 shadow-2xs">
+                      {cardCourtLabel}
+                    </span>
+                    {game.telemetryFlag && (
+                      <span className="inline-flex items-center rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
+                        {game.telemetryFlag}
+                      </span>
+                    )}
+                    {effectiveStatus && (
+                      <span className={`inline-flex items-center rounded-full text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 ${
+                        effectiveStatus === "Final"
+                          ? "bg-emerald-50 text-emerald-700 border border-emerald-200/80"
+                          : effectiveStatus === "Live"
+                          ? "bg-[#2563EB]/10 text-[#2563EB] border border-[#2563EB]/25"
+                          : effectiveStatus === "Delayed"
+                          ? "bg-[#EFEFEA] text-[#0B192C] border border-[#D1D5DB]"
+                          : "bg-white text-[#0B192C] border border-[#D1D5DB]"
+                      }`}>
+                        {effectiveStatus}
+                      </span>
+                    )}
+                    {scoreBadge && (
+                      <span className={`inline-flex items-center rounded-full text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 tabular-nums ${scoreBadge.className}`}>
+                        {scoreBadge.label}
+                      </span>
+                    )}
+                    {game.jerseyColor && !isPlaceholderGame && (
+                      <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
+                        {isAwayCard ? "Away" : "Home"} • {cardJerseyShort}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Full-Width Bold Matchup Headline */}
+                  {(() => {
+                    const rawMatchup = game.matchup || `vs. ${game.opponent}`;
+                    const splitMatch = rawMatchup.match(/^(.*?)\s+(vs\.?|at)\s+(.*)$/i);
+                    return (
+                      <h3 className="w-full mt-3 mb-4 text-2xl sm:text-3xl font-black tracking-tight leading-[1.1] text-[#0F1E36]">
+                        {splitMatch ? (
+                          <>
+                            <span>{splitMatch[1]}</span>
+                            <span className="text-[#7A8494] font-extrabold text-lg sm:text-xl mx-1.5">
+                              {splitMatch[2].toLowerCase()}
+                            </span>
+                            <span>{splitMatch[3]}</span>
+                          </>
+                        ) : (
+                          rawMatchup
+                        )}
+                      </h3>
+                    );
+                  })()}
                 </div>
 
                 {isEditingThisScore && (
@@ -4932,7 +4972,7 @@ function RunSheetContent({
                     <span className="font-bold text-[#0F2942] text-xs truncate">{game.venueName}</span>
                   </div>
                   <span className="text-[#5C6B7B] text-[11px] font-medium truncate block ml-5 mt-0.5">
-                    {game.venueAddress}, {game.city}
+                    {formatVenueSubAddress(game.venueAddress, game.city)}
                   </span>
 
                   {(() => {
