@@ -868,6 +868,12 @@ function RunSheetContent({
   const [editingScoreGameId, setEditingScoreGameId] = useState<string | null>(null);
   const [scoreTeamInput, setScoreTeamInput] = useState<string>("");
   const [scoreOppInput, setScoreOppInput] = useState<string>("");
+  const [scoreSaveFeedback, setScoreSaveFeedback] = useState<{
+    gameId: string;
+    status: "saving" | "saved" | "error";
+    message?: string;
+  } | null>(null);
+  const lastLocalGamesMutationAtRef = useRef<number>(0);
 
   const [isIngestModalOpen, setIsIngestModalOpen] = useState(false);
   const [ingestModalMode, setIngestModalMode] = useState<"update" | "create">("update");
@@ -1114,6 +1120,7 @@ function RunSheetContent({
 
     // 1. Initial data fetch from Supabase & `/api/tournaments/[slug]`
     async function fetchInitialMealMode() {
+      const fetchStartedAt = Date.now();
       try {
         const apiRes = await fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
           cache: "no-store",
@@ -1126,7 +1133,13 @@ function RunSheetContent({
             const hasRealApiGames = apiGames.some(
               (g: any) => !g?.isPlaceholder && !/tbd|pending/i.test(String(g?.opponent || ""))
             );
-            if (apiGames.length > 0 && (!loadedFromCache || hasRealApiGames)) {
+            const isStaleRelativeToLocalMutation =
+              lastLocalGamesMutationAtRef.current > fetchStartedAt;
+            if (
+              apiGames.length > 0 &&
+              (!loadedFromCache || hasRealApiGames) &&
+              !isStaleRelativeToLocalMutation
+            ) {
               setGames(sortGamesChronologically(apiGames));
             }
             if (!loadedFromCache && !isDemoSlug && (apiData.tournament || apiData.trip)) {
@@ -1800,7 +1813,10 @@ function RunSheetContent({
     return `https://www.google.com/maps/dir/?api=1&destination=${destinationQuery}&travelmode=driving`;
   };
 
-  const persistGamesToSupabase = async (updatedGames: Game[]) => {
+  const persistGamesToSupabase = async (
+    updatedGames: Game[]
+  ): Promise<{ ok: boolean; error?: string }> => {
+    lastLocalGamesMutationAtRef.current = Date.now();
     try {
       const cacheKey = `awayday_cache_${slug}`;
       const rawCache = window.localStorage.getItem(cacheKey);
@@ -1818,7 +1834,7 @@ function RunSheetContent({
     }
 
     await broadcastGamesSync(updatedGames);
-    if (isDemoSlug) return;
+    if (isDemoSlug) return { ok: true };
     try {
       const res = await fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
         method: "PATCH",
@@ -1832,10 +1848,21 @@ function RunSheetContent({
       });
       if (!res.ok) {
         const errText = await res.text().catch(() => "");
-        console.error(`PATCH /api/tournaments/${slug} failed (${res.status}):`, errText);
+        let errMessage = `Save failed (${res.status})`;
+        try {
+          const parsedErr = JSON.parse(errText);
+          if (parsedErr?.error) errMessage = `${res.status}: ${parsedErr.error}`;
+        } catch {
+          if (errText) errMessage = `${res.status}: ${errText}`;
+        }
+        console.error(`PATCH /api/tournaments/${slug} failed:`, errMessage);
+        return { ok: false, error: errMessage };
       }
-    } catch (err) {
+      return { ok: true };
+    } catch (err: any) {
+      const msg = err?.message || "Network error saving to server";
       console.error("PATCH /api/tournaments/[slug] games sync error:", err);
+      return { ok: false, error: msg };
     }
   };
 
@@ -2230,23 +2257,49 @@ function RunSheetContent({
     if (isNaN(teamScore) || teamScore < 0 || isNaN(opponentScore) || opponentScore < 0) {
       return;
     }
-    const updatedGames = games.map((g) =>
+    const nextGames = games.map((g) =>
       g.id === gameId
         ? { ...g, teamScore, opponentScore, status: "Final" as GameStatus }
         : g
     );
-    setGames(updatedGames);
-    setEditingScoreGameId(null);
-    await persistGamesToSupabase(updatedGames);
+    setGames(nextGames);
+    setScoreSaveFeedback({ gameId, status: "saving" });
+    const result = await persistGamesToSupabase(nextGames);
+    if (result.ok) {
+      setEditingScoreGameId(null);
+      setScoreSaveFeedback({ gameId, status: "saved" });
+      window.setTimeout(() => {
+        setScoreSaveFeedback((prev) => (prev?.gameId === gameId && prev.status === "saved" ? null : prev));
+      }, 2500);
+    } else {
+      setScoreSaveFeedback({
+        gameId,
+        status: "error",
+        message: result.error || "Failed to save score",
+      });
+    }
   };
 
   const handleClearGameScore = async (gameId: string) => {
-    const updatedGames = games.map((g) =>
+    const nextGames = games.map((g) =>
       g.id === gameId ? { ...g, teamScore: null, opponentScore: null } : g
     );
-    setGames(updatedGames);
-    setEditingScoreGameId(null);
-    await persistGamesToSupabase(updatedGames);
+    setGames(nextGames);
+    setScoreSaveFeedback({ gameId, status: "saving" });
+    const result = await persistGamesToSupabase(nextGames);
+    if (result.ok) {
+      setEditingScoreGameId(null);
+      setScoreSaveFeedback({ gameId, status: "saved" });
+      window.setTimeout(() => {
+        setScoreSaveFeedback((prev) => (prev?.gameId === gameId && prev.status === "saved" ? null : prev));
+      }, 2500);
+    } else {
+      setScoreSaveFeedback({
+        gameId,
+        status: "error",
+        message: result.error || "Failed to clear score",
+      });
+    }
   };
 
   const handleResetGamesStatus = async () => {
@@ -4761,6 +4814,7 @@ function RunSheetContent({
                         type="button"
                         onClick={() => handleSaveGameScore(game.id)}
                         disabled={
+                          (scoreSaveFeedback?.gameId === game.id && scoreSaveFeedback.status === "saving") ||
                           scoreTeamInput.trim() === "" ||
                           scoreOppInput.trim() === "" ||
                           isNaN(parseInt(scoreTeamInput, 10)) ||
@@ -4768,9 +4822,33 @@ function RunSheetContent({
                         }
                         className="rounded-xl bg-[#0F2942] hover:bg-[#1A365D] disabled:opacity-50 text-white text-xs font-bold px-3.5 py-1.5 transition-colors cursor-pointer"
                       >
-                        Save
+                        {scoreSaveFeedback?.gameId === game.id && scoreSaveFeedback.status === "saving"
+                          ? "Saving..."
+                          : "Save"}
                       </button>
                     </div>
+                  </div>
+                )}
+
+                {isAdmin && scoreSaveFeedback?.gameId === game.id && scoreSaveFeedback.status !== "saving" && (
+                  <div
+                    className={`mt-2.5 rounded-xl px-3 py-1.5 text-xs font-bold flex items-center gap-1.5 ${
+                      scoreSaveFeedback.status === "saved"
+                        ? "bg-emerald-50 text-emerald-800 border border-emerald-200"
+                        : "bg-rose-50 text-rose-700 border border-rose-200"
+                    }`}
+                  >
+                    {scoreSaveFeedback.status === "saved" ? (
+                      <>
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" aria-hidden="true" />
+                        <span>Score saved</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" aria-hidden="true" />
+                        <span>{scoreSaveFeedback.message || "Failed to save score"}</span>
+                      </>
+                    )}
                   </div>
                 )}
 

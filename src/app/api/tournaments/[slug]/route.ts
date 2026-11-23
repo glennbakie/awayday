@@ -378,19 +378,42 @@ export async function PATCH(
         }
       }
 
-      // Schema-adaptive update on tournaments JSON/pending columns
+      // Schema-adaptive update on tournaments JSON/pending columns (verify >= 1 row updated)
       if (tournamentId) {
         const updatePayload: Record<string, any> = {
           schedule_pending: nextPending,
           schedule_json: sortedGames,
         };
+        let tourneyUpdated = false;
         for (let attempt = 0; attempt < 4; attempt++) {
-          const { error: tourneyUpdateErr } = await dbClient
+          const { data: updatedRows, error: tourneyUpdateErr } = await dbClient
             .from("tournaments")
             .update(updatePayload)
-            .eq("id", tournamentId);
-          if (!tourneyUpdateErr) break;
-          const missingMatch = (tourneyUpdateErr.message || "").match(
+            .eq("id", tournamentId)
+            .select("id");
+
+          if (!tourneyUpdateErr && Array.isArray(updatedRows) && updatedRows.length > 0) {
+            tourneyUpdated = true;
+            break;
+          }
+
+          if (!tourneyUpdateErr && (!updatedRows || updatedRows.length === 0)) {
+            const { data: bySlugRows, error: bySlugErr } = await dbClient
+              .from("tournaments")
+              .update(updatePayload)
+              .or(`share_slug.eq.${slug},slug.eq.${slug}`)
+              .select("id");
+            if (!bySlugErr && Array.isArray(bySlugRows) && bySlugRows.length > 0) {
+              tourneyUpdated = true;
+              break;
+            }
+            console.warn(
+              `PATCH /api/tournaments/${slug}: tournaments.update matched 0 rows (id=${tournamentId})`
+            );
+            break;
+          }
+
+          const missingMatch = (tourneyUpdateErr?.message || "").match(
             /Could not find the '([^']+)' column/i
           );
           if (missingMatch?.[1] && missingMatch[1] in updatePayload) {
@@ -399,7 +422,17 @@ export async function PATCH(
             continue;
           }
           console.error("Error updating tournaments in PATCH /api/tournaments/[slug]:", tourneyUpdateErr);
-          break;
+          return NextResponse.json(
+            { error: `Failed to update tournament: ${tourneyUpdateErr?.message || "Unknown error"}` },
+            { status: 500 }
+          );
+        }
+
+        if (!tourneyUpdated && Object.keys(updatePayload).length > 0) {
+          return NextResponse.json(
+            { error: `Tournament update affected 0 rows for slug "${slug}" (check RLS or service role key)` },
+            { status: 500 }
+          );
         }
       }
 
@@ -480,6 +513,7 @@ export async function PATCH(
       }
 
       return NextResponse.json({
+        ok: true,
         success: true,
         games: sortedGames,
         schedulePending: nextPending,
