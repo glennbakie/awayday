@@ -274,7 +274,53 @@ export async function PATCH(
         .eq("share_slug", slug)
         .maybeSingle();
 
-      const tournamentId = tripRow?.tournament_id || tourneyRow?.id;
+      let tournamentId = tripRow?.tournament_id || tourneyRow?.id;
+
+      // Upsert missing tournament + team_trip when PATCH carries a tournament payload (auto-heal)
+      if (!tournamentId && (body.tournament || body.name || body.teamName || sortedGames.length > 0)) {
+        const meta = body.tournament || {};
+        const todayIso = new Date().toISOString().slice(0, 10);
+        const upsertName = String(meta.name || body.name || "Tournament Run-Sheet").trim();
+        const upsertTeamName = String(meta.teamName || body.teamName || "My Team").trim();
+        const upsertCity = String(meta.city || meta.location || body.city || "Brampton, ON").trim();
+        const upsertDates = String(meta.dates || body.dates || "Nov 21–22, 2026").trim();
+        const upsertHotelName = String(meta.hotel?.name || body.hotel?.name || "Team Hotel").trim();
+        const upsertHotelAddress = String(meta.hotel?.address || body.hotel?.address || upsertCity).trim();
+
+        const { data: insertedTourney, error: insertTourneyErr } = await dbClient
+          .from("tournaments")
+          .insert({
+            name: upsertName,
+            slug,
+            share_slug: slug,
+            team_name: upsertTeamName,
+            city: upsertCity,
+            dates: upsertDates,
+            start_date: String(meta.startDate || body.startDate || todayIso),
+            end_date: String(meta.endDate || body.endDate || todayIso),
+            schedule_pending: nextPending,
+            schedule_json: sortedGames,
+            is_archived: Boolean(body.is_archived ?? meta.is_archived ?? false),
+          })
+          .select("id")
+          .maybeSingle();
+
+        if (insertTourneyErr) {
+          console.error("Auto-heal tournament insert error in PATCH /api/tournaments/[slug]:", insertTourneyErr);
+        } else if (insertedTourney?.id) {
+          tournamentId = insertedTourney.id;
+          await dbClient
+            .from("team_trips")
+            .insert({
+              share_slug: slug,
+              tournament_id: tournamentId,
+              team_name: upsertTeamName,
+              hotel_name: upsertHotelName,
+              hotel_address: upsertHotelAddress,
+            })
+            .then(() => undefined, () => undefined);
+        }
+      }
 
       // Best-effort update on tournaments JSON/pending columns
       if (tournamentId) {

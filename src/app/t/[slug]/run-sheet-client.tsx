@@ -1157,8 +1157,32 @@ function RunSheetContent({
               setTournament((prev) => ({ ...prev, schedulePending: false }));
             }
           }
-        } else if (apiRes && apiRes.status === 404 && !loadedFromCache && !isDemoSlug) {
-          setSheetNotFound(true);
+        } else if (apiRes && apiRes.status === 404 && !isDemoSlug) {
+          if (loadedFromCache) {
+            setSheetNotFound(false);
+            if (searchParams.get("admin") === "true" || isAdmin) {
+              try {
+                const rawCached = window.localStorage.getItem(storageCacheKey);
+                const parsedCached = rawCached ? JSON.parse(rawCached) : null;
+                if (parsedCached?.tournament) {
+                  fetch(`/api/tournaments/${encodeURIComponent(slug)}`, {
+                    method: "PATCH",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      tournament: parsedCached.tournament,
+                      games: Array.isArray(parsedCached.games) ? parsedCached.games : [],
+                      schedule_pending: Boolean(parsedCached.tournament?.schedulePending),
+                      is_archived: Boolean(parsedCached.tournament?.is_archived),
+                    }),
+                  }).catch(() => {});
+                }
+              } catch {
+                // Ignore auto-heal errors
+              }
+            }
+          } else {
+            setSheetNotFound(true);
+          }
         }
 
         const { data, error } = await supabase
