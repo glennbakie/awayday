@@ -1454,7 +1454,7 @@ function RunSheetContent({
     : lastSatGame?.venueAddress || lastSatGame?.city || tournament.city || "";
 
   const cityFuel = getCityFuelAndFoodRecommendations(
-    tournament.city || primarySatGame?.city || "Brampton, ON",
+    tournament.city || primarySatGame?.city || "Host City",
     dinnerAnchorAddress,
     {
       venueName: primarySatVenueLabel,
@@ -1491,18 +1491,23 @@ function RunSheetContent({
   useEffect(() => {
     const recommendedDinner = mapDinnerSpotsToMealOptions(cityFuel.dinnerSpots);
     setOptions((prev) => {
-      const anchorText = `${dinnerAnchorAddress} ${tournament.city || ""}`.toLowerCase();
+      const anchorText = `${dinnerAnchorAddress} ${tournament.city || ""} ${primarySatVenueLabel}`.toLowerCase();
       const isMississaugaAnchor = anchorText.includes("mississauga");
       const isOakvilleAnchor = anchorText.includes("oakville") || anchorText.includes("burlington");
       const isBramptonAnchor = anchorText.includes("brampton");
+      const isRenfrewAnchor = anchorText.includes("renfrew") || anchorText.includes("myfm");
       const hasBramptonSpots = prev.some((o) => /brampton|orion gate|westcreek/i.test(`${o.name} ${o.address}`));
       const hasOakvilleSpots = prev.some((o) => /oakville/i.test(`${o.name} ${o.address}`));
       const hasMississaugaSpots = prev.some((o) => /mississauga|heartland|square one/i.test(`${o.name} ${o.address}`));
+      const hasRenfrewSpots = prev.some((o) => /renfrew/i.test(`${o.name} ${o.address}`));
 
       if (
         (isMississaugaAnchor && !hasMississaugaSpots) ||
         (isOakvilleAnchor && !hasOakvilleSpots) ||
-        (isBramptonAnchor && !hasBramptonSpots && (hasOakvilleSpots || hasMississaugaSpots))
+        (isRenfrewAnchor && !hasRenfrewSpots) ||
+        (isBramptonAnchor && !hasBramptonSpots && (hasOakvilleSpots || hasMississaugaSpots)) ||
+        (!isDemoSlug && !isBramptonAnchor && hasBramptonSpots) ||
+        (!isMississaugaAnchor && !isOakvilleAnchor && !isBramptonAnchor && !isRenfrewAnchor && prev.length > 0 && !prev.some((o) => o.isCustom))
       ) {
         return recommendedDinner;
       }
@@ -5394,30 +5399,64 @@ function RunSheetContent({
               </div>
 
               <div className="space-y-2 pt-0.5">
-                {quickLunchSpots.map((spot, i) => (
-                  <div key={i} className="p-3.5 rounded-2xl bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] hover:border-[#0B192C]/30 text-xs flex items-center justify-between gap-2 transition-colors">
-                    <div className="pr-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <span className="text-sm font-black tracking-tight text-[#0B192C]">{spot.name}</span>
-                        <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2 py-0.5">
-                          {spot.type}
+                {quickLunchSpots.length > 0 ? (
+                  quickLunchSpots.map((spot, i) => (
+                    <div key={i} className="p-3.5 rounded-2xl bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] hover:border-[#0B192C]/30 text-xs flex items-center justify-between gap-2 transition-colors">
+                      <div className="pr-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="text-sm font-black tracking-tight text-[#0B192C]">{spot.name}</span>
+                          <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2 py-0.5">
+                            {spot.type}
+                          </span>
+                        </div>
+                        <span className="text-xs text-[#1D2935] block mt-1 font-semibold leading-relaxed">
+                          {spot.distance} • <span className="text-slate-600 font-medium">{spot.note}</span>
                         </span>
                       </div>
-                      <span className="text-xs text-[#1D2935] block mt-1 font-semibold leading-relaxed">
-                        {spot.distance} • <span className="text-slate-600 font-medium">{spot.note}</span>
-                      </span>
-                    </div>
 
-                    <a 
-                      href={getMapsUrl(spot.name + " " + spot.address)} 
-                      target="_blank" 
-                      rel="noreferrer"
-                      className="shrink-0 bg-[#0B192C] hover:bg-[#1A365D] text-white px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
-                    >
-                      <Navigation className="w-3.5 h-3.5 text-white" /> Map
-                    </a>
+                      <a 
+                        href={getGoogleMapsSearchUrl(`${spot.name.split(" (")[0]}, ${spot.address}`)} 
+                        target="_blank" 
+                        rel="noreferrer"
+                        className="shrink-0 bg-[#0B192C] hover:bg-[#1A365D] text-white px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
+                      >
+                        <Navigation className="w-3.5 h-3.5 text-white" /> Map
+                      </a>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-3.5 rounded-2xl bg-[#F7F6F2] border-[1.5px] border-[#CFC7B8] space-y-2.5">
+                    <div className="text-xs font-black text-[#0F1E36]">
+                      Explore Verified Spots Near {primarySatVenueLabel}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <a
+                        href={getGoogleMapsSearchUrl(`Coffee & Drive-Thru near ${primarySatVenueLabel} ${tournament.city || ""}`)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 text-center transition-colors"
+                      >
+                        Coffee &amp; Drive-Thru Near Gym
+                      </a>
+                      <a
+                        href={getGoogleMapsSearchUrl(`Quick lunch & wraps near ${primarySatVenueLabel} ${tournament.city || ""}`)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 text-center transition-colors"
+                      >
+                        Quick Lunch Near Gym
+                      </a>
+                      <a
+                        href={getGoogleMapsSearchUrl(`Team dinner & large group restaurants in ${tournament.city || primarySatVenueLabel}`)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 text-center transition-colors"
+                      >
+                        Team Dinner &amp; Large Groups
+                      </a>
+                    </div>
                   </div>
-                ))}
+                )}
               </div>
             </div>
           ) : (
@@ -5717,7 +5756,39 @@ function RunSheetContent({
               )}
 
               <div className="space-y-2.5 pt-0.5">
-                {options.map(option => {
+                {options.length === 0 ? (
+                  <div className="p-3.5 rounded-2xl bg-[#F7F6F2] border-[1.5px] border-[#CFC7B8] space-y-2.5">
+                    <div className="text-xs font-black text-[#0F1E36]">
+                      Explore Verified Spots Near {primarySatVenueLabel}
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                      <a
+                        href={getGoogleMapsSearchUrl(`Coffee & Drive-Thru near ${primarySatVenueLabel} ${tournament.city || ""}`)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 text-center transition-colors"
+                      >
+                        Coffee &amp; Drive-Thru Near Gym
+                      </a>
+                      <a
+                        href={getGoogleMapsSearchUrl(`Quick lunch near ${primarySatVenueLabel} ${tournament.city || ""}`)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 text-center transition-colors"
+                      >
+                        Quick Lunch Near Gym
+                      </a>
+                      <a
+                        href={getGoogleMapsSearchUrl(`Team dinner & large group restaurants in ${tournament.city || primarySatVenueLabel}`)}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 text-center transition-colors"
+                      >
+                        Team Dinner &amp; Large Groups
+                      </a>
+                    </div>
+                  </div>
+                ) : options.map(option => {
                   const totalVotes = totalPollVotes;
                   const isWinner = totalVotes > 0 && winningOption?.id === option.id;
                   const isUserPick = userVotedOptionId === option.id;
@@ -5933,29 +6004,70 @@ function RunSheetContent({
           </div>
 
           <div className="space-y-2">
-            {coffeeSpots.map((spot, i) => (
-              <div key={i} className="flex items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] hover:border-[#0B192C]/30 text-xs transition-colors">
-                <div className="pr-1 min-w-0">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <span className="text-sm font-black tracking-tight text-[#0B192C]">{spot.name}</span>
-                    <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2 py-0.5">
-                      {spot.type}
+            {coffeeSpots.length > 0 ? (
+              coffeeSpots.map((spot, i) => (
+                <div key={i} className="flex items-center justify-between gap-2 p-3.5 rounded-2xl bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] hover:border-[#0B192C]/30 text-xs transition-colors">
+                  <div className="pr-1 min-w-0">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="text-sm font-black tracking-tight text-[#0B192C]">{spot.name}</span>
+                      <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2 py-0.5">
+                        {spot.type}
+                      </span>
+                    </div>
+                    <span className="text-xs text-[#1D2935] block mt-1 font-semibold leading-relaxed">
+                      {spot.distance} • <span className="text-slate-600 font-medium">{spot.note}</span>
                     </span>
                   </div>
-                  <span className="text-xs text-[#1D2935] block mt-1 font-semibold leading-relaxed">
-                    {spot.distance} • <span className="text-slate-600 font-medium">{spot.note}</span>
-                  </span>
+                  <a 
+                    href={getGoogleMapsSearchUrl(`${spot.name.split(" (")[0]}, ${spot.address}`)} 
+                    target="_blank" 
+                    rel="noreferrer"
+                    className="shrink-0 bg-[#0B192C] hover:bg-[#1A365D] text-white px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
+                  >
+                    <Navigation className="w-3.5 h-3.5 text-white" /> Map
+                  </a>
                 </div>
-                <a 
-                  href={getMapsUrl(spot.name + " " + spot.address)} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="shrink-0 bg-[#0B192C] hover:bg-[#1A365D] text-white px-3 py-1.5 rounded-lg text-xs font-bold inline-flex items-center gap-1.5 active:scale-[0.97] transition-all cursor-pointer"
+              ))
+            ) : (
+              <div className="p-3.5 rounded-2xl bg-[#F7F6F2] border-[1.5px] border-[#CFC7B8] space-y-2.5">
+                <div className="text-xs font-black text-[#0F1E36]">
+                  Explore Verified Spots Near {primarySatVenueLabel}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                  <a
+                    href={getGoogleMapsSearchUrl(`Coffee & Drive-Thru near ${primarySatVenueLabel} ${tournament.city || ""}`)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 text-center transition-colors"
+                  >
+                    Coffee &amp; Drive-Thru Near Gym
+                  </a>
+                  <a
+                    href={getGoogleMapsSearchUrl(`Quick lunch near ${primarySatVenueLabel} ${tournament.city || ""}`)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 text-center transition-colors"
+                  >
+                    Quick Lunch Near Gym
+                  </a>
+                  <a
+                    href={getGoogleMapsSearchUrl(`Team dinner & large groups in ${tournament.city || primarySatVenueLabel}`)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="rounded-xl bg-white hover:bg-slate-50 border border-[#CFC7B8] text-[#0F1E36] text-xs font-bold px-3 py-2 text-center transition-colors"
+                  >
+                    Team Dinner &amp; Large Groups
+                  </a>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setIsRestaurantModalOpen(true)}
+                  className="w-full rounded-xl bg-[#0F1E36] hover:bg-[#1A365D] text-white text-xs font-bold px-3 py-2 transition-colors cursor-pointer"
                 >
-                  <Navigation className="w-3.5 h-3.5 text-white" /> Map
-                </a>
+                  + Suggest a Spot
+                </button>
               </div>
-            ))}
+            )}
           </div>
         </section>
 

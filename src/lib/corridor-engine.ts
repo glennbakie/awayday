@@ -159,6 +159,10 @@ export function getCityFuelAndFoodRecommendations(
     venueCityText.includes("brampton") ||
     venueCityText.includes("central peel") ||
     venueCityText.includes("westcreek");
+  const isVenueRenfrew =
+    venueCityText.includes("renfrew") ||
+    venueCityText.includes("myfm") ||
+    /\brci\b/i.test(venueCityText);
 
   let quickLunchSpots: CityDiningSpot[];
   let coffeeSpots: CityDiningSpot[];
@@ -325,56 +329,63 @@ export function getCityFuelAndFoodRecommendations(
         address: "25 Peel Centre Dr, Brampton, ON",
       },
     ];
-  } else {
-    const cleanVenueCity = (venueContext?.venueCity || cityRaw || "Host City").trim();
-    const searchAnchor = [venueLabel !== "Primary Gym" ? venueLabel : "", cleanVenueCity]
-      .filter(Boolean)
-      .join(" ");
+  } else if (isVenueRenfrew) {
     quickLunchSpots = [
       {
-        name: `Quick Lunch & Subs near ${venueLabel}`,
-        type: "Wraps, Sandwiches & Salads",
-        distance: `Near ${venueLabel} • ${cleanVenueCity}`,
-        note: "Search nearby sub shops, delis & light athlete lunches.",
-        address: `restaurants lunch near ${searchAnchor}`,
+        name: "Stacked Pancake & Breakfast House",
+        type: "Breakfast & Lunch",
+        distance: "~4 min from myFM Centre",
+        note: "Close to myFM Centre — hearty breakfast, sandwiches & quick sit-down lunch.",
+        address: "640 O'Brien Rd, Renfrew, ON",
       },
       {
-        name: `Local Cafés & Smoothies (${cleanVenueCity})`,
-        type: "Light Carbs, Fruit & Hydration",
-        distance: `Near ${venueLabel} • ${cleanVenueCity}`,
-        note: "Quick athlete fuel & hydration between games.",
-        address: `cafe smoothies near ${searchAnchor}`,
+        name: "Karras' Way",
+        type: "Pizza, Subs & Group Takeout",
+        distance: "~5 min from myFM Centre",
+        note: "Fast pizza, hot subs & easy group takeout between games.",
+        address: "194 Raglan St S, Renfrew, ON",
       },
       {
-        name: `Grocery & Grab-and-Go (${cleanVenueCity})`,
-        type: "Fruit, Water & Deli Counter",
-        distance: `In ${cleanVenueCity}`,
-        note: "Easy team snacks, fruit trays, and sports drinks.",
-        address: `grocery store in ${cleanVenueCity}`,
+        name: "Ottawa Valley Coffee",
+        type: "Sandwiches & Baked Goods",
+        distance: "~5 min from myFM Centre",
+        note: "Fresh breakfast sandwiches, wraps & baked goods.",
+        address: "239 Raglan St S, Renfrew, ON",
       },
     ];
     coffeeSpots = [
       {
-        name: `Tim Hortons near ${venueLabel}`,
-        distance: `Near ${venueLabel} • ${cleanVenueCity}`,
-        type: "Drive-Thru & Mobile Pickup",
-        note: "Fast coffee, bagels & breakfast pickup near the gym.",
-        address: `Tim Hortons near ${searchAnchor}`,
+        name: "Tim Hortons",
+        distance: "~3 min from myFM Centre",
+        type: "Drive-Thru & Mobile Order",
+        note: "Fast morning coffee, bagels & mobile pickup on O'Brien Rd.",
+        address: "780 O'Brien Rd, Renfrew, ON",
       },
       {
-        name: `Coffee Shops in ${cleanVenueCity}`,
-        distance: `Near ${venueLabel} • ${cleanVenueCity}`,
-        type: "Local Espresso & Bakery",
-        note: "Warm coffee & parent pit stop between games.",
-        address: `coffee shop near ${searchAnchor}`,
+        name: "Ottawa Valley Coffee",
+        distance: "~5 min from myFM Centre",
+        type: "Local Specialty Coffee",
+        note: "Local specialty coffee, breakfast sandwiches & baked goods.",
+        address: "239 Raglan St S, Renfrew, ON",
+      },
+      {
+        name: "Bonnechere Bakery & Bistro",
+        distance: "~5 min from myFM Centre",
+        type: "Bakery & Bistro",
+        note: "Fresh sandwiches, soup & pastries downtown Renfrew.",
+        address: "Bonnechere Bakery & Bistro, Renfrew, ON",
       },
     ];
+  } else {
+    quickLunchSpots = [];
+    coffeeSpots = [];
   }
 
   // 2. Team Dinner — anchored to Team Hotel (falling back to last Saturday game venue / city)
   const isHotelOakville = hotelCityText.includes("oakville") || hotelCityText.includes("burlington");
   const isHotelMississauga = hotelCityText.includes("mississauga");
   const isHotelBrampton = hotelCityText.includes("brampton") || hotelCityText.includes("westcreek");
+  const isHotelRenfrew = hotelCityText.includes("renfrew") || isVenueRenfrew;
 
   let dinnerSpots: CityDiningSpot[];
   if (isHotelOakville) {
@@ -512,18 +523,15 @@ export function getCityFuelAndFoodRecommendations(
         isLeading: false,
       },
     ];
-  } else {
-    const cleanHotelCity = (cityRaw || hotelAddress || "Host City").trim();
-    const anchorLabel =
-      hotelLabel && !/^team\s*hotel$/i.test(hotelLabel) ? hotelLabel : cleanHotelCity;
+  } else if (isHotelRenfrew) {
     dinnerSpots = [
       {
-        name: `Team-Friendly Dining in ${cleanHotelCity}`,
-        type: "Family & Group Seating",
-        distance: `Near ${anchorLabel}`,
-        note: "Search casual sit-down restaurants with space for players & parents.",
+        name: "Finnigan's Roadhouse",
+        type: "Team Sit-Down & Large Groups",
+        distance: "~5 min from myFM Centre",
+        note: "Spacious casual dining for players, coaches & families.",
         phone: "",
-        address: `family restaurants in ${cleanHotelCity}`,
+        address: "302 Raglan St S, Renfrew, ON",
         votes: 0,
         seats: 0,
         players: 0,
@@ -532,12 +540,26 @@ export function getCityFuelAndFoodRecommendations(
         isLeading: false,
       },
       {
-        name: `Pizza & Pasta Spots in ${cleanHotelCity}`,
-        type: "Team Meal & Takeout",
-        distance: `Near ${anchorLabel}`,
-        note: "Easy post-game pizza, pasta & group takeout.",
+        name: "Stacked Pancake & Breakfast House",
+        type: "Breakfast & Lunch • Close to myFM Centre",
+        distance: "~4 min from myFM Centre",
+        note: "Hearty meals and quick group seating near the rink/gym.",
         phone: "",
-        address: `pizza pasta restaurants in ${cleanHotelCity}`,
+        address: "640 O'Brien Rd, Renfrew, ON",
+        votes: 0,
+        seats: 0,
+        players: 0,
+        adults: 0,
+        percentage: 0,
+        isLeading: false,
+      },
+      {
+        name: "Karras' Way",
+        type: "Pizza, Subs & Group Takeout",
+        distance: "~5 min from myFM Centre",
+        note: "Easy team pizza, pasta & sub takeout.",
+        phone: "",
+        address: "194 Raglan St S, Renfrew, ON",
         votes: 0,
         seats: 0,
         players: 0,
@@ -546,6 +568,8 @@ export function getCityFuelAndFoodRecommendations(
         isLeading: false,
       },
     ];
+  } else {
+    dinnerSpots = [];
   }
 
   return {
