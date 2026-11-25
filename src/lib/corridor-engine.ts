@@ -831,7 +831,7 @@ export function computeTravelCorridor(
         googleMapsUrl: getGoogleMapsDeepLink(stopAddr),
       },
     ];
-  } else {
+  } else if (durationMinutes >= 90 && (isBramptonDest || isOakvilleDest)) {
     const quickMins = Math.max(15, Math.round((durationMinutes * 0.5) / 5) * 5);
     const stopAddr = isBramptonDest
       ? "Orion Gate Plaza, Steeles Ave E & Hwy 410, Brampton, ON"
@@ -852,6 +852,9 @@ export function computeTravelCorridor(
         googleMapsUrl: getGoogleMapsDeepLink(stopAddr),
       },
     ];
+  } else {
+    // Drives under 90 minutes (e.g. Ottawa -> Renfrew) don't need en-route highway pit stops
+    stops = [];
   }
 
   const pitStopBufferMins = durationHours >= 3.5 ? 30 : durationHours >= 2 ? 20 : 10;

@@ -1441,9 +1441,10 @@ function RunSheetContent({
   const lastSatGame = satGames[satGames.length - 1] || primarySatGame;
   const primarySatVenueLabel = primarySatGame?.venueName || tournament.primaryHub || "Primary Gym";
   const hasRealHotel =
-    Boolean(tournament.hotel?.address) &&
-    !/^(tbd|away)$/i.test(tournament.hotel.address.trim()) &&
-    !(/mississauga/i.test(tournament.city || "") && /150 westcreek/i.test(tournament.hotel.address));
+    (Boolean(tournament.hotel?.name?.trim()) || Boolean(tournament.hotel?.address?.trim())) &&
+    !/^(tbd|away|team\s*hotel)$/i.test((tournament.hotel?.name || "").trim()) &&
+    !/^(tbd|away)$/i.test((tournament.hotel?.address || "").trim()) &&
+    !(!isDemoSlug && !/brampton/i.test(tournament.city || "") && /fairfield.*brampton|150 westcreek/i.test(`${tournament.hotel?.name || ""} ${tournament.hotel?.address || ""}`));
   const dinnerAnchorHotelName =
     tournament.hotel?.name && !/^team\s*hotel/i.test(tournament.hotel.name) && hasRealHotel
       ? tournament.hotel.name
@@ -4360,8 +4361,9 @@ function RunSheetContent({
 
                 <div className="h-px bg-[#E9ECEF] my-3.5" />
 
-                {/* 3-Column Timing Strip (Chunky Solid Silhouettes & Solid Athletic Whistle) */}
+                {/* 2-Column or 3-Column Timing Strip (Depart hidden when no hotel is set) */}
                 <div className="divide-x divide-[#E9ECEF] flex items-start text-center py-1">
+                  {hasRealHotel && (
                   <div className="flex-1 px-1 flex flex-col items-center">
                     <svg
                       aria-hidden="true"
@@ -4377,6 +4379,7 @@ function RunSheetContent({
                       {formatTime(nextDepart)}
                     </span>
                   </div>
+                  )}
 
                   <div className="flex-1 px-1 flex flex-col items-center">
                     <svg
@@ -4431,10 +4434,28 @@ function RunSheetContent({
 
                 {/* Integrated Nested Travel Footnote */}
                 <div className="mt-2 pt-2 border-t border-[#E9ECEF] flex items-center justify-between gap-2 text-[11px] text-[#5C6B7B] font-medium">
-                  <span className="flex items-center gap-1 font-bold text-[#0F2942] shrink-0 tabular-nums">
-                    <span aria-hidden="true">🚗</span> {nextGame.hotelTravelMin || 15}m drive
-                  </span>
-                  <span className="italic truncate">Check Maps for live traffic &amp; weather</span>
+                  {hasRealHotel ? (
+                    <>
+                      <span className="flex items-center gap-1 font-bold text-[#0F2942] shrink-0 tabular-nums">
+                        <span aria-hidden="true">🚗</span> {nextGame.hotelTravelMin || 15}m drive
+                      </span>
+                      <span className="italic truncate">Check Maps for live traffic &amp; weather</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="font-semibold text-[#5C6B7B] truncate">
+                        Check live drive time from your location
+                      </span>
+                      <a
+                        href={getMapsUrl(heroVenueMapsQuery)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-bold text-[#0F2942] hover:underline shrink-0"
+                      >
+                        Open in Google Maps
+                      </a>
+                    </>
+                  )}
                 </div>
 
                 {/* Bottom Metadata Strip (Jersey Indicator) */}
@@ -5038,22 +5059,28 @@ function RunSheetContent({
 
                   return (
                     <>
-                      {/* Full 3-Column Time Grid (Always Visible Across All Game States) */}
-                      <div className="border-y border-[#E6E0D6] py-4 my-4 grid grid-cols-3 text-center">
-                        <div className="px-1 flex flex-col items-center">
-                          <div className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-[#6B7280] uppercase">
-                            <Car className="w-4 h-4 text-[#6B7280]" strokeWidth={2} aria-hidden="true" />
-                            <span>DEPART</span>
-                          </div>
-                          <span className="text-2xl font-black text-[#0F1E36] tracking-tight tabular-nums mt-1 leading-none">
-                            {tournament.schedulePending ? "TBD" : departParts.time}
-                          </span>
-                          {!tournament.schedulePending && departParts.meridiem && (
-                            <span className="text-[11px] font-semibold text-[#6B7280] mt-1">
-                              {departParts.meridiem}
+                      {/* Full 2-Column or 3-Column Time Grid (Depart hidden when no hotel is set) */}
+                      <div
+                        className={`border-y border-[#E6E0D6] py-4 my-4 grid text-center ${
+                          hasRealHotel ? "grid-cols-3" : "grid-cols-2"
+                        }`}
+                      >
+                        {hasRealHotel && (
+                          <div className="px-1 flex flex-col items-center">
+                            <div className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-[#6B7280] uppercase">
+                              <Car className="w-4 h-4 text-[#6B7280]" strokeWidth={2} aria-hidden="true" />
+                              <span>DEPART</span>
+                            </div>
+                            <span className="text-2xl font-black text-[#0F1E36] tracking-tight tabular-nums mt-1 leading-none">
+                              {tournament.schedulePending ? "TBD" : departParts.time}
                             </span>
-                          )}
-                        </div>
+                            {!tournament.schedulePending && departParts.meridiem && (
+                              <span className="text-[11px] font-semibold text-[#6B7280] mt-1">
+                                {departParts.meridiem}
+                              </span>
+                            )}
+                          </div>
+                        )}
 
                         <div className="px-1 flex flex-col items-center">
                           <div className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-[#6B7280] uppercase">
@@ -5086,17 +5113,35 @@ function RunSheetContent({
 
                       {/* Drive Strip */}
                       <div className="flex items-center justify-between gap-2 text-xs">
-                        <span className="font-bold text-[#0F1E36] tabular-nums">
-                          {game.hotelTravelMin || 15} min drive
-                        </span>
-                        <a
-                          href={mapsUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="italic text-[#6B7280] hover:text-[#0F1E36] transition-colors"
-                        >
-                          Check live traffic
-                        </a>
+                        {hasRealHotel ? (
+                          <>
+                            <span className="font-bold text-[#0F1E36] tabular-nums">
+                              {game.hotelTravelMin || 15} min drive
+                            </span>
+                            <a
+                              href={mapsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="italic text-[#6B7280] hover:text-[#0F1E36] transition-colors"
+                            >
+                              Check live traffic
+                            </a>
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-medium text-[#6B7280] truncate">
+                              Check live drive time from your location
+                            </span>
+                            <a
+                              href={mapsUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-[#0F1E36] hover:underline shrink-0"
+                            >
+                              Open in Google Maps
+                            </a>
+                          </>
+                        )}
                       </div>
 
                       {/* Clean Venue Card */}
@@ -6400,14 +6445,21 @@ function RunSheetContent({
                 }
               }
 
+              const outboundDestinationLabel =
+                (hasRealHotel ? tournament.hotel.name : "") ||
+                primarySatGame?.venueName ||
+                tournament.primaryHub ||
+                tournament.city ||
+                "Tournament Venue";
+
               const mapsHref = isTripHome
                 ? `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(returnOrigin)}&destination=${encodeURIComponent(homeDestination)}&travelmode=driving`
                 : corridorPlan.destinationMapsUrl ||
-                  getGoogleMapsSearchUrl(tournament.hotel.address || "150 Westcreek Blvd, Brampton, ON");
+                  getGoogleMapsSearchUrl(corridorDestinationAddress || outboundDestinationLabel);
 
               const mapsLabel = isTripHome
                 ? `Route Home to ${homeDestination} in Google Maps`
-                : `Route to ${tournament.hotel.name} in Google Maps`;
+                : `Route to ${outboundDestinationLabel} in Google Maps`;
 
               return (
                 <>
