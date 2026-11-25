@@ -157,11 +157,20 @@ const KNOWN_TRICODES: Record<string, string> = {
   oshawa: "OSH",
   whitby: "WHI",
   barrie: "BAR",
+  renfrew: "REN",
+  arnprior: "ARN",
+  pembroke: "PEM",
+  petawawa: "PET",
+  belleville: "BEL",
+  cornwall: "COR",
+  brockville: "BRO",
+  peterborough: "PTB",
+  cobourg: "COB",
 };
 
 function getCityTriCode(cityRaw?: string): { code: string; full: string } {
-  if (!cityRaw || /^(away|tbd|unknown)$/i.test(cityRaw.trim())) {
-    return { code: "BRA", full: "Brampton, ON" };
+  if (!cityRaw || /^(away|tbd|unknown|host city)$/i.test(cityRaw.trim())) {
+    return { code: "AWY", full: "Host City" };
   }
   const primarySegment = cityRaw.split("/")[0].trim();
   const rawParts = primarySegment
@@ -625,26 +634,26 @@ function RunSheetContent({
           }
         }
       : {
-          name: "CYBL Session",
+          name: /\brenfrew\b/i.test(slug) ? "Renfrew Roundball Cup 2026" : "Weekend Tournament",
           division: "Varsity / Rep",
-          leagueName: "CYBL",
-          teamName: "Ottawa Elite U16",
-          dates: "Nov 21–22, 2026",
-          city: "Brampton, ON",
-          primaryHub: "Brampton Area Gyms (Schedule Pending)",
-          primaryHubAddress: "150 Westcreek Blvd, Brampton, ON",
-          lastUpdatedText: "Pre-Schedule Logistics & Hotel Locked",
+          leagueName: "Tournament",
+          teamName: "My Team",
+          dates: /\brenfrew\b/i.test(slug) ? "Fri, Nov 27, 2026" : "Tournament Dates TBD",
+          city: /\brenfrew\b/i.test(slug) ? "Renfrew, ON" : "Host City",
+          primaryHub: "",
+          primaryHubAddress: "",
+          lastUpdatedText: "Official Team Run-Sheet",
           schedulePending: true,
           hotel: {
-            name: "Fairfield Inn & Suites Toronto Brampton",
-            address: "150 Westcreek Blvd, Brampton",
-            rate: "Team Group Block",
-            breakfastHours: "6:30 AM - 9:30 AM (Included)",
-            checkoutTime: "12:00 PM"
+            name: "",
+            address: "",
+            rate: "",
+            breakfastHours: "",
+            checkoutTime: ""
           }
         }
   );
-  const originPresets = getDynamicOriginPresets(teamHomeBase, tournament.city || "Brampton, ON");
+  const originPresets = getDynamicOriginPresets(teamHomeBase, tournament.city || "Host City");
   const hasLoadedCacheRef = useRef<boolean>(false);
 
   // Sync native <dialog> showModal()/close() & light-dismiss fallback for Sideline Pass Modal
@@ -969,24 +978,51 @@ function RunSheetContent({
           if (parsedCache.tournament && typeof parsedCache.tournament === "object") {
             const ct = parsedCache.tournament;
             const ch = ct.hotel || {};
+            const isRenfrewSheet =
+              /\brenfrew\b/i.test(`${slug} ${ct.name || ""}`) ||
+              (Array.isArray(parsedCache.games) &&
+                parsedCache.games.some((g: any) => /myfm|renfrew|\brci\b/i.test(g?.venueName || "")));
             const isGenericName = !ct.name || /test team|away weekend|tournament weekend/i.test(ct.name);
-            const isGenericCity = !ct.city || /^away$/i.test(String(ct.city).trim());
-            const isGenericDates = !ct.dates || /dates tbd/i.test(ct.dates);
-            const isGenericHotelName = !ch.name || /team hotel/i.test(ch.name);
-            const isGenericHotelAddr = !ch.address || /^away$/i.test(String(ch.address).trim()) || /^brampton,\s*on$/i.test(String(ch.address).trim());
+            const isGenericCity =
+              !ct.city ||
+              /^(away|tbd|unknown|host city)$/i.test(String(ct.city).trim()) ||
+              (isRenfrewSheet && /brampton/i.test(String(ct.city)));
+            const isGenericDates =
+              !ct.dates ||
+              /dates tbd/i.test(ct.dates) ||
+              (isRenfrewSheet && /nov\s*21/i.test(String(ct.dates)));
+            const isFakeBramptonHotel =
+              !isDemoSlug &&
+              !/brampton/i.test(ct.city || "") &&
+              /fairfield.*brampton|150 westcreek/i.test(`${ch.name || ""} ${ch.address || ""}`);
+            const isGenericHotelName = !ch.name || /team hotel/i.test(ch.name) || isFakeBramptonHotel;
+            const isGenericHotelAddr =
+              !ch.address ||
+              /^(away|tbd)$/i.test(String(ch.address).trim()) ||
+              isFakeBramptonHotel;
+            const healedCity = isRenfrewSheet
+              ? "Renfrew, ON"
+              : isGenericCity
+                ? "Host City"
+                : ct.city;
+            const healedDates = isRenfrewSheet
+              ? "Fri, Nov 27, 2026"
+              : isGenericDates
+                ? (Array.isArray(parsedCache.games) && parsedCache.games[0]?.dayLabel) || "Tournament Dates TBD"
+                : ct.dates;
             setTournament((prev) => ({
               ...prev,
               ...ct,
-              name: isGenericName ? "CYBL Session" : ct.name,
-              teamName: !ct.teamName || /test team/i.test(ct.teamName) ? "Ottawa Elite U16" : ct.teamName,
-              dates: isGenericDates ? "Nov 21–22, 2026" : ct.dates,
-              city: isGenericCity ? "Brampton, ON" : ct.city,
-              primaryHubAddress: isGenericHotelAddr ? "150 Westcreek Blvd, Brampton, ON" : (ct.primaryHubAddress || ch.address),
+              name: isGenericName ? "Weekend Tournament" : ct.name,
+              teamName: !ct.teamName || /test team/i.test(ct.teamName) ? "My Team" : ct.teamName,
+              dates: healedDates,
+              city: healedCity,
+              primaryHubAddress: isFakeBramptonHotel ? "" : (ct.primaryHubAddress || ch.address || ""),
               hotel: {
                 ...prev.hotel,
                 ...ch,
-                name: isGenericHotelName ? "Fairfield Inn & Suites Toronto Brampton" : ch.name,
-                address: isGenericHotelAddr ? "150 Westcreek Blvd, Brampton" : ch.address,
+                name: isGenericHotelName ? "" : ch.name,
+                address: isGenericHotelAddr ? "" : ch.address,
               },
             }));
           }
@@ -3381,19 +3417,25 @@ function RunSheetContent({
     Boolean(tournament.schedulePending) ||
     games.length === 0 ||
     games.every((g) => g.isPlaceholder || /tbd|pending/i.test(g.opponent));
+  const corridorDestinationVenue = hasRealHotel
+    ? tournament.hotel.name
+    : primarySatVenueLabel || tournament.city || "Tournament Venue";
+  const corridorDestinationAddress = hasRealHotel
+    ? tournament.hotel.address
+    : primarySatGame?.venueAddress || tournament.primaryHubAddress || tournament.city || "";
   const corridorPlan = computeTravelCorridor(
     departureOrigin,
-    tournament.city || "Brampton, ON",
-    tournament.hotel.name,
+    tournament.city || primarySatGame?.city || "Host City",
+    corridorDestinationVenue,
     firstEventArrivalMins,
     firstEventDayLabel,
     {
       direction: corridorDirection,
       teamHomeBase,
       finalGameTipOffMinutes: finalGame?.tipOffMinutes ?? 870,
-      finalGameDayLabel: finalGame?.dayLabel || tournament.dates || (isDemoSlug ? "Sun, Oct 25" : "Sun, Nov 22"),
-      finalGameVenue: finalGame?.venueName || tournament.hotel.name,
-      destinationAddress: tournament.hotel.address || "150 Westcreek Blvd, Brampton, ON",
+      finalGameDayLabel: finalGame?.dayLabel || tournament.dates || (isDemoSlug ? "Sun, Oct 25" : "Tournament Day"),
+      finalGameVenue: finalGame?.venueName || corridorDestinationVenue,
+      destinationAddress: corridorDestinationAddress,
       schedulePending: isSchedulePendingState,
     }
   );
@@ -5232,7 +5274,11 @@ function RunSheetContent({
                 <Utensils className="w-3.5 h-3.5" />
               </span>
               <h3 className="text-xs font-black tracking-tight uppercase text-[#0B192C]">
-                {isLunch ? "Midday Fuel (Grab & Go)" : "Team Dinner & Reservation"}
+                {isLunch
+                  ? "Midday Fuel (Grab & Go)"
+                  : hasRealHotel
+                    ? "Team Dinner & Reservation"
+                    : "Post-Tournament Team Meal"}
               </h3>
             </div>
 
@@ -5270,14 +5316,16 @@ function RunSheetContent({
               </div>
               <div className="text-right">
                 <p className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">
-                  {isLunch ? "Game 2 Arrival" : "Evening Wind-Down"}
+                  {isLunch ? "Game 2 Arrival" : hasRealHotel ? "Evening Wind-Down" : "Post-Game Meal"}
                 </p>
                 <p className="text-sm font-black text-[#0B192C] mt-0.5 tabular-nums">
                   {isSchedulePendingState
                     ? "Updates once tip-offs drop"
                     : isLunch
                       ? `Be at gym by ${formatTime(activeWindowEnd)}`
-                      : `Back at hotel by ${formatTime(activeWindowEnd)}`}
+                      : hasRealHotel
+                        ? `Back at hotel by ${formatTime(activeWindowEnd)}`
+                        : `Wrap up by ${formatTime(activeWindowEnd)}`}
                 </p>
               </div>
             </div>
@@ -5866,7 +5914,8 @@ function RunSheetContent({
           </div>
         </section>
 
-        {/* Hwy 401 Corridor Team Food Stops */}
+        {/* Hwy 401 Corridor Team Food Stops (hidden for short-haul <90m drives) */}
+        {corridorFoodSpots.length > 0 && (
         <section id="section-corridor-food" className="bg-white rounded-[26px] p-4 shadow-[0_2px_0_0_rgba(15,30,54,0.08)] border-[1.5px] border-[#CFC7B8] space-y-3">
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
@@ -5911,6 +5960,7 @@ function RunSheetContent({
             ))}
           </div>
         </section>
+        )}
 
           </div>
         )}
@@ -6436,7 +6486,8 @@ function RunSheetContent({
           </div>
         </section>
 
-        {/* Hotel Base Camp */}
+        {/* Hotel Base Camp (hidden for day-trip tournaments without a hotel) */}
+        {hasRealHotel && (
         <section id="section-hotel" className="bg-white rounded-[26px] p-4 shadow-[0_2px_0_0_rgba(15,30,54,0.08)] border-[1.5px] border-[#CFC7B8] space-y-3">
           <div>
             <span className="inline-flex items-center gap-1 rounded-full bg-[#F1F3F5] text-[#5C6B7B] text-[10px] font-bold uppercase tracking-wider px-2.5 py-0.5">
@@ -6534,6 +6585,7 @@ function RunSheetContent({
             )}
           </div>
         </section>
+        )}
 
           </div>
           );

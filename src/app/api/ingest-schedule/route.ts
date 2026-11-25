@@ -5,7 +5,7 @@ import {
   computeTravelCorridor,
   getCityFuelAndFoodRecommendations,
 } from "@/lib/corridor-engine";
-import { mergeAndDedupeGames, applyPartialTextPatchToGames } from "@/lib/parse-schedule";
+import { mergeAndDedupeGames, applyPartialTextPatchToGames, resolveVenueCity } from "@/lib/parse-schedule";
 
 export interface ExtractedGame {
   day: string;          // e.g. "Saturday, Oct 24"
@@ -48,7 +48,7 @@ function isGenericPlaceholderTeam(name?: string | null): boolean {
 function normalizeCityLabel(cityRaw?: string | null): string {
   const cleaned = (cityRaw || "").trim();
   if (!cleaned || /^(tbd|away|unknown|null)$/i.test(cleaned)) {
-    return "Brampton, ON";
+    return "";
   }
   if (/,/.test(cleaned)) return cleaned;
   return `${cleaned}, ON`;
@@ -172,7 +172,10 @@ export async function POST(req: NextRequest) {
       tournamentName?: string;
       teamName?: string;
       city?: string;
+      hostCity?: string;
       dates?: string;
+      dateRange?: string;
+      isSingleDay?: boolean;
       hotel?: {
         name?: string;
         address?: string;
@@ -199,7 +202,10 @@ export async function POST(req: NextRequest) {
         tournamentName: { type: Type.STRING, nullable: true },
         teamName: { type: Type.STRING, nullable: true },
         city: { type: Type.STRING, nullable: true },
+        hostCity: { type: Type.STRING, nullable: true, description: 'Host city and province/state, e.g. "Renfrew, ON" or "Mississauga, ON". Never default to Brampton unless Brampton is in the text/image.' },
         dates: { type: Type.STRING, nullable: true },
+        dateRange: { type: Type.STRING, nullable: true, description: 'Formatted tournament date(s), e.g. "Fri, Nov 27, 2026" for a 1-day tournament or "Nov 21–22, 2026" for multi-day.' },
+        isSingleDay: { type: Type.BOOLEAN, nullable: true, description: 'True when all games occur on the same calendar date.' },
         hotel: {
           type: Type.OBJECT,
           nullable: true,
@@ -501,29 +507,30 @@ export async function POST(req: NextRequest) {
 
     // Regex & chat-text heuristic extraction if rawText is provided or if upstream vision key failed
     if (!parsed) {
-      const cityMatch = rawText.match(/(?:in\s+the\s+|location:\s*)([A-Za-z\s]+?)(?:\s+area|[.,\n]|$)/i);
+      const cityMatch = rawText.match(/(?:in\s+the\s+|location:\s*|-\s*)([A-Za-z\s]+?)(?:\s+area|[.,\n]|$)/i);
       const hotelMatch = rawText.match(/(?:Proposed\s+hotel|Hotel)\s*:\s*([^\n.]+)/i);
-      const dateMatch = rawText.match(/((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}\s*[-–]\s*\d{1,2}(?:,?\s*\d{4})?)/i);
-      const extractedCity = cityMatch?.[1]?.trim() || "Brampton, ON";
-      const rawHotelLine = hotelMatch?.[1]?.trim() || "Fairfield Inn & Suites Toronto Brampton, 150 Westcreek Blvd, Brampton";
+      const dateMatch = rawText.match(/((?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2}(?:\s*[-–]\s*\d{1,2})?(?:,?\s*\d{4})?)/i);
+      const extractedCity =
+        /\brenfrew\b|myfm\s*cent(?:re|er)|\brci\b/i.test(`${rawText} ${tournamentNameInput}`)
+          ? "Renfrew, ON"
+          : cityMatch?.[1]?.trim() || "";
+      const rawHotelLine = hotelMatch?.[1]?.trim() || "";
       const hotelParts = rawHotelLine.split(",").map((s) => s.trim()).filter(Boolean);
-      const fallbackHotelName = hotelParts[0] || "Fairfield Inn & Suites Toronto Brampton";
-      const fallbackHotelAddr =
-        hotelParts.length > 1
-          ? hotelParts.slice(1).join(", ")
-          : "150 Westcreek Blvd, Brampton";
+      const fallbackHotelName = hotelParts[0] || "";
+      const fallbackHotelAddr = hotelParts.length > 1 ? hotelParts.slice(1).join(", ") : "";
 
       parsed = {
         success: true,
         schedulePending: true,
-        tournamentName: tournamentNameInput || (/cybl/i.test(rawText) ? "CYBL Session" : "CYBL Session"),
+        tournamentName: tournamentNameInput || "Weekend Tournament",
         teamName,
         city: normalizeCityLabel(extractedCity),
+        hostCity: normalizeCityLabel(extractedCity),
         dates: dateMatch?.[1]
           ? /\d{4}/.test(dateMatch[1])
             ? dateMatch[1]
             : `${dateMatch[1]}, 2026`
-          : "Nov 21–22, 2026",
+          : "",
         hotel: {
           name: fallbackHotelName,
           address: fallbackHotelAddr,
@@ -539,16 +546,7 @@ export async function POST(req: NextRequest) {
     const resolvedTournamentName =
       parsedTournamentRaw && !/away\s*weekend|test\s*team/i.test(parsedTournamentRaw)
         ? parsedTournamentRaw
-        : tournamentNameInput || "CYBL Session";
-
-    const resolvedCity = normalizeCityLabel(parsed.city);
-    const rawDates = (parsed.dates || "").trim();
-    const resolvedDates =
-      rawDates && !/^dates\s*tbd$/i.test(rawDates)
-        ? /\d{4}/.test(rawDates)
-          ? rawDates
-          : `${rawDates}, 2026`
-        : "Nov 21–22, 2026";
+        : tournamentNameInput || "Weekend Tournament";
 
     const parsedTeamClean = (parsed.teamName || "").trim();
     const resolvedTeamName =
@@ -572,7 +570,7 @@ export async function POST(req: NextRequest) {
             /game\s*\d+\s*-\s*tbd|tip-off pending/i.test(g.opponent || "")
         ))
         ? partialTextPatch.map((pg: any) => ({
-            day: pg.dayLabel || pg.day || "Weekend",
+            day: pg.dayLabel || pg.day || "Tournament Day",
             dateStr: pg.dateStr || "",
             tipOff:
               pg.tipOff ||
@@ -590,6 +588,48 @@ export async function POST(req: NextRequest) {
           }))
         : rawGames;
 
+    const firstRealExtracted = effectiveRawGames.find((g) => !g.isPlaceholder) || effectiveRawGames[0];
+    const cityFromVenues = firstRealExtracted
+      ? resolveVenueCity(firstRealExtracted.venueName, firstRealExtracted.venueAddress, "")
+      : "";
+    const cityFromNameOrText = /\brenfrew\b|myfm\s*cent(?:re|er)|\brci\b/i.test(
+      `${resolvedTournamentName} ${rawText}`
+    )
+      ? "Renfrew, ON"
+      : "";
+
+    const resolvedCity =
+      normalizeCityLabel(parsed.hostCity || parsed.city) ||
+      cityFromVenues ||
+      cityFromNameOrText ||
+      "Host City";
+
+    const uniqueGameDays = Array.from(
+      new Set(
+        effectiveRawGames
+          .map((g) => (g.dateStr || g.day || "").trim())
+          .filter(Boolean)
+      )
+    );
+    const isSingleDay =
+      typeof parsed.isSingleDay === "boolean"
+        ? parsed.isSingleDay
+        : uniqueGameDays.length === 1;
+
+    const rawDates = (parsed.dateRange || parsed.dates || "").trim();
+    const derivedSingleDayLabel =
+      effectiveRawGames[0]?.day && effectiveRawGames[0].day.trim()
+        ? /\d{4}/.test(effectiveRawGames[0].day)
+          ? effectiveRawGames[0].day.trim()
+          : `${effectiveRawGames[0].day.trim()}, 2026`
+        : "";
+    const resolvedDates =
+      rawDates && !/^dates\s*tbd$/i.test(rawDates)
+        ? /\d{4}/.test(rawDates)
+          ? rawDates
+          : `${rawDates}, 2026`
+        : derivedSingleDayLabel || "Tournament Dates TBD";
+
     const hasOnlyPlaceholders =
       effectiveRawGames.length === 0 ||
       effectiveRawGames.every(
@@ -603,13 +643,13 @@ export async function POST(req: NextRequest) {
         ? false
         : Boolean(parsed.schedulePending || hasOnlyPlaceholders);
 
-    const shortCity = resolvedCity.split(",")[0].trim() || "Brampton";
+    const shortCity = resolvedCity.split(",")[0].trim() || "Host City";
     const gamesOut: ExtractedGame[] =
       isSchedulePending && effectiveRawGames.length === 0
         ? [
             {
-              day: resolvedDates.split(/[-–]/)[0]?.trim() || "Sat, Nov 21",
-              dateStr: "2026-11-21",
+              day: resolvedDates.split(/[-–]/)[0]?.trim() || "Day 1",
+              dateStr: "",
               tipOff: "TBD (Tip-Off Pending)",
               arrivalCall: "TBD",
               court: "TBD",
@@ -622,7 +662,7 @@ export async function POST(req: NextRequest) {
             },
             {
               day: resolvedDates,
-              dateStr: "2026-11-22",
+              dateStr: "",
               tipOff: "TBD (Tip-Off Pending)",
               arrivalCall: "TBD",
               court: "TBD",
@@ -640,23 +680,16 @@ export async function POST(req: NextRequest) {
     const rawHotelAddress = (parsed.hotel?.address || "").trim();
     const isGenericHotelName =
       !rawHotelName || /^team\s*hotel(\s*\(.*\)|\s*tbd)?$/i.test(rawHotelName);
-    const isBramptonCity = /brampton/i.test(resolvedCity);
 
     const hotelPayload = {
-      name: !isGenericHotelName
-        ? rawHotelName
-        : isBramptonCity
-          ? "Fairfield Inn & Suites Toronto Brampton"
-          : `Team Hotel (${shortCity})`,
+      name: !isGenericHotelName ? rawHotelName : "",
       address:
         rawHotelAddress && !/^(tbd|away)$/i.test(rawHotelAddress)
           ? rawHotelAddress
-          : isBramptonCity
-            ? "150 Westcreek Blvd, Brampton"
-            : resolvedCity,
-      rate: parsed.hotel?.rate?.trim() || `Team Room Block (${resolvedTeamName})`,
-      breakfastHours: parsed.hotel?.breakfastHours?.trim() || "6:30 AM - 9:30 AM (Included)",
-      checkoutTime: parsed.hotel?.checkoutTime?.trim() || "12:00 PM",
+          : "",
+      rate: parsed.hotel?.rate?.trim() || "",
+      breakfastHours: parsed.hotel?.breakfastHours?.trim() || "",
+      checkoutTime: parsed.hotel?.checkoutTime?.trim() || "",
     };
 
     const slug = buildUniqueSlug(resolvedTournamentName, shortCity, resolvedTeamName);
@@ -664,13 +697,13 @@ export async function POST(req: NextRequest) {
     const corridorPlan = computeTravelCorridor(
       "Ottawa, ON",
       resolvedCity,
-      hotelPayload.name,
+      hotelPayload.name || gamesOut[0]?.venueName || resolvedCity,
       900,
       gamesOut[0]?.day || resolvedDates,
       {
         direction: "to_tournament",
         teamHomeBase: "Ottawa, ON",
-        destinationAddress: hotelPayload.address,
+        destinationAddress: hotelPayload.address || gamesOut[0]?.venueAddress || resolvedCity,
         schedulePending: isSchedulePending,
       }
     );
@@ -733,7 +766,10 @@ export async function POST(req: NextRequest) {
       tournamentName: resolvedTournamentName,
       teamName: resolvedTeamName,
       city: resolvedCity,
+      hostCity: resolvedCity,
       dates: resolvedDates,
+      dateRange: resolvedDates,
+      isSingleDay,
       hotel: hotelPayload,
       tournament: tournamentObject,
       corridorPlan,

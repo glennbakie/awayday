@@ -117,12 +117,31 @@ const KNOWN_ONTARIO_CITIES: Array<{ pattern: RegExp; city: string }> = [
   { pattern: /\bpickering\b/i, city: "Pickering, ON" },
   { pattern: /\bkingston\b/i, city: "Kingston, ON" },
   { pattern: /\bbarrie\b/i, city: "Barrie, ON" },
+  { pattern: /\brenfrew\b|myfm\s*cent(?:re|er)|renfrew\s*collegiate|\brci\b/i, city: "Renfrew, ON" },
+  { pattern: /\barnprior\b/i, city: "Arnprior, ON" },
+  { pattern: /\bpembroke\b/i, city: "Pembroke, ON" },
+  { pattern: /\bpetawawa\b/i, city: "Petawawa, ON" },
+  { pattern: /\bcarleton\s*place\b/i, city: "Carleton Place, ON" },
+  { pattern: /\bsmiths\s*falls\b/i, city: "Smiths Falls, ON" },
+  { pattern: /\bperth\b/i, city: "Perth, ON" },
+  { pattern: /\bkemptville\b/i, city: "Kemptville, ON" },
+  { pattern: /\bcornwall\b/i, city: "Cornwall, ON" },
+  { pattern: /\bbrockville\b/i, city: "Brockville, ON" },
+  { pattern: /\bbelleville\b/i, city: "Belleville, ON" },
+  { pattern: /\bpeterborough\b/i, city: "Peterborough, ON" },
+  { pattern: /\borillia\b/i, city: "Orillia, ON" },
+  { pattern: /\bguelph\b/i, city: "Guelph, ON" },
+  { pattern: /\bsudbury\b/i, city: "Sudbury, ON" },
+  { pattern: /\bnorth\s*bay\b/i, city: "North Bay, ON" },
+  { pattern: /\bst\.?\s*catharines\b/i, city: "St. Catharines, ON" },
+  { pattern: /\bbrantford\b/i, city: "Brantford, ON" },
+  { pattern: /\bcambridge\b/i, city: "Cambridge, ON" },
 ];
 
 export function resolveVenueCity(
   venueName?: string,
   venueAddress?: string,
-  fallbackCity = "Brampton, ON"
+  fallbackCity = ""
 ): string {
   const addr = (venueAddress || "").trim();
   const vName = (venueName || "").trim();
@@ -141,7 +160,7 @@ export function resolveVenueCity(
     if (entry.pattern.test(vName)) return entry.city;
   }
 
-  return fallbackCity || "Brampton, ON";
+  return fallbackCity || "";
 }
 
 export function normalizeOpponentName(raw?: string): string {

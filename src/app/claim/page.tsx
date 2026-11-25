@@ -296,8 +296,8 @@ function ClaimPageContent() {
           schedulePending: result.schedulePending,
           tournamentName: result.tournamentName,
           teamName: result.teamName,
-          city: result.city,
-          dates: result.dates,
+          city: (result as any).hostCity || result.city,
+          dates: (result as any).dateRange || result.dates,
           hotel: result.hotel,
         };
       }
@@ -319,16 +319,20 @@ function ClaimPageContent() {
     );
 
     const rawCity = (currentMeta.city || "").trim();
+    const cityFromFirstGame =
+      currentGames && currentGames[0]
+        ? resolveVenueCity(currentGames[0].venueName, currentGames[0].venueAddress, "")
+        : "";
     const resolvedCity =
-      rawCity && !/^(tbd|away|unknown)$/i.test(rawCity)
+      rawCity && !/^(tbd|away|unknown|host city)$/i.test(rawCity)
         ? /,/.test(rawCity)
           ? rawCity
           : `${rawCity}, ON`
-        : "Brampton, ON";
+        : cityFromFirstGame || "Host City";
     const resolvedTournamentName =
       currentMeta.tournamentName && !/away\s*weekend|test\s*team/i.test(currentMeta.tournamentName)
         ? currentMeta.tournamentName
-        : "CYBL Session";
+        : "Weekend Tournament";
     const slug =
       currentMeta.slug ||
       formatSlug(`${resolvedTournamentName}-${resolvedCity.split(",")[0].trim()}-${resolvedTeamName}`);
@@ -412,37 +416,33 @@ function ClaimPageContent() {
 
     const rawHotelName = (currentMeta.hotel?.name || "").trim();
     const isGenericHotel = !rawHotelName || /^team\s*hotel(\s*\(.*\)|\s*tbd)?$/i.test(rawHotelName);
-    const hotelName = !isGenericHotel
-      ? rawHotelName
-      : "Fairfield Inn & Suites Toronto Brampton";
+    const hotelName = !isGenericHotel ? rawHotelName : "";
     const rawHotelAddress = (currentMeta.hotel?.address || "").trim();
     const hotelAddress =
-      rawHotelAddress && !/^(tbd|away)$/i.test(rawHotelAddress)
-        ? rawHotelAddress
-        : "150 Westcreek Blvd, Brampton";
-    const firstVenue = !isPending && mappedGames[0]?.venueName ? mappedGames[0].venueName : hotelName;
-    const firstAddress = !isPending && mappedGames[0]?.venueAddress ? mappedGames[0].venueAddress : hotelAddress;
+      rawHotelAddress && !/^(tbd|away)$/i.test(rawHotelAddress) ? rawHotelAddress : "";
+    const firstVenue = !isPending && mappedGames[0]?.venueName ? mappedGames[0].venueName : hotelName || resolvedCity;
+    const firstAddress = !isPending && mappedGames[0]?.venueAddress ? mappedGames[0].venueAddress : hotelAddress || resolvedCity;
 
     const tournamentPayload = {
       name: resolvedTournamentName,
       division: "Varsity / Club Division",
       leagueName: resolvedTournamentName,
       teamName: resolvedTeamName,
-      dates: currentMeta.dates || "Nov 21–22, 2026",
+      dates: currentMeta.dates || currentGames?.[0]?.day || "Tournament Dates TBD",
       city: resolvedCity,
       schedulePending: isPending,
       primaryHub: firstVenue,
       primaryHubAddress: firstAddress,
       lastUpdatedText: isPending
-        ? "Hotel & Logistics Locked • Schedule Pending"
-        : "Official Team Weekend Run-Sheet",
+        ? "Logistics Locked • Schedule Pending"
+        : "Official Team Run-Sheet",
       contactInfo: contactInfo.trim() || undefined,
       hotel: {
         name: hotelName,
         address: hotelAddress,
-        rate: currentMeta.hotel?.rate || `Team Room Block (${resolvedTeamName})`,
-        breakfastHours: currentMeta.hotel?.breakfastHours || "6:30 AM - 9:30 AM (Included)",
-        checkoutTime: currentMeta.hotel?.checkoutTime || "12:00 PM",
+        rate: hotelName ? currentMeta.hotel?.rate || `Team Room Block (${resolvedTeamName})` : "",
+        breakfastHours: hotelName ? currentMeta.hotel?.breakfastHours || "6:30 AM - 9:30 AM (Included)" : "",
+        checkoutTime: hotelName ? currentMeta.hotel?.checkoutTime || "12:00 PM" : "",
       },
     };
 

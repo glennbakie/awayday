@@ -292,13 +292,13 @@ export async function POST(req: NextRequest) {
       body?.parsedTeamName ||
       "Ottawa Elite"
     ).trim() || "Ottawa Elite";
-    const city = (body?.city || "TBD").trim() || "TBD";
-    const dates = (body?.dates || "Nov 21–22, 2026").trim() || "Nov 21–22, 2026";
+    const city = (body?.city || "Host City").trim() || "Host City";
+    const dates = (body?.dateRange || body?.dates || "Tournament Dates TBD").trim() || "Tournament Dates TBD";
     const todayIso = new Date().toISOString().slice(0, 10);
     const startDate = (body?.startDate || body?.start_date || todayIso).trim() || todayIso;
     const endDate = (body?.endDate || body?.end_date || startDate || todayIso).trim() || todayIso;
-    const hotelName = (body?.hotel?.name || "Team Hotel").trim();
-    const hotelAddress = (body?.hotel?.address || city).trim();
+    const hotelName = (body?.hotel?.name || "").trim();
+    const hotelAddress = (body?.hotel?.address || "").trim();
     const requestedSlug = (body?.slug || "").trim();
     let slug = requestedSlug || buildSlugFromParts(`${rawName}-${teamName}`);
     let shareSlug = slug;
@@ -442,6 +442,41 @@ export async function POST(req: NextRequest) {
           { success: false, error: `Failed to save games: ${gamesError.message}` },
           { status: 500 }
         );
+      }
+    }
+
+    // 4. Persist full schedule + city/dates/hotel metadata in venue_alerts state row
+    if (tournamentId) {
+      try {
+        await dbClient
+          .from("venue_alerts")
+          .delete()
+          .eq("tournament_id", tournamentId)
+          .eq("title", "__awayday_schedule_state__");
+
+        await dbClient.from("venue_alerts").insert({
+          tournament_id: tournamentId,
+          alert_type: "note",
+          title: "__awayday_schedule_state__",
+          content: JSON.stringify({
+            games: incomingGames,
+            meta: {
+              city,
+              dates,
+              hotel: {
+                name: hotelName,
+                address: hotelAddress,
+                rate: body?.hotel?.rate || "",
+                breakfastHours: body?.hotel?.breakfastHours || "",
+                checkoutTime: body?.hotel?.checkoutTime || "",
+              },
+            },
+          }),
+          author: "system",
+          upvotes: 0,
+        });
+      } catch {
+        // Ignore state persistence errors
       }
     }
 

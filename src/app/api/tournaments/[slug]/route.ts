@@ -71,6 +71,7 @@ export async function GET(
     // 3. Prefer `schedule_json` or persisted `__awayday_schedule_state__` (holds full game metadata:
     // status, teamScore, opponentScore, jerseyColor), and fall back to `games` table rows if empty.
     let rawGameRows: any[] = [];
+    let stateMeta: { city?: string; dates?: string; hotel?: any } | null = null;
     const jsonGames =
       resolvedTourney?.schedule_json ||
       resolvedTourney?.games ||
@@ -79,7 +80,7 @@ export async function GET(
       rawGameRows = jsonGames;
     }
 
-    if (rawGameRows.length === 0 && resolvedTourney?.id) {
+    if (resolvedTourney?.id) {
       try {
         const { data: stateRow } = await dbClient
           .from("venue_alerts")
@@ -92,7 +93,14 @@ export async function GET(
         if (stateRow?.content) {
           const parsedState = JSON.parse(stateRow.content);
           if (Array.isArray(parsedState) && parsedState.length > 0) {
-            rawGameRows = parsedState;
+            if (rawGameRows.length === 0) rawGameRows = parsedState;
+          } else if (parsedState && typeof parsedState === "object") {
+            if (parsedState.meta && typeof parsedState.meta === "object") {
+              stateMeta = parsedState.meta;
+            }
+            if (rawGameRows.length === 0 && Array.isArray(parsedState.games) && parsedState.games.length > 0) {
+              rawGameRows = parsedState.games;
+            }
           }
         }
       } catch {
@@ -143,7 +151,27 @@ export async function GET(
     }
 
     const teamLabel = tripRow?.team_name || resolvedTourney?.team_name || "My Team";
-    const cityLabel = resolvedTourney?.city || resolvedTourney?.hotel_address || "Brampton, ON";
+    const firstRawGame = rawGameRows[0];
+    const cityFromFirstGame = firstRawGame
+      ? resolveVenueCity(
+          firstRawGame.venue_name || firstRawGame.venueName,
+          firstRawGame.venue_address || firstRawGame.venueAddress,
+          ""
+        )
+      : "";
+    const inferredFromSlugOrName = /\brenfrew\b|myfm\s*cent(?:re|er)|\brci\b/i.test(
+      `${slug} ${resolvedTourney?.name || ""}`
+    )
+      ? "Renfrew, ON"
+      : "";
+    const cityLabel =
+      (stateMeta?.city && !/^(host city|tbd|away)$/i.test(stateMeta.city) ? stateMeta.city : "") ||
+      resolvedTourney?.city ||
+      cityFromFirstGame ||
+      inferredFromSlugOrName ||
+      resolvedTourney?.hotel_address ||
+      tripRow?.hotel_address ||
+      "Host City";
     const normalizedGames = sortGamesChronologically(
       rawGameRows.map((row: any, idx: number) => {
         const opponent = row.opponent || `Opponent ${idx + 1}`;
@@ -210,8 +238,20 @@ export async function GET(
       ? false
       : Boolean(resolvedTourney?.schedule_pending ?? true);
 
+    const resolvedDatesOut =
+      stateMeta?.dates ||
+      resolvedTourney?.dates ||
+      (normalizedGames.length > 0
+        ? normalizedGames[0]?.dayLabel || "Tournament Dates"
+        : "Tournament Dates");
+
     return NextResponse.json({
-      tournament: resolvedTourney,
+      tournament: {
+        ...resolvedTourney,
+        city: cityLabel,
+        dates: resolvedDatesOut,
+        ...(stateMeta?.hotel ? { hotel: stateMeta.hotel } : {}),
+      },
       trip: tripRow || null,
       games: normalizedGames,
       schedulePending,
@@ -457,7 +497,14 @@ export async function PATCH(
         tournament_id: tournamentId,
         alert_type: "note",
         title: "__awayday_schedule_state__",
-        content: JSON.stringify(sortedGames),
+        content: JSON.stringify({
+          games: sortedGames,
+          meta: {
+            city: body?.tournament?.city || body?.city || tourneyRow?.city || "",
+            dates: body?.tournament?.dates || body?.dates || tourneyRow?.dates || "",
+            hotel: body?.tournament?.hotel || body?.hotel || undefined,
+          },
+        }),
         author: "system",
         upvotes: 0,
       });

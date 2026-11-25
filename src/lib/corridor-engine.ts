@@ -115,30 +115,38 @@ export function getCityFuelAndFoodRecommendations(
   const hotelLabel = (venueContext?.hotelName || "").trim() || (hotelAddress || "").trim() || "Team Hotel";
   const hotelCityText = (hotelAddress || cityRaw || "").toLowerCase();
 
+  const destLower = `${cityRaw} ${hotelCityText} ${venueCityText}`.toLowerCase();
+  const isShortHaulFromOttawa =
+    /\b(renfrew|arnprior|pembroke|petawawa|carleton\s*place|smiths\s*falls|perth|kemptville|ottawa|kanata|gatineau|cornwall|brockville|kingston|myfm\s*cent(?:re|er)|rci)\b/i.test(
+      destLower
+    );
+
   const s1Addr = "1200 Division St, Kingston, ON K7K 6X4";
   const s2Addr = "Port Hope ONroute Westbound, Hwy 401, Port Hope, ON";
-  const corridorFoodSpots: CorridorStop[] = [
-    {
-      id: "corridor-food-kingston",
-      title: "Kingston — Division St Hub & ONroute (Hwy 401 Exit 617)",
-      highwayExit: "Hwy 401 Exit 617",
-      elapsedDriveLabel: "~2h 05m into drive • Halfway Team Meal Stop",
-      milestoneTag: "Hwy 401 Corridor • Halfway Stop",
-      fuelAndCoffeeOptions: "Chipotle, Panera Bread, Starbucks, Harper's Burger Bar, Shell Gas",
-      addressQuery: s1Addr,
-      googleMapsUrl: getGoogleMapsDeepLink(s1Addr),
-    },
-    {
-      id: "corridor-food-porthope",
-      title: "Port Hope ONroute / Cobourg (Hwy 401 Exit 472)",
-      highwayExit: "Hwy 401 Exit 472",
-      elapsedDriveLabel: "~3h 15m into drive • Pre-GTA Stretch & Fuel",
-      milestoneTag: "Hwy 401 Corridor • 75% Mark",
-      fuelAndCoffeeOptions: "Starbucks, Tim Hortons, Pur & Simple, Subway, Esso Gas",
-      addressQuery: s2Addr,
-      googleMapsUrl: getGoogleMapsDeepLink(s2Addr),
-    },
-  ];
+  const corridorFoodSpots: CorridorStop[] = isShortHaulFromOttawa
+    ? []
+    : [
+        {
+          id: "corridor-food-kingston",
+          title: "Kingston — Division St Hub & ONroute (Hwy 401 Exit 617)",
+          highwayExit: "Hwy 401 Exit 617",
+          elapsedDriveLabel: "~2h 05m into drive • Halfway Team Meal Stop",
+          milestoneTag: "Hwy 401 Corridor • Halfway Stop",
+          fuelAndCoffeeOptions: "Chipotle, Panera Bread, Starbucks, Harper's Burger Bar, Shell Gas",
+          addressQuery: s1Addr,
+          googleMapsUrl: getGoogleMapsDeepLink(s1Addr),
+        },
+        {
+          id: "corridor-food-porthope",
+          title: "Port Hope ONroute / Cobourg (Hwy 401 Exit 472)",
+          highwayExit: "Hwy 401 Exit 472",
+          elapsedDriveLabel: "~3h 15m into drive • Pre-GTA Stretch & Fuel",
+          milestoneTag: "Hwy 401 Corridor • 75% Mark",
+          fuelAndCoffeeOptions: "Starbucks, Tim Hortons, Pur & Simple, Subway, Esso Gas",
+          addressQuery: s2Addr,
+          googleMapsUrl: getGoogleMapsDeepLink(s2Addr),
+        },
+      ];
 
   // 1. Midday Fuel & Coffee — anchored to Primary Saturday Game Venue
   const isVenueOakville = venueCityText.includes("oakville") || venueCityText.includes("burlington");
@@ -318,44 +326,47 @@ export function getCityFuelAndFoodRecommendations(
       },
     ];
   } else {
-    const cleanVenueCity = (venueContext?.venueCity || cityRaw || "Tournament Area").trim();
+    const cleanVenueCity = (venueContext?.venueCity || cityRaw || "Host City").trim();
+    const searchAnchor = [venueLabel !== "Primary Gym" ? venueLabel : "", cleanVenueCity]
+      .filter(Boolean)
+      .join(" ");
     quickLunchSpots = [
       {
-        name: `Subway / Freshii (${cleanVenueCity})`,
-        type: "Wraps, Smoothies & Sub Platters",
-        distance: `5 min drive near ${venueLabel}`,
-        note: "Fast wraps, subs & light carbs between games.",
-        address: venueAddr || cleanVenueCity,
+        name: `Quick Lunch & Subs near ${venueLabel}`,
+        type: "Wraps, Sandwiches & Salads",
+        distance: `Near ${venueLabel} • ${cleanVenueCity}`,
+        note: "Search nearby sub shops, delis & light athlete lunches.",
+        address: `restaurants lunch near ${searchAnchor}`,
       },
       {
-        name: `Booster Juice (${cleanVenueCity})`,
-        type: "Smoothies & Paninis",
-        distance: `5 min drive near ${venueLabel}`,
-        note: "Quick athlete fuel & hydration near the gym.",
-        address: venueAddr || cleanVenueCity,
+        name: `Local Cafés & Smoothies (${cleanVenueCity})`,
+        type: "Light Carbs, Fruit & Hydration",
+        distance: `Near ${venueLabel} • ${cleanVenueCity}`,
+        note: "Quick athlete fuel & hydration between games.",
+        address: `cafe smoothies near ${searchAnchor}`,
       },
       {
-        name: `Local Grocery Hot Bar (${cleanVenueCity})`,
-        type: "Deli Wraps, Pasta & Fruit",
-        distance: `6 min drive near ${venueLabel}`,
-        note: "Easy grab-and-go pasta, fruit & sports drinks.",
-        address: venueAddr || cleanVenueCity,
+        name: `Grocery & Grab-and-Go (${cleanVenueCity})`,
+        type: "Fruit, Water & Deli Counter",
+        distance: `In ${cleanVenueCity}`,
+        note: "Easy team snacks, fruit trays, and sports drinks.",
+        address: `grocery store in ${cleanVenueCity}`,
       },
     ];
     coffeeSpots = [
       {
-        name: `Tim Hortons (${cleanVenueCity})`,
-        distance: `3 min drive near ${venueLabel}`,
+        name: `Tim Hortons near ${venueLabel}`,
+        distance: `Near ${venueLabel} • ${cleanVenueCity}`,
         type: "Drive-Thru & Mobile Pickup",
-        note: "Fast morning coffee & breakfast run near the gym.",
-        address: venueAddr || cleanVenueCity,
+        note: "Fast coffee, bagels & breakfast pickup near the gym.",
+        address: `Tim Hortons near ${searchAnchor}`,
       },
       {
-        name: `Starbucks (${cleanVenueCity})`,
-        distance: `5 min drive near ${venueLabel}`,
-        type: "Sit Down, Wi-Fi & Mobile Order",
-        note: "Espresso & parent pit stop near the court.",
-        address: venueAddr || cleanVenueCity,
+        name: `Coffee Shops in ${cleanVenueCity}`,
+        distance: `Near ${venueLabel} • ${cleanVenueCity}`,
+        type: "Local Espresso & Bakery",
+        note: "Warm coffee & parent pit stop between games.",
+        address: `coffee shop near ${searchAnchor}`,
       },
     ];
   }
@@ -502,15 +513,17 @@ export function getCityFuelAndFoodRecommendations(
       },
     ];
   } else {
-    const cleanHotelCity = (hotelAddress || cityRaw || "Tournament Area").trim();
+    const cleanHotelCity = (cityRaw || hotelAddress || "Host City").trim();
+    const anchorLabel =
+      hotelLabel && !/^team\s*hotel$/i.test(hotelLabel) ? hotelLabel : cleanHotelCity;
     dinnerSpots = [
       {
-        name: `Boston Pizza (${cleanHotelCity})`,
-        type: "Pasta, Pizza & Team Tables",
-        distance: `5 min drive from ${hotelLabel}`,
-        note: "Classic team carb-load spot with easy group seating.",
-        phone: "(905) 555-0100",
-        address: cleanHotelCity,
+        name: `Team-Friendly Dining in ${cleanHotelCity}`,
+        type: "Family & Group Seating",
+        distance: `Near ${anchorLabel}`,
+        note: "Search casual sit-down restaurants with space for players & parents.",
+        phone: "",
+        address: `family restaurants in ${cleanHotelCity}`,
         votes: 0,
         seats: 0,
         players: 0,
@@ -519,12 +532,12 @@ export function getCityFuelAndFoodRecommendations(
         isLeading: false,
       },
       {
-        name: `Jack Astor's / East Side Mario's (${cleanHotelCity})`,
-        type: "Team Sit-Down & Large Groups",
-        distance: `6 min drive from ${hotelLabel}`,
-        note: "Accommodates 20+ player & parent tables near the hotel.",
-        phone: "(905) 555-0101",
-        address: cleanHotelCity,
+        name: `Pizza & Pasta Spots in ${cleanHotelCity}`,
+        type: "Team Meal & Takeout",
+        distance: `Near ${anchorLabel}`,
+        note: "Easy post-game pizza, pasta & group takeout.",
+        phone: "",
+        address: `pizza pasta restaurants in ${cleanHotelCity}`,
         votes: 0,
         seats: 0,
         players: 0,
@@ -572,10 +585,10 @@ export interface CorridorComputeOptions {
 
 export function computeTravelCorridor(
   rawOrigin: string,
-  destinationCity = "Oakville, ON",
-  destinationVenue = "Fairfield Inn Toronto Oakville",
+  destinationCity = "Host City",
+  destinationVenue = "Tournament Venue",
   firstEventArrivalMinutes = 915, // Default 3:15 PM arrival call for 3:45 PM Game 1
-  firstEventDayLabel = "Sat, Oct 24",
+  firstEventDayLabel = "Sat, Nov 21",
   options: CorridorComputeOptions = {}
 ): TravelCorridorPlan {
   const direction: CorridorDirection = options.direction || "to_tournament";
@@ -584,34 +597,106 @@ export function computeTravelCorridor(
   const norm = userOrigin.toLowerCase();
   const destNorm = `${destinationCity} ${destinationVenue} ${options.destinationAddress || ""}`.toLowerCase();
   const isBramptonDest = destNorm.includes("brampton") || destNorm.includes("westcreek");
-  const finalApproachOut = isBramptonDest ? "Hwy 410 N (Brampton)" : "Hwy 403 W";
-  const finalApproachRet = isBramptonDest ? "Hwy 410 S" : "Hwy 403 E";
+  const isMississaugaDest = destNorm.includes("mississauga");
+  const isOakvilleDest = destNorm.includes("oakville") || destNorm.includes("burlington");
+  const isRenfrewDest = /\b(renfrew|arnprior|myfm\s*cent(?:re|er)|rci)\b/i.test(destNorm);
+  const isPembrokeDest = /\b(pembroke|petawawa)\b/i.test(destNorm);
+  const isGtaDest = isBramptonDest || isMississaugaDest || isOakvilleDest || destNorm.includes("toronto");
+  const finalApproachOut = isBramptonDest
+    ? "Hwy 410 N (Brampton)"
+    : isMississaugaDest
+      ? "Hwy 403 / Hwy 410 (Mississauga)"
+      : isOakvilleDest
+        ? "Hwy 403 W (Oakville)"
+        : destinationCity;
+  const finalApproachRet = isBramptonDest
+    ? "Hwy 410 S"
+    : isMississaugaDest
+      ? "Hwy 403 / Hwy 410"
+      : isOakvilleDest
+        ? "Hwy 403 E"
+        : destinationCity;
 
-  let durationMinutes = isBramptonDest ? 260 : 270; // 4h 20m (Ottawa <-> Brampton) or 4h 30m (Ottawa <-> Oakville)
-  let distanceKm = isBramptonDest ? 435 : 445;
-  let outboundHighway = `Hwy 417 / Hwy 416 S ➔ Hwy 401 W ➔ ${finalApproachOut}`;
-  let returnHighway = `${finalApproachRet} ➔ Hwy 401 E ➔ Hwy 416 N / Hwy 417`;
+  let durationMinutes = isRenfrewDest
+    ? 65
+    : isPembrokeDest
+      ? 100
+      : isBramptonDest
+        ? 260
+        : isGtaDest
+          ? 270
+          : 150;
+  let distanceKm = isRenfrewDest
+    ? 95
+    : isPembrokeDest
+      ? 150
+      : isBramptonDest
+        ? 435
+        : isGtaDest
+          ? 445
+          : 210;
+  let outboundHighway = isRenfrewDest
+    ? `Hwy 417 W (Trans-Canada) ➔ ${destinationCity}`
+    : isPembrokeDest
+      ? `Hwy 417 W ➔ ${destinationCity}`
+      : isGtaDest
+        ? `Hwy 417 / Hwy 416 S ➔ Hwy 401 W ➔ ${finalApproachOut}`
+        : `${userOrigin} ➔ ${destinationCity}`;
+  let returnHighway = isRenfrewDest
+    ? `Hwy 417 E (Trans-Canada) ➔ ${userOrigin}`
+    : isPembrokeDest
+      ? `Hwy 417 E ➔ ${userOrigin}`
+      : isGtaDest
+        ? `${finalApproachRet} ➔ Hwy 401 E ➔ Hwy 416 N / Hwy 417`
+        : `${destinationCity} ➔ ${userOrigin}`;
 
-  if (norm.includes("kanata") || norm.includes("west") || norm.includes("stittsville") || norm.includes("nepean") || /^k2/i.test(norm)) {
-    durationMinutes = isBramptonDest ? 245 : 255;
-    distanceKm = isBramptonDest ? 415 : 425;
-    outboundHighway = `Hwy 7 W / Hwy 416 S ➔ Hwy 401 W ➔ ${finalApproachOut}`;
-    returnHighway = `${finalApproachRet} ➔ Hwy 401 E ➔ Hwy 416 N / Hwy 7 E`;
+  if (isRenfrewDest) {
+    if (norm.includes("kanata") || norm.includes("stittsville") || norm.includes("nepean") || /^k2/i.test(norm)) {
+      durationMinutes = 50;
+      distanceKm = 75;
+      outboundHighway = `Hwy 417 W ➔ ${destinationCity}`;
+      returnHighway = `Hwy 417 E ➔ ${userOrigin}`;
+    } else if (norm.includes("orleans") || norm.includes("orléans") || norm.includes("east") || norm.includes("gatineau") || /^k1|^k4|^j8/i.test(norm)) {
+      durationMinutes = 75;
+      distanceKm = 110;
+      outboundHighway = `Hwy 417 W (Trans-Canada) ➔ ${destinationCity}`;
+      returnHighway = `Hwy 417 E (Trans-Canada) ➔ ${userOrigin}`;
+    } else if (!norm.includes("ottawa")) {
+      durationMinutes = 90;
+      distanceKm = 130;
+    }
+  } else if (norm.includes("kanata") || norm.includes("west") || norm.includes("stittsville") || norm.includes("nepean") || /^k2/i.test(norm)) {
+    durationMinutes = isBramptonDest ? 245 : isGtaDest ? 255 : 140;
+    distanceKm = isBramptonDest ? 415 : isGtaDest ? 425 : 195;
+    outboundHighway = isGtaDest
+      ? `Hwy 7 W / Hwy 416 S ➔ Hwy 401 W ➔ ${finalApproachOut}`
+      : `${userOrigin} ➔ ${destinationCity}`;
+    returnHighway = isGtaDest
+      ? `${finalApproachRet} ➔ Hwy 401 E ➔ Hwy 416 N / Hwy 7 E`
+      : `${destinationCity} ➔ ${userOrigin}`;
   } else if (norm.includes("orleans") || norm.includes("orléans") || norm.includes("east") || norm.includes("gatineau") || /^k1|^k4|^j8/i.test(norm)) {
-    durationMinutes = isBramptonDest ? 275 : 285;
-    distanceKm = isBramptonDest ? 455 : 465;
-    outboundHighway = `Hwy 417 W ➔ Hwy 416 S ➔ Hwy 401 W ➔ ${finalApproachOut}`;
-    returnHighway = `${finalApproachRet} ➔ Hwy 401 E ➔ Hwy 416 N ➔ Hwy 417 E`;
+    durationMinutes = isBramptonDest ? 275 : isGtaDest ? 285 : 165;
+    distanceKm = isBramptonDest ? 455 : isGtaDest ? 465 : 225;
+    outboundHighway = isGtaDest
+      ? `Hwy 417 W ➔ Hwy 416 S ➔ Hwy 401 W ➔ ${finalApproachOut}`
+      : `${userOrigin} ➔ ${destinationCity}`;
+    returnHighway = isGtaDest
+      ? `${finalApproachRet} ➔ Hwy 401 E ➔ Hwy 416 N ➔ Hwy 417 E`
+      : `${destinationCity} ➔ ${userOrigin}`;
   } else if (norm.includes("montreal") || norm.includes("montréal") || norm.includes("laval") || norm.includes("brossard") || /^h[1-9]/i.test(norm)) {
-    durationMinutes = 340; // 5h 40m
-    distanceKm = 575;
-    outboundHighway = `A-20 O ➔ Hwy 401 W ➔ ${finalApproachOut}`;
-    returnHighway = `${finalApproachRet} ➔ Hwy 401 E ➔ A-20 E`;
+    durationMinutes = isGtaDest ? 340 : 210;
+    distanceKm = isGtaDest ? 575 : 320;
+    outboundHighway = isGtaDest
+      ? `A-20 O ➔ Hwy 401 W ➔ ${finalApproachOut}`
+      : `A-40 O / Hwy 417 W ➔ ${destinationCity}`;
+    returnHighway = isGtaDest
+      ? `${finalApproachRet} ➔ Hwy 401 E ➔ A-20 E`
+      : `${destinationCity} ➔ Hwy 417 E / A-40 E`;
   } else if (norm.includes("kingston") || norm.includes("belleville") || norm.includes("brockville") || /^k7/i.test(norm)) {
-    durationMinutes = 175; // 2h 55m
+    durationMinutes = 175;
     distanceKm = 290;
-    outboundHighway = `Hwy 401 W ➔ Hwy 407 / ${finalApproachOut}`;
-    returnHighway = `${finalApproachRet} / Hwy 407 ➔ Hwy 401 E`;
+    outboundHighway = isGtaDest ? `Hwy 401 W ➔ Hwy 407 / ${finalApproachOut}` : `${userOrigin} ➔ ${destinationCity}`;
+    returnHighway = isGtaDest ? `${finalApproachRet} / Hwy 407 ➔ Hwy 401 E` : `${destinationCity} ➔ ${userOrigin}`;
   } else if (
     norm.includes("peterborough") ||
     norm.includes("oshawa") ||
@@ -623,10 +708,10 @@ export function computeTravelCorridor(
     norm.includes("rochester") ||
     /^l1|^l4|^n[1-6]|^14[0-6]/i.test(norm)
   ) {
-    durationMinutes = 130; // 2h 10m
+    durationMinutes = 130;
     distanceKm = 185;
-    outboundHighway = `Regional Corridor ➔ Hwy 401 / ${finalApproachOut}`;
-    returnHighway = `${finalApproachRet} / Hwy 401 ➔ Regional Corridor`;
+    outboundHighway = isGtaDest ? `Regional Corridor ➔ Hwy 401 / ${finalApproachOut}` : `${userOrigin} ➔ ${destinationCity}`;
+    returnHighway = isGtaDest ? `${finalApproachRet} / Hwy 401 ➔ Regional Corridor` : `${destinationCity} ➔ ${userOrigin}`;
   } else if (
     norm.includes("oakville") ||
     norm.includes("burlington") ||
@@ -638,16 +723,19 @@ export function computeTravelCorridor(
     norm.includes("vaughan") ||
     /^l[5-9]|^m[1-9]/i.test(norm)
   ) {
-    durationMinutes = 30; // < 2 hours local/regional window
+    durationMinutes = 30;
     distanceKm = 32;
     outboundHighway = isBramptonDest
       ? "Hwy 401 / Hwy 410 Local Corridor ➔ Steeles Ave E (Westcreek Blvd)"
-      : "QEW / Hwy 403 Local Corridor ➔ Dorval Dr";
+      : isOakvilleDest
+        ? "QEW / Hwy 403 Local Corridor ➔ Dorval Dr"
+        : `${userOrigin} Local Corridor ➔ ${destinationCity}`;
     returnHighway = isBramptonDest
       ? "Steeles Ave E ➔ Hwy 410 / Hwy 401 Local Corridor"
-      : "Dorval Dr ➔ QEW / Hwy 403 Local Corridor";
+      : isOakvilleDest
+        ? "Dorval Dr ➔ QEW / Hwy 403 Local Corridor"
+        : `${destinationCity} Local Corridor ➔ ${userOrigin}`;
   } else if (!norm.includes("ottawa")) {
-    // North America generic custom city / ZIP / postal code heuristic
     const isLongHaul =
       norm.includes("sudbury") ||
       norm.includes("north bay") ||
@@ -662,8 +750,8 @@ export function computeTravelCorridor(
       /^\d{5}/.test(norm);
     durationMinutes = isLongHaul ? 260 : 170;
     distanceKm = isLongHaul ? 430 : 275;
-    outboundHighway = `${userOrigin} Express Corridor ➔ Hwy 401 (${destinationCity})`;
-    returnHighway = `Hwy 401 (${destinationCity}) ➔ ${userOrigin} Express Corridor`;
+    outboundHighway = `${userOrigin} Express Corridor ➔ ${destinationCity}`;
+    returnHighway = `${destinationCity} ➔ ${userOrigin} Express Corridor`;
   }
 
   const durationHours = durationMinutes / 60;
