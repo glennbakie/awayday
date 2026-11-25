@@ -369,7 +369,9 @@ function RunSheetContent({
   const cleanSlug = rawSlug.replace(/[\])}[{(]/g, "").trim() || "test-team";
   const slug = cleanSlug;
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
-    return searchParams.get("admin") === "true";
+    const adminParam = searchParams.get("admin");
+    const manageParam = searchParams.get("manage");
+    return adminParam === "true" || adminParam === "1" || manageParam === "1";
   });
   const [isManagerToolsOpen, setIsManagerToolsOpen] = useState<boolean>(
     () => searchParams.get("openTools") === "true"
@@ -404,11 +406,29 @@ function RunSheetContent({
     }
   }, [isManagerToolsOpen]);
 
-  // Step 1: Only permit Manager Mode when ?admin=true is explicitly present in the URL
+  // Step 1: Only permit Manager Mode when ?admin=true, ?admin=1, or ?manage=1 is explicitly present in the URL
   useEffect(() => {
     const adminParam = searchParams.get("admin");
-    if (adminParam === "true") {
+    const manageParam = searchParams.get("manage");
+    if (adminParam === "true" || adminParam === "1" || manageParam === "1") {
       setIsAdmin(true);
+      try {
+        window.localStorage.setItem(`awayday_is_admin_${slug}`, "true");
+        const rawAdminSlugs = window.localStorage.getItem("awayday_admin_slugs");
+        const parsedAdminSlugs = rawAdminSlugs ? JSON.parse(rawAdminSlugs) : [];
+        const nextAdminSlugs = Array.isArray(parsedAdminSlugs)
+          ? Array.from(new Set([...parsedAdminSlugs, slug]))
+          : [slug];
+        window.localStorage.setItem("awayday_admin_slugs", JSON.stringify(nextAdminSlugs));
+
+        const deletedSet = getDeletedSlugsSet();
+        if (deletedSet.has(slug)) {
+          deletedSet.delete(slug);
+          window.localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
+        }
+      } catch {
+        // Ignore storage errors
+      }
     } else {
       setIsAdmin(false);
       setIsManagerToolsOpen(false);
@@ -2247,6 +2267,13 @@ function RunSheetContent({
       const deletedSet = getDeletedSlugsSet();
       deletedSet.delete(item.slug);
       localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
+      localStorage.setItem(`awayday_is_admin_${item.slug}`, "true");
+      const rawAdminSlugs = localStorage.getItem("awayday_admin_slugs");
+      const parsedAdminSlugs = rawAdminSlugs ? JSON.parse(rawAdminSlugs) : [];
+      const nextAdminSlugs = Array.isArray(parsedAdminSlugs)
+        ? Array.from(new Set([...parsedAdminSlugs, item.slug]))
+        : [item.slug];
+      localStorage.setItem("awayday_admin_slugs", JSON.stringify(nextAdminSlugs));
 
       const rawExisting = localStorage.getItem("awayday_saved_sheets");
       const existing: SavedSquadSheet[] = rawExisting ? JSON.parse(rawExisting) : [];
