@@ -22,6 +22,7 @@ interface ExtractedClaimGame {
   opponent: string;
   jerseyColor: "White (Home)" | "Dark / Black (Away)";
   telemetryTag?: string;
+  isPlaceholder?: boolean;
 }
 
 function parseTimeStringToMinutes(timeStr: string, fallbackMinutes = 600): number {
@@ -366,8 +367,8 @@ function ClaimPageContent() {
                 hotelTravelMin: 15,
                 status: "Upcoming" as const,
                 jerseyColor,
-                telemetryFlag: eg.telemetryTag || undefined,
-                isPlaceholder: false,
+                telemetryFlag: eg.telemetryTag || (eg.isPlaceholder ? "SEEDING TBD" : undefined),
+                isPlaceholder: Boolean(eg.isPlaceholder),
               };
             })
           ).map((g, idx) => ({

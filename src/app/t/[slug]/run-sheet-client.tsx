@@ -4864,9 +4864,9 @@ function RunSheetContent({
                         {scoreBadge.label}
                       </span>
                     )}
-                    {game.telemetryFlag && (
-                      <span className="inline-flex items-center rounded-md bg-[#EFECE6] text-[#4B5563] text-[11px] font-bold uppercase tracking-wide px-2.5 py-1">
-                        {game.telemetryFlag}
+                    {(game.telemetryFlag || game.isPlaceholder) && (
+                      <span className="inline-flex items-center rounded-md bg-[#FEF3C7] text-[#92400E] text-[11px] font-bold uppercase tracking-wide px-2.5 py-1">
+                        {game.telemetryFlag || "SEEDING TBD"}
                       </span>
                     )}
                     {game.jerseyColor && !isPlaceholderGame && (
@@ -5046,9 +5046,9 @@ function RunSheetContent({
                             <span>DEPART</span>
                           </div>
                           <span className="text-2xl font-black text-[#0F1E36] tracking-tight tabular-nums mt-1 leading-none">
-                            {isPlaceholderGame ? "TBD" : departParts.time}
+                            {tournament.schedulePending ? "TBD" : departParts.time}
                           </span>
-                          {!isPlaceholderGame && departParts.meridiem && (
+                          {!tournament.schedulePending && departParts.meridiem && (
                             <span className="text-[11px] font-semibold text-[#6B7280] mt-1">
                               {departParts.meridiem}
                             </span>
@@ -5061,7 +5061,7 @@ function RunSheetContent({
                             <span>ARRIVE</span>
                           </div>
                           <span className="text-2xl font-black text-[#0F1E36] tracking-tight tabular-nums mt-1 leading-none">
-                            {isPlaceholderGame ? "TBD" : arriveParts.time}
+                            {tournament.schedulePending ? "TBD" : arriveParts.time}
                           </span>
                           <span className="bg-[#EFECE6] text-[#4B5563] text-[10px] font-bold px-2 py-0.5 rounded-md mt-1">
                             {bufferMins}m buffer
@@ -5074,9 +5074,9 @@ function RunSheetContent({
                             <span>TIP-OFF</span>
                           </div>
                           <span className="text-2xl font-black text-[#0F1E36] tracking-tight tabular-nums mt-1 leading-none">
-                            {isPlaceholderGame ? "Pending" : tipParts.time}
+                            {tournament.schedulePending ? "Pending" : tipParts.time}
                           </span>
-                          {!isPlaceholderGame && tipParts.meridiem && (
+                          {!tournament.schedulePending && tipParts.meridiem && (
                             <span className="text-[11px] font-semibold text-[#6B7280] mt-1">
                               {tipParts.meridiem}
                             </span>
