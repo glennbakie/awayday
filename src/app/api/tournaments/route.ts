@@ -161,7 +161,7 @@ export async function GET(req: NextRequest) {
     if (req.nextUrl.searchParams.get("list") === "recent") {
       const recent = tournaments
         .filter((t) => t.slug && t.slug !== "test-team")
-        .slice(0, 15)
+        .slice(0, 30)
         .map((t) => ({
           slug: t.slug,
           name: t.name,

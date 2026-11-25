@@ -59,7 +59,8 @@ import {
   Image as ImageIcon,
   Loader2,
   FileText,
-  Share2
+  Share2,
+  Trash2
 } from "lucide-react";
 
 interface VenueAlert {
@@ -1663,6 +1664,37 @@ function RunSheetContent({
         }
       }
 
+      if (typeof window !== "undefined") {
+        try {
+          const rawSavedSheets = window.localStorage.getItem("awayday_saved_sheets");
+          if (rawSavedSheets) {
+            const parsedSavedSheets = JSON.parse(rawSavedSheets);
+            if (Array.isArray(parsedSavedSheets)) {
+              for (const s of parsedSavedSheets) {
+                const sSlug = (s?.slug || "").trim();
+                if (!sSlug || sSlug === "test-team" || deletedSlugs.has(sSlug)) continue;
+                const existing = bySlug.get(sSlug);
+                bySlug.set(sSlug, {
+                  id: existing?.id,
+                  slug: sSlug,
+                  name: s.tournamentName || existing?.name || s.teamName || "Tournament Run-Sheet",
+                  city: s.location || existing?.city || "Host City",
+                  dates: s.dates || existing?.dates || "",
+                  is_archived: Boolean(archivedMap[sSlug] ?? existing?.is_archived ?? false),
+                  created_at:
+                    existing?.created_at ||
+                    (s.lastVisitedMs
+                      ? new Date(s.lastVisitedMs).toISOString()
+                      : new Date().toISOString()),
+                });
+              }
+            }
+          }
+        } catch {
+          // Ignore saved sheets parse errors
+        }
+      }
+
       if (slug && !deletedSlugs.has(slug)) {
         const currentExisting = bySlug.get(slug);
         bySlug.set(slug, {
@@ -1694,7 +1726,7 @@ function RunSheetContent({
 
   useEffect(() => {
     refreshVaultTournaments();
-  }, [refreshVaultTournaments, isManagerToolsOpen, isIngestModalOpen]);
+  }, [refreshVaultTournaments, isManagerToolsOpen, isIngestModalOpen, savedSheets.length]);
 
   const handleArchiveTournament = async (
     targetSlug: string = slug,
@@ -1756,7 +1788,7 @@ function RunSheetContent({
     if (
       typeof window !== "undefined" &&
       !window.confirm(
-        "Remove this tournament from this device's list? The shared link itself will remain active."
+        `Archive "${target.name || target.slug}" from this device's active tray? You can restore it anytime from Restore Saved Run-Sheets.`
       )
     ) {
       return;
@@ -1769,25 +1801,52 @@ function RunSheetContent({
       deletedSet.add(target.id);
     }
 
+    let nextSavedList: SavedSquadSheet[] = savedSheets;
     try {
       window.localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
       window.localStorage.removeItem(`awayday_cache_${targetSlug}`);
+
+      const matchedSaved = savedSheets.find((s) => s.slug === targetSlug);
+      const rawArchivedMeta = window.localStorage.getItem("awayday_archived_meta");
+      const archivedMeta: Record<string, any> = rawArchivedMeta ? JSON.parse(rawArchivedMeta) || {} : {};
+      archivedMeta[targetSlug] = {
+        slug: targetSlug,
+        name: target.name || matchedSaved?.tournamentName || "Tournament Run-Sheet",
+        teamName: matchedSaved?.teamName || "My Team",
+        city: target.city || matchedSaved?.location || "Host City",
+        dates: target.dates || matchedSaved?.dates || "",
+      };
+      window.localStorage.setItem("awayday_archived_meta", JSON.stringify(archivedMeta));
+
       const rawSaved = window.localStorage.getItem("awayday_saved_sheets");
       if (rawSaved) {
         const parsedSaved = JSON.parse(rawSaved);
         if (Array.isArray(parsedSaved)) {
-          const nextSaved = parsedSaved.filter((s: any) => s && s.slug !== targetSlug);
-          window.localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextSaved));
-          setSavedSheets(nextSaved);
+          nextSavedList = parsedSaved.filter((s: any) => s && s.slug !== targetSlug);
+          window.localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextSavedList));
+          setSavedSheets(nextSavedList);
         }
       }
     } catch {
       // Ignore storage errors
     }
 
-    setVaultTournaments((prev) =>
-      prev.filter((t) => t.slug !== targetSlug && !(target.id && t.id === target.id))
+    const remainingVault = vaultTournaments.filter(
+      (t) => t.slug !== targetSlug && !(target.id && t.id === target.id)
     );
+    setVaultTournaments(remainingVault);
+    setSelectedVaultTournament(null);
+
+    if (targetSlug === slug) {
+      const nextActive =
+        remainingVault.find((t) => !t.is_archived && t.slug !== targetSlug && !deletedSet.has(t.slug)) ||
+        nextSavedList.find((s) => s.slug !== targetSlug && !deletedSet.has(s.slug));
+      if (nextActive) {
+        window.location.href = `/t/${encodeURIComponent(nextActive.slug)}?admin=true&openTools=true`;
+      } else {
+        window.location.href = "/claim?ref=ottawa-elite";
+      }
+    }
   };
 
   const handleCopyWorkspaceSyncLink = async () => {
@@ -2348,10 +2407,63 @@ function RunSheetContent({
       const nextList = [restoredEntry, ...filtered];
       localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextList));
       setSavedSheets(nextList);
+
+      const rawArchived = localStorage.getItem("awayday_archived_slugs");
+      if (rawArchived) {
+        const archivedMap = JSON.parse(rawArchived) || {};
+        if (archivedMap && typeof archivedMap === "object" && item.slug in archivedMap) {
+          delete archivedMap[item.slug];
+          localStorage.setItem("awayday_archived_slugs", JSON.stringify(archivedMap));
+        }
+      }
+      const rawArchivedMeta = localStorage.getItem("awayday_archived_meta");
+      if (rawArchivedMeta) {
+        const metaMap = JSON.parse(rawArchivedMeta) || {};
+        if (metaMap && typeof metaMap === "object" && item.slug in metaMap) {
+          delete metaMap[item.slug];
+          localStorage.setItem("awayday_archived_meta", JSON.stringify(metaMap));
+        }
+      }
     } catch {
       // Ignore storage access errors
     }
     router.push(`/t/${encodeURIComponent(item.slug)}?admin=true`);
+  };
+
+  const handlePermanentDeleteCloudSheet = async (item: { slug: string; name: string }) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm("Permanently delete this run-sheet from the cloud? This cannot be undone.")
+    ) {
+      return;
+    }
+
+    try {
+      await fetch(`/api/tournaments/${encodeURIComponent(item.slug)}`, {
+        method: "DELETE",
+      });
+    } catch (e) {
+      console.error("Permanent cloud delete failed", e);
+    }
+
+    setRecentCloudSheets((prev) => prev.filter((r) => r.slug !== item.slug));
+    setVaultTournaments((prev) => prev.filter((v) => v.slug !== item.slug));
+    try {
+      const deletedSet = getDeletedSlugsSet();
+      deletedSet.add(item.slug);
+      window.localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
+      window.localStorage.removeItem(`awayday_cache_${item.slug}`);
+      const rawArchivedMeta = window.localStorage.getItem("awayday_archived_meta");
+      if (rawArchivedMeta) {
+        const metaMap = JSON.parse(rawArchivedMeta) || {};
+        if (metaMap && typeof metaMap === "object" && item.slug in metaMap) {
+          delete metaMap[item.slug];
+          window.localStorage.setItem("awayday_archived_meta", JSON.stringify(metaMap));
+        }
+      }
+    } catch {
+      // Ignore storage access errors
+    }
   };
 
   const isSameCalendarDay = (a?: Game, b?: Game) => {
@@ -4130,15 +4242,26 @@ function RunSheetContent({
                                 </div>
                               </button>
                               <div className="flex items-center shrink-0">
-                                {!isCurrent && (
+                                {isCurrent ? (
                                   <button
                                     type="button"
                                     onClick={(e) => {
                                       e.stopPropagation();
                                       handleRemoveVaultTournamentFromDevice(t);
                                     }}
-                                    aria-label={`Remove ${t.name}`}
-                                    title={`Remove ${t.name}`}
+                                    className="rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-[#0B192C] text-[10px] font-bold px-2 py-1 transition-colors cursor-pointer"
+                                  >
+                                    Archive Tournament
+                                  </button>
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleRemoveVaultTournamentFromDevice(t);
+                                    }}
+                                    aria-label={`Archive ${t.name}`}
+                                    title={`Archive ${t.name}`}
                                     className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                                   >
                                     <X className="w-3.5 h-3.5" aria-hidden="true" />
@@ -4192,7 +4315,46 @@ function RunSheetContent({
                       )}
                       {(() => {
                         const savedSlugSet = new Set(savedSheets.map((s) => s.slug));
-                        const restorable = recentCloudSheets.filter(
+                        const mergedBySlug = new Map<
+                          string,
+                          { slug: string; name: string; teamName: string; city: string; dates: string }
+                        >();
+                        for (const item of recentCloudSheets) {
+                          if (item?.slug) mergedBySlug.set(item.slug, item);
+                        }
+                        for (const v of archivedVaultTournaments) {
+                          if (v?.slug && !mergedBySlug.has(v.slug)) {
+                            mergedBySlug.set(v.slug, {
+                              slug: v.slug,
+                              name: v.name,
+                              teamName: "My Team",
+                              city: v.city,
+                              dates: v.dates,
+                            });
+                          }
+                        }
+                        if (typeof window !== "undefined") {
+                          try {
+                            const rawMeta = window.localStorage.getItem("awayday_archived_meta");
+                            const parsedMeta = rawMeta ? JSON.parse(rawMeta) : null;
+                            if (parsedMeta && typeof parsedMeta === "object") {
+                              for (const m of Object.values(parsedMeta) as any[]) {
+                                if (m?.slug && !mergedBySlug.has(m.slug)) {
+                                  mergedBySlug.set(m.slug, {
+                                    slug: m.slug,
+                                    name: m.name || "Tournament Run-Sheet",
+                                    teamName: m.teamName || "My Team",
+                                    city: m.city || "Host City",
+                                    dates: m.dates || "",
+                                  });
+                                }
+                              }
+                            }
+                          } catch {
+                            // Ignore storage parse errors
+                          }
+                        }
+                        const restorable = Array.from(mergedBySlug.values()).filter(
                           (item) => item.slug !== slug && !savedSlugSet.has(item.slug)
                         );
                         if (restorable.length === 0) return null;
@@ -4215,13 +4377,24 @@ function RunSheetContent({
                                       {item.teamName} • {item.city}
                                     </div>
                                   </div>
-                                  <button
-                                    type="button"
-                                    onClick={() => handleRestoreCloudSheet(item)}
-                                    className="shrink-0 rounded-lg bg-[#0F1E36] hover:bg-[#1A365D] text-white text-[11px] font-bold px-2.5 py-1 transition-colors cursor-pointer"
-                                  >
-                                    Restore
-                                  </button>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRestoreCloudSheet(item)}
+                                      className="shrink-0 rounded-lg bg-[#0F1E36] hover:bg-[#1A365D] text-white text-[11px] font-bold px-2.5 py-1 transition-colors cursor-pointer"
+                                    >
+                                      Restore
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={() => handlePermanentDeleteCloudSheet(item)}
+                                      aria-label={`Permanently delete ${item.name}`}
+                                      title="Permanently delete from cloud"
+                                      className="p-1.5 rounded-lg text-rose-500 hover:text-rose-700 hover:bg-rose-50 border border-rose-200/80 transition-colors cursor-pointer"
+                                    >
+                                      <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
+                                    </button>
+                                  </div>
                                 </div>
                               ))}
                             </div>
@@ -7754,15 +7927,26 @@ function RunSheetContent({
                           </div>
                         </a>
                         <div className="flex items-center shrink-0">
-                          {!isCurrent && (
+                          {isCurrent ? (
                             <button
                               type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
                                 handleRemoveVaultTournamentFromDevice(t);
                               }}
-                              aria-label={`Remove ${t.name}`}
-                              title={`Remove ${t.name}`}
+                              className="rounded-lg border border-slate-300 bg-white hover:bg-slate-100 text-[#0B192C] text-[10px] font-bold px-2 py-1 transition-colors cursor-pointer"
+                            >
+                              Archive Tournament
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemoveVaultTournamentFromDevice(t);
+                              }}
+                              aria-label={`Archive ${t.name}`}
+                              title={`Archive ${t.name}`}
                               className="p-2 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                             >
                               <X className="w-3.5 h-3.5" aria-hidden="true" />

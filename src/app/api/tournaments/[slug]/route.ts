@@ -660,6 +660,7 @@ export async function DELETE(
         await adminSupabase.from("games").delete().eq("share_slug", slug);
         await adminSupabase.from("team_trips").delete().eq("share_slug", slug);
         await adminSupabase.from("tournaments").delete().eq("slug", slug);
+        await adminSupabase.from("tournaments").delete().eq("share_slug", slug);
 
         if (isUuid) {
           await adminSupabase.from("team_trips").delete().eq("id", slug);
@@ -668,12 +669,20 @@ export async function DELETE(
 
         if (tripRow?.tournament_id) {
           await adminSupabase
+            .from("venue_alerts")
+            .delete()
+            .eq("tournament_id", tripRow.tournament_id);
+          await adminSupabase
             .from("tournaments")
             .delete()
             .eq("id", tripRow.tournament_id);
         }
 
         if (tourneyBySlug?.id) {
+          await adminSupabase
+            .from("venue_alerts")
+            .delete()
+            .eq("tournament_id", tourneyBySlug.id);
           await adminSupabase
             .from("team_trips")
             .delete()
@@ -688,9 +697,9 @@ export async function DELETE(
       }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ ok: true, success: true });
   } catch (err) {
     console.error("Error in DELETE /api/tournaments/[slug]:", err);
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ ok: true, success: true });
   }
 }
