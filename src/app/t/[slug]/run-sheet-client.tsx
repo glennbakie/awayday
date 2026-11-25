@@ -1853,7 +1853,7 @@ function RunSheetContent({
     if (typeof window === "undefined") return;
     const slugs = Array.from(
       new Set(
-        [slug, ...activeVaultTournaments.map((t) => t.slug)].filter(
+        [slug, ...unifiedActiveTournaments.map((t) => t.slug)].filter(
           (s) => s && s !== "test-team"
         )
       )
@@ -1961,6 +1961,76 @@ function RunSheetContent({
   });
   const activeVaultTournaments = visibleVaultTournaments.filter((t) => !t.is_archived);
   const archivedVaultTournaments = visibleVaultTournaments.filter((t) => t.is_archived);
+
+  // Single unified active squad/tournament array shared by top MY SQUADS bar and Manager Tools ACTIVE TOURNAMENTS
+  const unifiedActiveTournaments = (() => {
+    const savedBySlug = new Map(savedSheets.map((s) => [s.slug, s]));
+    const archivedSlugsSet = new Set<string>();
+    if (typeof window !== "undefined") {
+      try {
+        const rawArch = window.localStorage.getItem("awayday_archived_slugs");
+        const parsedArch = rawArch ? JSON.parse(rawArch) : null;
+        if (parsedArch && typeof parsedArch === "object") {
+          for (const [k, v] of Object.entries(parsedArch)) {
+            if (v) archivedSlugsSet.add(k);
+          }
+        }
+      } catch {
+        // Ignore storage errors
+      }
+    }
+
+    const candidates: Array<VaultTournament & { teamName: string }> = [];
+    for (const v of activeVaultTournaments) {
+      if (!v?.slug || v.slug === "test-team" || deletedSlugsOnRender.has(v.slug) || archivedSlugsSet.has(v.slug)) {
+        continue;
+      }
+      const saved = savedBySlug.get(v.slug);
+      candidates.push({
+        ...v,
+        teamName:
+          (v.slug === slug ? tournament.teamName : undefined) ||
+          saved?.teamName ||
+          v.name,
+      });
+    }
+    for (const s of savedSheets) {
+      if (!s?.slug || s.slug === "test-team" || deletedSlugsOnRender.has(s.slug) || archivedSlugsSet.has(s.slug)) {
+        continue;
+      }
+      if (candidates.some((c) => c.slug === s.slug)) continue;
+      candidates.push({
+        slug: s.slug,
+        name: s.tournamentName || s.teamName || "Tournament Run-Sheet",
+        teamName: s.teamName || s.tournamentName || "My Team",
+        city: s.location || "Host City",
+        dates: s.dates || "",
+        is_archived: false,
+        created_at: s.lastVisitedMs
+          ? new Date(s.lastVisitedMs).toISOString()
+          : new Date().toISOString(),
+      });
+    }
+
+    candidates.sort((a, b) => {
+      if (a.slug === slug && b.slug !== slug) return -1;
+      if (b.slug === slug && a.slug !== slug) return 1;
+      return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    });
+
+    const seenSlugs = new Set<string>();
+    const seenTitleDates = new Set<string>();
+    return candidates.filter((item) => {
+      if (seenSlugs.has(item.slug)) return false;
+      seenSlugs.add(item.slug);
+      const tk = `${(item.name || "").trim().toLowerCase()}||${(item.dates || "").trim().toLowerCase()}`;
+      if ((item.name || "").trim() && (item.dates || "").trim()) {
+        if (seenTitleDates.has(tk)) return false;
+        seenTitleDates.add(tk);
+      }
+      return true;
+    });
+  })();
 
   // Persist current tournament payload under awayday_cache_${slug} for offline gym dead-zones
   useEffect(() => {
@@ -3909,20 +3979,20 @@ function RunSheetContent({
       <main className="max-w-md mx-auto w-full px-3 sm:px-4 pb-32 pt-1">
         {activeTab === "schedule" && (
           <div key="schedule" className="animate-in fade-in-50 duration-200 ease-out">
-        {savedSheets.length >= 2 && (
+        {unifiedActiveTournaments.length >= 2 && (
           <section aria-label="My Squads" className="mb-3">
             <div className="flex items-center justify-between px-1 mb-1.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-[#5C6B7B]">
                 My Squads
               </span>
               <span className="text-[10px] font-bold text-[#5C6B7B]">
-                {savedSheets.length} Teams
+                {unifiedActiveTournaments.length} Teams
               </span>
             </div>
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
-              {savedSheets.map((sheet) => {
+              {unifiedActiveTournaments.map((sheet) => {
                 const isActive = sheet.slug === slug;
-                const shortCity = sheet.location ? sheet.location.split(",")[0].trim() : "";
+                const shortCity = sheet.city ? sheet.city.split(",")[0].trim() : "";
                 return (
                   <button
                     key={sheet.slug}
@@ -3938,7 +4008,7 @@ function RunSheetContent({
                         : "bg-white hover:bg-[#F7F6F2] text-[#0F1E36] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.06)]"
                     }`}
                   >
-                    <span className="truncate max-w-[160px]">{sheet.teamName || sheet.tournamentName}</span>
+                    <span className="truncate max-w-[160px]">{sheet.teamName || sheet.name}</span>
                     {shortCity && (
                       <span className={`text-[10px] font-semibold ${isActive ? "text-slate-300" : "text-[#5C6B7B]"}`}>
                         • {shortCity}
@@ -4196,10 +4266,10 @@ function RunSheetContent({
                   <>
                     <div className="space-y-1.5">
                       <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                        Active Tournaments ({activeVaultTournaments.length})
+                        Active Tournaments ({unifiedActiveTournaments.length})
                       </div>
                       <div className="space-y-1.5">
-                        {activeVaultTournaments.map((t) => {
+                        {unifiedActiveTournaments.map((t) => {
                           const tri = getCityTriCode(t.city);
                           const isCurrent = t.slug === slug;
                           return (
@@ -4314,7 +4384,7 @@ function RunSheetContent({
                         </button>
                       )}
                       {(() => {
-                        const savedSlugSet = new Set(savedSheets.map((s) => s.slug));
+                        const savedSlugSet = new Set(unifiedActiveTournaments.map((s) => s.slug));
                         const mergedBySlug = new Map<
                           string,
                           { slug: string; name: string; teamName: string; city: string; dates: string }
@@ -7894,10 +7964,10 @@ function RunSheetContent({
             <div className="pt-4 mt-4 border-t border-slate-200 space-y-3">
               <div className="space-y-1.5">
                 <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
-                  Active Tournaments ({activeVaultTournaments.length})
+                  Active Tournaments ({unifiedActiveTournaments.length})
                 </div>
                 <div className="space-y-1.5">
-                  {activeVaultTournaments.map((t) => {
+                  {unifiedActiveTournaments.map((t) => {
                     const tri = getCityTriCode(t.city);
                     const isCurrent = t.slug === slug;
                     return (
