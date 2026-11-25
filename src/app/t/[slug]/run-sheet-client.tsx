@@ -371,7 +371,21 @@ function RunSheetContent({
   const [isAdmin, setIsAdmin] = useState<boolean>(() => {
     const adminParam = searchParams.get("admin");
     const manageParam = searchParams.get("manage");
-    return adminParam === "true" || adminParam === "1" || manageParam === "1";
+    if (adminParam === "true" || adminParam === "1" || manageParam === "1") {
+      return true;
+    }
+    if (typeof window !== "undefined") {
+      try {
+        const sp = new URLSearchParams(window.location.search);
+        const wAdmin = sp.get("admin");
+        const wManage = sp.get("manage");
+        if (wAdmin === "true" || wAdmin === "1" || wManage === "1") return true;
+        if (window.localStorage.getItem(`awayday_is_admin_${slug}`) === "true") return true;
+      } catch {
+        // Ignore storage errors
+      }
+    }
+    return false;
   });
   const [isManagerToolsOpen, setIsManagerToolsOpen] = useState<boolean>(
     () => searchParams.get("openTools") === "true"
@@ -406,28 +420,45 @@ function RunSheetContent({
     }
   }, [isManagerToolsOpen]);
 
-  // Step 1: Only permit Manager Mode when ?admin=true, ?admin=1, or ?manage=1 is explicitly present in the URL
+  // Step 1: Permit Manager Mode when ?admin=true, ?admin=1, ?manage=1 is in URL OR awayday_is_admin_${slug} is stored
   useEffect(() => {
-    const adminParam = searchParams.get("admin");
-    const manageParam = searchParams.get("manage");
-    if (adminParam === "true" || adminParam === "1" || manageParam === "1") {
-      setIsAdmin(true);
+    let urlAdmin = searchParams.get("admin");
+    let urlManage = searchParams.get("manage");
+    if (typeof window !== "undefined" && !urlAdmin && !urlManage) {
+      const sp = new URLSearchParams(window.location.search);
+      urlAdmin = sp.get("admin");
+      urlManage = sp.get("manage");
+    }
+    const hasUrlAdmin = urlAdmin === "true" || urlAdmin === "1" || urlManage === "1";
+    let hasLocalAdmin = false;
+    if (typeof window !== "undefined") {
       try {
-        window.localStorage.setItem(`awayday_is_admin_${slug}`, "true");
-        const rawAdminSlugs = window.localStorage.getItem("awayday_admin_slugs");
-        const parsedAdminSlugs = rawAdminSlugs ? JSON.parse(rawAdminSlugs) : [];
-        const nextAdminSlugs = Array.isArray(parsedAdminSlugs)
-          ? Array.from(new Set([...parsedAdminSlugs, slug]))
-          : [slug];
-        window.localStorage.setItem("awayday_admin_slugs", JSON.stringify(nextAdminSlugs));
-
-        const deletedSet = getDeletedSlugsSet();
-        if (deletedSet.has(slug)) {
-          deletedSet.delete(slug);
-          window.localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
-        }
+        hasLocalAdmin = window.localStorage.getItem(`awayday_is_admin_${slug}`) === "true";
       } catch {
         // Ignore storage errors
+      }
+    }
+
+    if (hasUrlAdmin || hasLocalAdmin) {
+      setIsAdmin(true);
+      if (hasUrlAdmin) {
+        try {
+          window.localStorage.setItem(`awayday_is_admin_${slug}`, "true");
+          const rawAdminSlugs = window.localStorage.getItem("awayday_admin_slugs");
+          const parsedAdminSlugs = rawAdminSlugs ? JSON.parse(rawAdminSlugs) : [];
+          const nextAdminSlugs = Array.isArray(parsedAdminSlugs)
+            ? Array.from(new Set([...parsedAdminSlugs, slug]))
+            : [slug];
+          window.localStorage.setItem("awayday_admin_slugs", JSON.stringify(nextAdminSlugs));
+
+          const deletedSet = getDeletedSlugsSet();
+          if (deletedSet.has(slug)) {
+            deletedSet.delete(slug);
+            window.localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
+          }
+        } catch {
+          // Ignore storage errors
+        }
       }
     } else {
       setIsAdmin(false);
@@ -1850,12 +1881,23 @@ function RunSheetContent({
 
   const deletedSlugsOnRender = getDeletedSlugsSet();
   const seenVaultSlugs = new Set<string>();
-  const visibleVaultTournaments = vaultTournaments.filter((t) => {
+  const seenVaultTitleDates = new Set<string>();
+  const sortedVaultForDedupe = [...vaultTournaments].sort((a, b) => {
+    if (a.slug === slug && b.slug !== slug) return -1;
+    if (b.slug === slug && a.slug !== slug) return 1;
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+  });
+  const visibleVaultTournaments = sortedVaultForDedupe.filter((t) => {
     if (!t?.slug || deletedSlugsOnRender.has(t.slug) || (t.id && deletedSlugsOnRender.has(t.id))) {
       return false;
     }
     if (seenVaultSlugs.has(t.slug)) return false;
     seenVaultSlugs.add(t.slug);
+    const titleKey = `${(t.name || "").trim().toLowerCase()}||${(t.dates || "").trim().toLowerCase()}`;
+    if ((t.name || "").trim() && (t.dates || "").trim()) {
+      if (seenVaultTitleDates.has(titleKey)) return false;
+      seenVaultTitleDates.add(titleKey);
+    }
     return true;
   });
   const activeVaultTournaments = visibleVaultTournaments.filter((t) => !t.is_archived);
@@ -2152,10 +2194,24 @@ function RunSheetContent({
     try {
       const raw = localStorage.getItem("awayday_saved_sheets");
       const existing: SavedSquadSheet[] = raw ? JSON.parse(raw) : [];
-      const filtered = Array.isArray(existing)
-        ? existing.filter((s) => s && s.slug && s.slug !== "test-team" && s.slug !== slug)
-        : [];
-      const nextList = [entry, ...filtered];
+      const combined = [
+        entry,
+        ...(Array.isArray(existing)
+          ? existing.filter((s) => s && s.slug && s.slug !== "test-team" && s.slug !== slug)
+          : []),
+      ];
+      const seenSlugs = new Set<string>();
+      const seenTitles = new Set<string>();
+      const nextList = combined.filter((s) => {
+        if (seenSlugs.has(s.slug)) return false;
+        seenSlugs.add(s.slug);
+        const tk = `${(s.tournamentName || "").trim().toLowerCase()}||${(s.dates || "").trim().toLowerCase()}`;
+        if ((s.tournamentName || "").trim() && (s.dates || "").trim()) {
+          if (seenTitles.has(tk)) return false;
+          seenTitles.add(tk);
+        }
+        return true;
+      });
       localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextList));
       setSavedSheets(nextList);
     } catch {
