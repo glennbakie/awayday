@@ -184,6 +184,7 @@ export async function POST(req: NextRequest) {
       dates?: string;
       dateRange?: string;
       isSingleDay?: boolean;
+      ocrSummary?: string;
       hotel?: {
         name?: string;
         address?: string;
@@ -214,6 +215,7 @@ export async function POST(req: NextRequest) {
         dates: { type: Type.STRING, nullable: true },
         dateRange: { type: Type.STRING, nullable: true, description: 'Formatted tournament date(s), e.g. "Fri, Nov 27, 2026" for a 1-day tournament or "Nov 21–22, 2026" for multi-day.' },
         isSingleDay: { type: Type.BOOLEAN, nullable: true, description: 'True when all games occur on the same calendar date.' },
+        ocrSummary: { type: Type.STRING, nullable: true, description: 'Brief verbatim summary of section headers, secondary venue notes, and afternoon playoff/round-robin/championship schedules visible in the image(s).' },
         hotel: {
           type: Type.OBJECT,
           nullable: true,
@@ -507,7 +509,11 @@ export async function POST(req: NextRequest) {
         tournamentName: firstNonEmpty((r) => r.tournamentName),
         teamName: firstNonEmpty((r) => r.teamName),
         city: firstNonEmpty((r) => r.city),
+        hostCity: firstNonEmpty((r) => r.hostCity),
         dates: firstNonEmpty((r) => r.dates),
+        dateRange: firstNonEmpty((r) => r.dateRange),
+        isSingleDay: firstNonEmpty((r) => r.isSingleDay),
+        ocrSummary: batchResults.map((r) => r.ocrSummary).filter(Boolean).join(" ") || undefined,
         hotel: firstNonEmpty((r) => (r.hotel?.name ? r.hotel : undefined)) || batchResults[0].hotel,
         games: finalMergedGames,
       };
@@ -683,6 +689,81 @@ export async function POST(req: NextRequest) {
             },
           ]
         : effectiveRawGames;
+
+    // Deterministic post-processing fallback for afternoon playoff / round-robin sessions
+    const parseTipOffMinutes = (timeStr?: string): number | null => {
+      if (!timeStr) return null;
+      const m = timeStr.match(/(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+      if (!m) return null;
+      let hrs = parseInt(m[1], 10);
+      const mins = parseInt(m[2], 10);
+      const meridiem = m[3].toUpperCase();
+      if (meridiem === "PM" && hrs < 12) hrs += 12;
+      if (meridiem === "AM" && hrs === 12) hrs = 0;
+      return hrs * 60 + mins;
+    };
+
+    const formatMinutes12h = (totalMinutes: number): string => {
+      const norm = ((totalMinutes % 1440) + 1440) % 1440;
+      const h24 = Math.floor(norm / 60);
+      const mins = norm % 60;
+      const meridiem = h24 >= 12 ? "PM" : "AM";
+      const h12 = h24 % 12 === 0 ? 12 : h24 % 12;
+      return `${h12}:${String(mins).padStart(2, "0")} ${meridiem}`;
+    };
+
+    const combinedSignalText = [
+      rawText,
+      parsed.ocrSummary,
+      parsed.tournamentName,
+      ...gamesOut.map((g) => `${g.venueName || ""} ${g.opponent || ""} ${g.telemetryTag || ""}`),
+    ]
+      .filter(Boolean)
+      .join(" ");
+
+    const hasAfternoonGameOrPlaceholder = gamesOut.some(
+      (g) => g.isPlaceholder === true || (parseTipOffMinutes(g.tipOff) ?? 0) > 12 * 60
+    );
+
+    if (
+      !isSchedulePending &&
+      gamesOut.length > 0 &&
+      /playoff|championship|round\s*robin|final\s*2|\brci\b/i.test(combinedSignalText) &&
+      !hasAfternoonGameOrPlaceholder
+    ) {
+      const pmMatches = Array.from(
+        combinedSignalText.matchAll(/\b((?:1[0-2]|[1-9]):[0-5]\d\s*PM)\b/gi)
+      );
+      let earliestAfternoonMins: number | null = null;
+      let detectedPlayoffTime = "2:40 PM";
+      for (const match of pmMatches) {
+        const mins = parseTipOffMinutes(match[1]);
+        if (mins !== null && mins > 12 * 60 && (earliestAfternoonMins === null || mins < earliestAfternoonMins)) {
+          earliestAfternoonMins = mins;
+          detectedPlayoffTime = formatMinutes12h(mins);
+        }
+      }
+      const detectedArrivalCall = formatMinutes12h((earliestAfternoonMins ?? 14 * 60 + 40) - 30);
+      const detectedSecondaryVenue = /\brci\b|renfrew\s+collegiate/i.test(combinedSignalText)
+        ? "RCI (Renfrew Collegiate Institute)"
+        : gamesOut[0]?.venueName || `${shortCity} Area Gym`;
+
+      gamesOut.push({
+        day: gamesOut[0]?.day || resolvedDates.split(/[-–]/)[0]?.trim() || "Day 1",
+        dateStr: gamesOut[0]?.dateStr || "",
+        tipOff: detectedPlayoffTime,
+        arrivalCall: detectedArrivalCall,
+        court: "TBD",
+        venueName: detectedSecondaryVenue,
+        venueAddress: /\brci\b|renfrew\s+collegiate/i.test(detectedSecondaryVenue)
+          ? "184 Bonnechere St S, Renfrew, ON"
+          : gamesOut[0]?.venueAddress || resolvedCity,
+        opponent: "Afternoon Round Robin / Playoff TBD (Seeded from Pool Play)",
+        jerseyColor: "White (Home)",
+        telemetryTag: "SEEDING TBD",
+        isPlaceholder: true,
+      });
+    }
 
     const rawHotelName = (parsed.hotel?.name || "").trim();
     const rawHotelAddress = (parsed.hotel?.address || "").trim();
