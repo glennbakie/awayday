@@ -33,7 +33,7 @@ const SEED_TOURNAMENTS: TournamentVaultItem[] = [
   },
 ];
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const rawUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
     const supabaseUrl = rawUrl.replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
@@ -157,6 +157,20 @@ export async function GET() {
     const tournaments = Array.from(bySlug.values()).sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+
+    if (req.nextUrl.searchParams.get("list") === "recent") {
+      const recent = tournaments
+        .filter((t) => t.slug && t.slug !== "test-team")
+        .slice(0, 15)
+        .map((t) => ({
+          slug: t.slug,
+          name: t.name,
+          teamName: t.team_name || "My Team",
+          city: t.city || "Host City",
+          dates: t.dates || "",
+        }));
+      return NextResponse.json({ tournaments: recent });
+    }
 
     return NextResponse.json({ tournaments });
   } catch (err: any) {
@@ -463,13 +477,15 @@ export async function POST(req: NextRequest) {
             meta: {
               city,
               dates,
-              hotel: {
-                name: hotelName,
-                address: hotelAddress,
-                rate: body?.hotel?.rate || "",
-                breakfastHours: body?.hotel?.breakfastHours || "",
-                checkoutTime: body?.hotel?.checkoutTime || "",
-              },
+              hotel: hotelName
+                ? {
+                    name: hotelName,
+                    address: hotelAddress,
+                    rate: body?.hotel?.rate || "",
+                    breakfastHours: body?.hotel?.breakfastHours || "",
+                    checkoutTime: body?.hotel?.checkoutTime || "",
+                  }
+                : null,
             },
           }),
           author: "system",

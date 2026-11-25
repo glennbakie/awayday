@@ -380,6 +380,9 @@ function RunSheetContent({
   const [passShareCopied, setPassShareCopied] = useState<boolean>(false);
   const [syncLinkCopied, setSyncLinkCopied] = useState<boolean>(false);
   const [cloudSyncStatus, setCloudSyncStatus] = useState<"idle" | "syncing" | "synced" | "error">("idle");
+  const [recentCloudSheets, setRecentCloudSheets] = useState<
+    Array<{ slug: string; name: string; teamName: string; city: string; dates: string }>
+  >([]);
   const [savedSheets, setSavedSheets] = useState<SavedSquadSheet[]>([]);
   const [showSquadModal, setShowSquadModal] = useState<boolean>(false);
   const [addSquadInput, setAddSquadInput] = useState<string>("");
@@ -1182,28 +1185,38 @@ function RunSheetContent({
             if (!loadedFromCache && !isDemoSlug && (apiData.tournament || apiData.trip)) {
               const t = apiData.tournament || {};
               const tr = apiData.trip || {};
-              const inferredCity = tr.hotel_address
-                ? tr.hotel_address.split(",").slice(-2).join(",").trim() || tr.hotel_address
-                : t.hotel_address
-                  ? t.hotel_address.split(",").slice(-2).join(",").trim() || t.hotel_address
-                  : t.city;
-              setTournament((prev) => ({
-                ...prev,
-                name: t.name || prev.name,
-                teamName: tr.team_name || t.team_name || prev.teamName,
-                city: inferredCity || prev.city,
-                dates: t.dates || prev.dates,
-                schedulePending: hasRealApiGames ? false : Boolean(apiData.schedulePending ?? prev.schedulePending),
-                primaryHub: apiGames[0]?.venueName || tr.hotel_name || t.hotel_name || prev.primaryHub,
-                primaryHubAddress: apiGames[0]?.venueAddress || tr.hotel_address || t.hotel_address || prev.primaryHubAddress,
-                hotel: {
-                  ...prev.hotel,
-                  name: tr.hotel_name || t.hotel_name || prev.hotel.name,
-                  address: tr.hotel_address || t.hotel_address || prev.hotel.address,
-                  breakfastHours: t.hotel_breakfast_hours || prev.hotel.breakfastHours,
-                  checkoutTime: t.hotel_checkout_time || prev.hotel.checkoutTime,
-                },
-              }));
+              const inferredCity =
+                t.city ||
+                (tr.hotel_address
+                  ? tr.hotel_address.split(",").slice(-2).join(",").trim() || tr.hotel_address
+                  : t.hotel_address
+                    ? t.hotel_address.split(",").slice(-2).join(",").trim() || t.hotel_address
+                    : "");
+              setTournament((prev) => {
+                const nextHotel =
+                  t.hotel === null
+                    ? { name: "", address: "", rate: "", breakfastHours: "", checkoutTime: "" }
+                    : {
+                        ...prev.hotel,
+                        ...(t.hotel && typeof t.hotel === "object" ? t.hotel : {}),
+                        name: t.hotel?.name || tr.hotel_name || t.hotel_name || "",
+                        address: t.hotel?.address || tr.hotel_address || t.hotel_address || "",
+                        breakfastHours:
+                          t.hotel?.breakfastHours || t.hotel_breakfast_hours || "",
+                        checkoutTime: t.hotel?.checkoutTime || t.hotel_checkout_time || "",
+                      };
+                return {
+                  ...prev,
+                  name: t.name || prev.name,
+                  teamName: tr.team_name || t.team_name || prev.teamName,
+                  city: inferredCity || prev.city,
+                  dates: t.dates || prev.dates,
+                  schedulePending: hasRealApiGames ? false : Boolean(apiData.schedulePending ?? prev.schedulePending),
+                  primaryHub: apiGames[0]?.venueName || nextHotel.name || prev.primaryHub,
+                  primaryHubAddress: apiGames[0]?.venueAddress || nextHotel.address || prev.primaryHubAddress,
+                  hotel: nextHotel,
+                };
+              });
             } else if (hasRealApiGames) {
               setTournament((prev) => ({ ...prev, schedulePending: false }));
             }
@@ -1440,11 +1453,15 @@ function RunSheetContent({
   const primarySatGame = satGames[0] || games.find((g) => !g.isPlaceholder) || games[0];
   const lastSatGame = satGames[satGames.length - 1] || primarySatGame;
   const primarySatVenueLabel = primarySatGame?.venueName || tournament.primaryHub || "Primary Gym";
+  const trimmedHotelName = (tournament.hotel?.name || "").trim();
   const hasRealHotel =
-    (Boolean(tournament.hotel?.name?.trim()) || Boolean(tournament.hotel?.address?.trim())) &&
-    !/^(tbd|away|team\s*hotel)$/i.test((tournament.hotel?.name || "").trim()) &&
-    !/^(tbd|away)$/i.test((tournament.hotel?.address || "").trim()) &&
-    !(!isDemoSlug && !/brampton/i.test(tournament.city || "") && /fairfield.*brampton|150 westcreek/i.test(`${tournament.hotel?.name || ""} ${tournament.hotel?.address || ""}`));
+    trimmedHotelName.length >= 3 &&
+    !/^(tbd|none|n\/a|no hotel|day trip|team\s*hotel)$/i.test(trimmedHotelName) &&
+    !(
+      !isDemoSlug &&
+      !/brampton|oakville/i.test(tournament.city || "") &&
+      /fairfield\s*inn/i.test(trimmedHotelName)
+    );
   const dinnerAnchorHotelName =
     tournament.hotel?.name && !/^team\s*hotel/i.test(tournament.hotel.name) && hasRealHotel
       ? tournament.hotel.name
@@ -2186,6 +2203,14 @@ function RunSheetContent({
   };
 
   const handleRemoveSavedSquad = (targetSlug: string) => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Remove this tournament from this device's list? The shared link itself will remain active."
+      )
+    ) {
+      return;
+    }
     try {
       const nextList = savedSheets.filter((s) => s.slug !== targetSlug);
       localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextList));
@@ -2193,6 +2218,57 @@ function RunSheetContent({
     } catch {
       // Ignore storage access errors
     }
+  };
+
+  useEffect(() => {
+    if (!isAdmin || !isManagerToolsOpen) return;
+    let cancelled = false;
+    fetch("/api/tournaments?list=recent", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (!cancelled && Array.isArray(data?.tournaments)) {
+          setRecentCloudSheets(data.tournaments);
+        }
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [isAdmin, isManagerToolsOpen]);
+
+  const handleRestoreCloudSheet = (item: {
+    slug: string;
+    name: string;
+    teamName: string;
+    city: string;
+    dates: string;
+  }) => {
+    try {
+      const deletedSet = getDeletedSlugsSet();
+      deletedSet.delete(item.slug);
+      localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
+
+      const rawExisting = localStorage.getItem("awayday_saved_sheets");
+      const existing: SavedSquadSheet[] = rawExisting ? JSON.parse(rawExisting) : [];
+      const filtered = Array.isArray(existing)
+        ? existing.filter((s) => s && s.slug !== item.slug && s.slug !== "test-team")
+        : [];
+      const restoredEntry: SavedSquadSheet = {
+        slug: item.slug,
+        teamName: item.teamName || "My Team",
+        tournamentName: item.name || "Tournament Run-Sheet",
+        location: item.city || "Host City",
+        dates: item.dates || "",
+        nextGameTipOffMs: null,
+        lastVisitedMs: Date.now(),
+      };
+      const nextList = [restoredEntry, ...filtered];
+      localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextList));
+      setSavedSheets(nextList);
+    } catch {
+      // Ignore storage access errors
+    }
+    router.push(`/t/${encodeURIComponent(item.slug)}?admin=true`);
   };
 
   const isSameCalendarDay = (a?: Game, b?: Game) => {
@@ -4031,6 +4107,44 @@ function RunSheetContent({
                           )}
                         </button>
                       )}
+                      {(() => {
+                        const savedSlugSet = new Set(savedSheets.map((s) => s.slug));
+                        const restorable = recentCloudSheets.filter(
+                          (item) => item.slug !== slug && !savedSlugSet.has(item.slug)
+                        );
+                        if (restorable.length === 0) return null;
+                        return (
+                          <div className="pt-2 mt-2 border-t border-slate-100 space-y-1.5">
+                            <div className="text-[11px] font-black uppercase tracking-wider text-slate-400">
+                              Restore Saved Run-Sheets ({restorable.length})
+                            </div>
+                            <div className="space-y-1.5 max-h-44 overflow-y-auto">
+                              {restorable.map((item) => (
+                                <div
+                                  key={item.slug}
+                                  className="flex items-center justify-between gap-2 px-3 py-2 rounded-xl border border-slate-200 bg-white text-xs"
+                                >
+                                  <div className="min-w-0">
+                                    <div className="font-bold text-[#0F1E36] truncate">
+                                      {item.name}
+                                    </div>
+                                    <div className="text-[11px] text-slate-500 font-medium truncate">
+                                      {item.teamName} • {item.city}
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRestoreCloudSheet(item)}
+                                    className="shrink-0 rounded-lg bg-[#0F1E36] hover:bg-[#1A365D] text-white text-[11px] font-bold px-2.5 py-1 transition-colors cursor-pointer"
+                                  >
+                                    Restore
+                                  </button>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {archivedVaultTournaments.length > 0 && (

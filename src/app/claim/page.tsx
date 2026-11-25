@@ -805,10 +805,17 @@ function ClaimPageContent() {
                       className="bg-white border border-[#DCE1E7] rounded-xl p-2.5 flex items-center justify-between gap-2 text-xs"
                     >
                       <div className="min-w-0">
-                        <div className="font-black text-[#0F2942] truncate">
-                          {extractedMeta.schedulePending
-                            ? g.opponent
-                            : `G${i + 1}: ${g.tipOff} vs ${g.opponent}`}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <span className="font-black text-[#0F2942] truncate">
+                            {extractedMeta.schedulePending
+                              ? g.opponent
+                              : `G${i + 1}: ${g.tipOff} vs ${g.opponent}`}
+                          </span>
+                          {(g.isPlaceholder || g.telemetryTag) && (
+                            <span className="inline-flex items-center rounded-md bg-[#FEF3C7] text-[#92400E] text-[10px] font-black uppercase tracking-wide px-2 py-0.5 shrink-0">
+                              {g.telemetryTag || "SEEDING TBD"}
+                            </span>
+                          )}
                         </div>
                         <div className="text-[11px] font-semibold text-[#5C6B7B] flex items-center gap-2 mt-0.5 truncate">
                           <span className="inline-flex items-center gap-1">

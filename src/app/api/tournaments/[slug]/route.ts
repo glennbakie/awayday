@@ -245,12 +245,24 @@ export async function GET(
         ? normalizedGames[0]?.dayLabel || "Tournament Dates"
         : "Tournament Dates");
 
+    const resolvedHotel =
+      stateMeta && "hotel" in stateMeta
+        ? stateMeta.hotel
+        : resolvedTourney?.hotel_name && !/^(tbd|none|n\/a|team\s*hotel)$/i.test(String(resolvedTourney.hotel_name).trim())
+          ? {
+              name: resolvedTourney.hotel_name,
+              address: resolvedTourney.hotel_address || "",
+              breakfastHours: resolvedTourney.hotel_breakfast_hours || "",
+              checkoutTime: resolvedTourney.hotel_checkout_time || "",
+            }
+          : null;
+
     return NextResponse.json({
       tournament: {
         ...resolvedTourney,
         city: cityLabel,
         dates: resolvedDatesOut,
-        ...(stateMeta?.hotel ? { hotel: stateMeta.hotel } : {}),
+        hotel: resolvedHotel,
       },
       trip: tripRow || null,
       games: normalizedGames,
