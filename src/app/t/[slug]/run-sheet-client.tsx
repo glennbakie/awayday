@@ -4364,104 +4364,106 @@ function RunSheetContent({
                   </div>
                 </div>
 
-                <div className="h-px bg-[#E9ECEF] my-3.5" />
-
-                {/* 2-Column or 3-Column Timing Strip (Depart hidden when no hotel is set) */}
-                <div className="divide-x divide-[#E9ECEF] flex items-start text-center py-1">
-                  {hasRealHotel && (
-                  <div className="flex-1 px-1 flex flex-col items-center">
-                    <svg
-                      aria-hidden="true"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M18.92 5.01C18.72 4.42 18.16 4 17.5 4h-11c-.66 0-1.21.42-1.42 1.01L3 11v9c0 .55.45 1 1 1h1.5c.55 0 1-.45 1-1v-1h11v1c0 .55.45 1 1 1H20c.55 0 1-.45 1-1v-9l-2.08-5.99zM6.5 6h11l1.04 3H5.46l1.04-3zM7.5 16c-.83 0-1.5-.67-1.5-1.5S6.67 13 7.5 13s1.5.67 1.5 1.5S8.33 16 7.5 16zm9 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z" />
-                    </svg>
-                    <span className="text-xs font-semibold text-slate-600">
-                      Depart
-                    </span>
-                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
-                      {formatTime(nextDepart)}
-                    </span>
-                  </div>
-                  )}
-
-                  <div className="flex-1 px-1 flex flex-col items-center">
-                    <svg
-                      aria-hidden="true"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#0B192C] fill-current mx-auto mb-1"
-                      viewBox="0 0 24 24"
-                    >
-                      <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 7.12 11.45 7.42 11.71.34.3.82.3 1.16 0C12.88 21.45 20 15.25 20 10c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z" />
-                    </svg>
-                    <span className="text-xs font-semibold text-slate-600">
-                      Arrive
-                    </span>
-                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
-                      {formatTime(nextArrival)}
-                    </span>
-                    <span className="text-[11px] font-medium text-slate-500 mt-0.5">
-                      ({bufferMins} min buffer)
-                    </span>
-                  </div>
-
-                  <div className="flex-1 px-1 flex flex-col items-center">
-                    {/* Authentic Referee Whistle with Sound Burst Rays */}
-                    <svg
-                      viewBox="0 0 76 64"
-                      className="w-7 h-7 sm:w-8 sm:h-8 text-[#C2A26F] fill-none stroke-current stroke-[4] stroke-linecap-round stroke-linejoin-round shrink-0 mx-auto mb-1"
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      aria-hidden="true"
-                    >
-                      {/* Sound Burst Rays */}
-                      <path d="M28 11V4" strokeWidth="3.5" />
-                      <path d="M22 13l-3-5" strokeWidth="3.5" />
-                      <path d="M34 13l3-5" strokeWidth="3.5" />
-
-                      {/* Lanyard Eyelet */}
-                      <path d="M8 27l-4 3 4 3" />
-
-                      {/* Whistle Barrel & Body */}
-                      <path d="M28 22H25a16 16 0 1 0 6 13v-2h32v-11H32v3.5h-4V22z" />
-
-                      {/* Inner Pea Rim */}
-                      <circle cx="20" cy="38" r="8" />
-                    </svg>
-                    <span className="text-xs font-semibold text-slate-600">
-                      Tip-Off
-                    </span>
-                    <span className="text-base sm:text-lg font-black text-[#0F2942] tabular-nums mt-0.5 leading-tight">
-                      {formatTime(nextGame.tipOffMinutes)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Integrated Nested Travel Footnote */}
-                <div className="mt-2 pt-2 border-t border-[#E9ECEF] flex items-center justify-between gap-2 text-[11px] text-[#5C6B7B] font-medium">
-                  {hasRealHotel ? (
+                {(() => {
+                  const splitHeroTime = (mins: number) => {
+                    const formatted = formatTime(mins);
+                    const match = formatted.match(/^(\d{1,2}:\d{2})\s*(AM|PM)$/i);
+                    return match
+                      ? { time: match[1], meridiem: match[2].toUpperCase() }
+                      : { time: formatted, meridiem: "" };
+                  };
+                  const heroDepartParts = splitHeroTime(nextDepart);
+                  const heroArriveParts = splitHeroTime(nextArrival);
+                  const heroTipParts = splitHeroTime(nextGame.tipOffMinutes);
+                  return (
                     <>
-                      <span className="flex items-center gap-1 font-bold text-[#0F2942] shrink-0 tabular-nums">
-                        <span aria-hidden="true">🚗</span> {nextGame.hotelTravelMin || 15}m drive
-                      </span>
-                      <span className="italic truncate">Check Maps for live traffic &amp; weather</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="font-semibold text-[#5C6B7B] truncate">
-                        Check live drive time from your location
-                      </span>
-                      <a
-                        href={getMapsUrl(heroVenueMapsQuery)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="font-bold text-[#0F2942] hover:underline shrink-0"
+                      {/* Unified 2-Column or 3-Column Timing Strip (Depart hidden when no hotel is set) */}
+                      <div
+                        className={`border-y border-[#E6E0D6] py-4 my-3.5 grid text-center ${
+                          hasRealHotel ? "grid-cols-3" : "grid-cols-2"
+                        }`}
                       >
-                        Open in Google Maps
-                      </a>
+                        {hasRealHotel && (
+                          <div className="px-1 flex flex-col items-center">
+                            <div className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-[#6B7280] uppercase">
+                              <Car className="w-4 h-4 text-[#6B7280]" strokeWidth={2} aria-hidden="true" />
+                              <span>DEPART</span>
+                            </div>
+                            <span className="text-2xl font-black text-[#0F1E36] tracking-tight tabular-nums mt-1 leading-none">
+                              {tournament.schedulePending ? "TBD" : heroDepartParts.time}
+                            </span>
+                            {!tournament.schedulePending && heroDepartParts.meridiem && (
+                              <span className="text-[11px] font-semibold text-[#6B7280] mt-1">
+                                {heroDepartParts.meridiem}
+                              </span>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="px-1 flex flex-col items-center">
+                          <div className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-[#6B7280] uppercase">
+                            <MapPin className="w-4 h-4 text-[#6B7280]" strokeWidth={2} aria-hidden="true" />
+                            <span>ARRIVE</span>
+                          </div>
+                          <span className="text-2xl font-black text-[#0F1E36] tracking-tight tabular-nums mt-1 leading-none">
+                            {tournament.schedulePending ? "TBD" : heroArriveParts.time}
+                          </span>
+                          <span className="bg-[#EFECE6] text-[#4B5563] text-[10px] font-bold px-2 py-0.5 rounded-md mt-1">
+                            {bufferMins}m buffer
+                          </span>
+                        </div>
+
+                        <div className="px-1 flex flex-col items-center">
+                          <div className="flex items-center gap-1 text-[11px] font-bold tracking-wider text-[#6B7280] uppercase">
+                            <Timer className="w-4 h-4 text-[#C58B2A]" strokeWidth={2} aria-hidden="true" />
+                            <span>TIP-OFF</span>
+                          </div>
+                          <span className="text-2xl font-black text-[#0F1E36] tracking-tight tabular-nums mt-1 leading-none">
+                            {tournament.schedulePending ? "Pending" : heroTipParts.time}
+                          </span>
+                          {!tournament.schedulePending && heroTipParts.meridiem && (
+                            <span className="text-[11px] font-semibold text-[#6B7280] mt-1">
+                              {heroTipParts.meridiem}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Integrated Nested Travel Footnote */}
+                      <div className="mt-2 flex items-center justify-between gap-2 text-xs text-[#6B7280] font-medium">
+                        {hasRealHotel ? (
+                          <>
+                            <span className="font-bold text-[#0F1E36] shrink-0 tabular-nums">
+                              {nextGame.hotelTravelMin || 15} min drive
+                            </span>
+                            <a
+                              href={getMapsUrl(heroVenueMapsQuery)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="italic text-[#6B7280] hover:text-[#0F1E36] transition-colors truncate"
+                            >
+                              Check live traffic
+                            </a>
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-medium text-[#6B7280] truncate">
+                              Check live drive time from your location
+                            </span>
+                            <a
+                              href={getMapsUrl(heroVenueMapsQuery)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="font-bold text-[#0F1E36] hover:underline shrink-0"
+                            >
+                              Open in Google Maps
+                            </a>
+                          </>
+                        )}
+                      </div>
                     </>
-                  )}
-                </div>
+                  );
+                })()}
 
                 {/* Bottom Metadata Strip (Jersey Indicator) */}
                 <div className="mt-2.5 pt-2.5 border-t border-[#E9ECEF] flex items-center text-xs font-semibold text-[#2A435E]">
