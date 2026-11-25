@@ -457,6 +457,24 @@ function RunSheetContent({
             deletedSet.delete(slug);
             window.localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
           }
+
+          const rawArchived = window.localStorage.getItem("awayday_archived_slugs");
+          if (rawArchived) {
+            const archivedMap = JSON.parse(rawArchived) || {};
+            if (archivedMap && typeof archivedMap === "object" && slug in archivedMap) {
+              delete archivedMap[slug];
+              window.localStorage.setItem("awayday_archived_slugs", JSON.stringify(archivedMap));
+            }
+          }
+
+          const rawArchivedMeta = window.localStorage.getItem("awayday_archived_meta");
+          if (rawArchivedMeta) {
+            const metaMap = JSON.parse(rawArchivedMeta) || {};
+            if (metaMap && typeof metaMap === "object" && slug in metaMap) {
+              delete metaMap[slug];
+              window.localStorage.setItem("awayday_archived_meta", JSON.stringify(metaMap));
+            }
+          }
         } catch {
           // Ignore storage errors
         }
@@ -1751,8 +1769,59 @@ function RunSheetContent({
       const archivedMap = rawArchived ? JSON.parse(rawArchived) : {};
       if (nextArchived) {
         archivedMap[targetSlug] = true;
+
+        const matchedVault = vaultTournaments.find((v) => v.slug === targetSlug);
+        const matchedSaved = savedSheets.find((s) => s.slug === targetSlug);
+        const rawArchivedMeta = window.localStorage.getItem("awayday_archived_meta");
+        const archivedMeta: Record<string, any> = rawArchivedMeta ? JSON.parse(rawArchivedMeta) || {} : {};
+        archivedMeta[targetSlug] = {
+          slug: targetSlug,
+          name:
+            matchedVault?.name ||
+            matchedSaved?.tournamentName ||
+            (targetSlug === slug ? tournament.name : "") ||
+            "Tournament Run-Sheet",
+          teamName:
+            matchedSaved?.teamName ||
+            (targetSlug === slug ? tournament.teamName : "") ||
+            "My Team",
+          city:
+            matchedVault?.city ||
+            matchedSaved?.location ||
+            (targetSlug === slug ? tournament.city : "") ||
+            "Host City",
+          dates:
+            matchedVault?.dates ||
+            matchedSaved?.dates ||
+            (targetSlug === slug ? tournament.dates : "") ||
+            "",
+        };
+        window.localStorage.setItem("awayday_archived_meta", JSON.stringify(archivedMeta));
+
+        const rawSaved = window.localStorage.getItem("awayday_saved_sheets");
+        if (rawSaved) {
+          const parsedSaved = JSON.parse(rawSaved);
+          if (Array.isArray(parsedSaved)) {
+            const nextSaved = parsedSaved.filter((s: any) => s && s.slug !== targetSlug);
+            window.localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextSaved));
+            setSavedSheets(nextSaved);
+          }
+        }
       } else {
         delete archivedMap[targetSlug];
+        const deletedSet = getDeletedSlugsSet();
+        if (deletedSet.has(targetSlug)) {
+          deletedSet.delete(targetSlug);
+          window.localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
+        }
+        const rawArchivedMeta = window.localStorage.getItem("awayday_archived_meta");
+        if (rawArchivedMeta) {
+          const metaMap = JSON.parse(rawArchivedMeta) || {};
+          if (metaMap && typeof metaMap === "object" && targetSlug in metaMap) {
+            delete metaMap[targetSlug];
+            window.localStorage.setItem("awayday_archived_meta", JSON.stringify(metaMap));
+          }
+        }
       }
       window.localStorage.setItem("awayday_archived_slugs", JSON.stringify(archivedMap));
 
@@ -2417,6 +2486,23 @@ function RunSheetContent({
       return;
     }
     try {
+      const targetSquad = savedSheets.find((s) => s.slug === targetSlug);
+      if (targetSquad) {
+        const rawArchivedMeta = window.localStorage.getItem("awayday_archived_meta");
+        const archivedMeta: Record<string, any> = rawArchivedMeta ? JSON.parse(rawArchivedMeta) || {} : {};
+        archivedMeta[targetSlug] = {
+          slug: targetSlug,
+          name: targetSquad.tournamentName || "Tournament Run-Sheet",
+          teamName: targetSquad.teamName || "My Team",
+          city: targetSquad.location || "Host City",
+          dates: targetSquad.dates || "",
+        };
+        window.localStorage.setItem("awayday_archived_meta", JSON.stringify(archivedMeta));
+      }
+      const deletedSet = getDeletedSlugsSet();
+      deletedSet.add(targetSlug);
+      window.localStorage.setItem("awayday_deleted_slugs", JSON.stringify(Array.from(deletedSet)));
+
       const nextList = savedSheets.filter((s) => s.slug !== targetSlug);
       localStorage.setItem("awayday_saved_sheets", JSON.stringify(nextList));
       setSavedSheets(nextList);
@@ -3979,7 +4065,7 @@ function RunSheetContent({
       <main className="max-w-md mx-auto w-full px-3 sm:px-4 pb-32 pt-1">
         {activeTab === "schedule" && (
           <div key="schedule" className="animate-in fade-in-50 duration-200 ease-out">
-        {unifiedActiveTournaments.length >= 2 && (
+        {unifiedActiveTournaments.length >= 1 && (
           <section aria-label="My Squads" className="mb-3">
             <div className="flex items-center justify-between px-1 mb-1.5">
               <span className="text-[10px] font-black uppercase tracking-wider text-[#5C6B7B]">
@@ -4418,6 +4504,26 @@ function RunSheetContent({
                                     dates: m.dates || "",
                                   });
                                 }
+                              }
+                            }
+                            const deletedSet = getDeletedSlugsSet();
+                            const rawArchived = window.localStorage.getItem("awayday_archived_slugs");
+                            const parsedArchived = rawArchived ? JSON.parse(rawArchived) || {} : {};
+                            const seededRestoreList = [
+                              {
+                                slug: "cybl-mississauga-ottawa-elite-u16",
+                                name: "CYBL Session #1 - Mississauga",
+                                teamName: "Ottawa Elite U16",
+                                city: "Mississauga, ON",
+                                dates: "Nov 21–22, 2026",
+                              },
+                            ];
+                            for (const seed of seededRestoreList) {
+                              if (
+                                (deletedSet.has(seed.slug) || parsedArchived[seed.slug]) &&
+                                !mergedBySlug.has(seed.slug)
+                              ) {
+                                mergedBySlug.set(seed.slug, seed);
                               }
                             }
                           } catch {
