@@ -330,9 +330,27 @@ function ClaimPageContent() {
           ? rawCity
           : `${rawCity}, ON`
         : cityFromFirstGame || "Host City";
+    const sanitizeTournamentTitle = (raw?: string): string => {
+      let cleaned = (raw || "").replace(/\s+/g, " ").trim();
+      if (!cleaned) return "";
+      cleaned = cleaned
+        .replace(/\s*(?:[–-]\s*)?(?:Schedule Analysis|Combined Pool|Note\s*:).*$/i, "")
+        .trim();
+      if (cleaned.length > 65) {
+        const sepMatch = cleaned.match(/^(.{4,60}?)\s+[–-]\s+/);
+        if (sepMatch?.[1]) cleaned = sepMatch[1].trim();
+      }
+      if (cleaned.length > 60) {
+        const sliced = cleaned.slice(0, 60);
+        const lastSpace = sliced.lastIndexOf(" ");
+        cleaned = (lastSpace > 20 ? sliced.slice(0, lastSpace) : sliced).trim();
+      }
+      return cleaned;
+    };
+    const cleanedMetaTournamentName = sanitizeTournamentTitle(currentMeta.tournamentName);
     const resolvedTournamentName =
-      currentMeta.tournamentName && !/away\s*weekend|test\s*team/i.test(currentMeta.tournamentName)
-        ? currentMeta.tournamentName
+      cleanedMetaTournamentName && !/away\s*weekend|test\s*team/i.test(cleanedMetaTournamentName)
+        ? cleanedMetaTournamentName
         : "Weekend Tournament";
     const slug =
       currentMeta.slug ||

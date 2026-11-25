@@ -269,6 +269,13 @@ export function mergeAndDedupeGames<T extends MergeableGame>(
   options?: { preferIncoming?: boolean }
 ): T[] {
   const preferIncoming = Boolean(options?.preferIncoming);
+  const isPlayoffPlaceholder = (g: MergeableGame) =>
+    Boolean(
+      g.isPlaceholder &&
+        /playoff|placement|round\s*robin|championship|seeding/i.test(
+          `${g.opponent || ""} ${g.telemetryTag || ""} ${g.telemetryFlag || ""}`
+        )
+    );
   const hasAnyNamedGame = games.some(
     (g) => !g.isPlaceholder && !isUnknownOrTbdOpponent(g.opponent) && !/tbd|pending/i.test(g.tipOff || "")
   );
@@ -276,6 +283,7 @@ export function mergeAndDedupeGames<T extends MergeableGame>(
   const filtered = hasAnyNamedGame
     ? games.filter(
         (g) =>
+          isPlayoffPlaceholder(g) ||
           (!g.isPlaceholder && !isUnknownOrTbdOpponent(g.opponent)) ||
           (preferIncoming && typeof g.gameNumber === "number" && !g.isPlaceholder)
       )

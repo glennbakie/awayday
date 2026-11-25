@@ -208,7 +208,7 @@ export async function POST(req: NextRequest) {
       properties: {
         success: { type: Type.BOOLEAN },
         schedulePending: { type: Type.BOOLEAN },
-        tournamentName: { type: Type.STRING, nullable: true },
+        tournamentName: { type: Type.STRING, nullable: true, description: 'Short, clean tournament/event title ONLY (max 60 characters, e.g., "Renfrew Roundball Cup 2026"). NEVER include schedule analysis, summaries, or notes.' },
         teamName: { type: Type.STRING, nullable: true },
         city: { type: Type.STRING, nullable: true },
         hostCity: { type: Type.STRING, nullable: true, description: 'Host city and province/state, e.g. "Renfrew, ON" or "Mississauga, ON". Never default to Brampton unless Brampton is in the text/image.' },
@@ -556,11 +556,31 @@ export async function POST(req: NextRequest) {
       };
     }
 
-    const parsedTournamentRaw = (parsed.tournamentName || "").trim();
+    const sanitizeTournamentName = (raw?: string): string => {
+      let cleaned = (raw || "").replace(/\s+/g, " ").trim();
+      if (!cleaned) return "";
+      cleaned = cleaned
+        .replace(/\s*(?:[–-]\s*)?(?:Schedule Analysis|Combined Pool|Note\s*:).*$/i, "")
+        .trim();
+      if (cleaned.length > 65) {
+        const sepMatch = cleaned.match(/^(.{4,60}?)\s+[–-]\s+/);
+        if (sepMatch?.[1]) {
+          cleaned = sepMatch[1].trim();
+        }
+      }
+      if (cleaned.length > 60) {
+        const sliced = cleaned.slice(0, 60);
+        const lastSpace = sliced.lastIndexOf(" ");
+        cleaned = (lastSpace > 20 ? sliced.slice(0, lastSpace) : sliced).trim();
+      }
+      return cleaned;
+    };
+
+    const parsedTournamentRaw = sanitizeTournamentName(parsed.tournamentName);
     const resolvedTournamentName =
       parsedTournamentRaw && !/away\s*weekend|test\s*team/i.test(parsedTournamentRaw)
         ? parsedTournamentRaw
-        : tournamentNameInput || "Weekend Tournament";
+        : sanitizeTournamentName(tournamentNameInput) || "Weekend Tournament";
 
     const parsedTeamClean = (parsed.teamName || "").trim();
     const resolvedTeamName =
@@ -716,13 +736,14 @@ export async function POST(req: NextRequest) {
       rawText,
       parsed.ocrSummary,
       parsed.tournamentName,
+      JSON.stringify(parsed),
       ...gamesOut.map((g) => `${g.venueName || ""} ${g.opponent || ""} ${g.telemetryTag || ""}`),
     ]
       .filter(Boolean)
       .join(" ");
 
     const hasAfternoonGameOrPlaceholder = gamesOut.some(
-      (g) => g.isPlaceholder === true || (parseTipOffMinutes(g.tipOff) ?? 0) > 12 * 60
+      (g) => g.isPlaceholder === true || (parseTipOffMinutes(g.tipOff) ?? 0) >= 12 * 60
     );
 
     if (

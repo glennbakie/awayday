@@ -4130,8 +4130,24 @@ function RunSheetContent({
                 YOUR NEXT AWAY DAY
               </div>
               <div className="flex items-start justify-between gap-2 mt-0.5">
-                <h1 className="text-base font-extrabold text-[#0B192C] leading-tight">
-                  {tournament.name}
+                <h1 className="text-base font-extrabold text-[#0B192C] leading-tight line-clamp-3">
+                  {(() => {
+                    let displayTitle = (tournament.name || "").replace(/\s+/g, " ").trim();
+                    if (/schedule\s*analysis|combined\s*pool|note\s*:/i.test(displayTitle) || displayTitle.length > 70) {
+                      displayTitle = displayTitle
+                        .replace(/\s*(?:[–-]\s*)?(?:Schedule Analysis|Combined Pool|Note\s*:).*$/i, "")
+                        .trim();
+                      if (displayTitle.length > 70) {
+                        const sep = displayTitle.match(/^(.{4,65}?)\s+[–-]\s+/);
+                        if (sep?.[1]) {
+                          displayTitle = sep[1].trim();
+                        } else {
+                          displayTitle = `${displayTitle.slice(0, 67).trim()}...`;
+                        }
+                      }
+                    }
+                    return displayTitle;
+                  })()}
                 </h1>
                 {isAdmin && (
                   <button
