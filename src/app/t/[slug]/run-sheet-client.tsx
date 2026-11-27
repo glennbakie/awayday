@@ -3851,15 +3851,26 @@ function RunSheetContent({
     Boolean(tournament.schedulePending) ||
     games.length === 0 ||
     games.every((g) => g.isPlaceholder || /tbd|pending/i.test(g.opponent));
+  const effectiveTournamentCity =
+    inferCityFromContext(tournament.city || tournament.location, {
+      teamName: tournament.teamName,
+      venueName: tournament.primaryHub || primarySatGame?.venueName,
+      venueAddress: tournament.primaryHubAddress || primarySatGame?.venueAddress,
+      tournamentName: tournament.name,
+    }) || "Ottawa, ON";
+  const normalizeCityToken = (c?: string) => (c || "").split(",")[0].trim().toLowerCase();
+  const isLocalHomeTournament =
+    Boolean(normalizeCityToken(departureOrigin)) &&
+    normalizeCityToken(departureOrigin) === normalizeCityToken(effectiveTournamentCity);
   const corridorDestinationVenue = hasRealHotel
     ? tournament.hotel.name
-    : primarySatVenueLabel || tournament.city || "Tournament Venue";
+    : primarySatVenueLabel || effectiveTournamentCity || "Tournament Venue";
   const corridorDestinationAddress = hasRealHotel
     ? tournament.hotel.address
-    : primarySatGame?.venueAddress || tournament.primaryHubAddress || tournament.city || "";
+    : primarySatGame?.venueAddress || tournament.primaryHubAddress || effectiveTournamentCity || "";
   const corridorPlan = computeTravelCorridor(
     departureOrigin,
-    tournament.city || primarySatGame?.city || "Host City",
+    effectiveTournamentCity,
     corridorDestinationVenue,
     firstEventArrivalMins,
     firstEventDayLabel,
@@ -4079,7 +4090,15 @@ function RunSheetContent({
             <div className="flex items-center gap-2 overflow-x-auto pb-1">
               {unifiedActiveTournaments.map((sheet) => {
                 const isActive = sheet.slug === slug;
-                const shortCity = sheet.city ? sheet.city.split(",")[0].trim() : "";
+                const resolvedSheetCity =
+                  inferCityFromContext(sheet.city, {
+                    teamName: sheet.teamName,
+                    tournamentName: sheet.name,
+                  }) || sheet.city;
+                const shortCity =
+                  resolvedSheetCity && !/^host\s*city$/i.test(resolvedSheetCity.trim())
+                    ? resolvedSheetCity.split(",")[0].trim()
+                    : "";
                 return (
                   <button
                     key={sheet.slug}
@@ -4186,7 +4205,7 @@ function RunSheetContent({
                   Boolean(headerHubAddress) &&
                   !/^(tbd|away|pending)$/i.test(headerHubAddress) &&
                   headerHubAddress.toLowerCase() !== headerHubName.toLowerCase();
-                let headerLocationLabel = tournament.city || "";
+                let headerLocationLabel = effectiveTournamentCity || "";
                 if (headerHubName && hasDistinctAddress) {
                   headerLocationLabel = headerHubAddress.toLowerCase().includes(headerHubName.toLowerCase())
                     ? headerHubAddress
@@ -4194,11 +4213,11 @@ function RunSheetContent({
                 } else if (hasDistinctAddress) {
                   headerLocationLabel = headerHubAddress;
                 } else if (headerHubName) {
-                  headerLocationLabel = tournament.city && !headerHubName.toLowerCase().includes(tournament.city.toLowerCase())
-                    ? `${headerHubName} • ${tournament.city}`
+                  headerLocationLabel = effectiveTournamentCity && !headerHubName.toLowerCase().includes(effectiveTournamentCity.toLowerCase())
+                    ? `${headerHubName} • ${effectiveTournamentCity}`
                     : headerHubName;
                 }
-                const headerMapsQuery = headerHubAddress || headerLocationLabel || tournament.city;
+                const headerMapsQuery = headerHubAddress || headerLocationLabel || effectiveTournamentCity;
                 return (
                   <a
                     href={getMapsUrl(headerMapsQuery)}
@@ -5312,7 +5331,14 @@ function RunSheetContent({
             const isPlaceholderGame =
               Boolean(game.isPlaceholder) ||
               Boolean(tournament.schedulePending) ||
-              /tbd|pending/i.test(game.opponent);
+              /tbd|pending/i.test(game.opponent) ||
+              /seeding\s*tbd/i.test(game.telemetryFlag || "");
+            const resolvedGameCity =
+              inferCityFromContext(game.city, {
+                venueName: game.venueName,
+                venueAddress: game.venueAddress,
+                teamName: tournament.teamName,
+              }) || effectiveTournamentCity;
             const bufferMins = game.warmupBufferMin || 30;
             const arrivalMinutes = getArrivalCallMinutes(game.tipOffMinutes, bufferMins);
             const departMinutes = arrivalMinutes - game.hotelTravelMin;
@@ -5329,7 +5355,7 @@ function RunSheetContent({
               ? game.court.trim()
               : `Court ${game.court.trim()}`;
             const cardVenueMapsQuery =
-              [game.venueName, game.venueAddress, game.city].filter(Boolean).join(", ") ||
+              [game.venueName, game.venueAddress, resolvedGameCity].filter(Boolean).join(", ") ||
               game.venueAddress ||
               game.venueName;
 
@@ -5361,7 +5387,11 @@ function RunSheetContent({
                 )}
               <div
                 id={`game-card-${game.id}`}
-                className="rounded-2xl p-4 border-2 border-[#0F1E36] bg-white overflow-hidden scroll-mt-20"
+                className={`rounded-2xl p-4 border-2 overflow-hidden scroll-mt-20 ${
+                  isPlaceholderGame
+                    ? "border-dashed border-amber-300/80 bg-[#FDF9F0]"
+                    : "border-[#0F1E36] bg-white"
+                }`}
               >
                 <div className="space-y-2.5">
                   {/* Top Row: GAME N + Day Label on Left, Status Pill + Manage on Right */}
@@ -5734,7 +5764,7 @@ function RunSheetContent({
                               {game.venueName}
                             </div>
                             <div className="text-xs text-[#6B7280] mt-0.5 mb-3">
-                              {formatVenueSubAddress(game.venueAddress, game.city)}
+                              {formatVenueSubAddress(game.venueAddress, resolvedGameCity)}
                             </div>
                           </div>
                         </div>
@@ -6712,57 +6742,78 @@ function RunSheetContent({
                 <Car className="w-3.5 h-3.5" />
               </span>
               <h3 className="text-xs font-black tracking-tight uppercase text-[#0B192C]">
-                Travel Corridor &amp; Highway Pit Stops
+                {isLocalHomeTournament
+                  ? "Local Venue & Arrival Logistics"
+                  : "Travel Corridor & Highway Pit Stops"}
               </h3>
             </div>
-            <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 tabular-nums">
-              {corridorPlan.stops.length} {corridorPlan.stops.length === 1 ? "Stop" : "Stops"} Mapped
-            </span>
+            {!isLocalHomeTournament && (
+              <span className="inline-flex items-center rounded-full bg-white border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5 tabular-nums">
+                {corridorPlan.stops.length} {corridorPlan.stops.length === 1 ? "Stop" : "Stops"} Mapped
+              </span>
+            )}
           </div>
 
           <div className="bg-white rounded-[26px] border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] p-4 space-y-3.5">
-            {/* Inline 2-Way Direction Segmented Control: [ ➔ To Tournament | ↺ Trip Home ] */}
-            <div className="grid grid-cols-2 gap-1 bg-[#F7F6F2] border border-[#DCE1E7] p-1 rounded-xl">
-              <button
-                type="button"
-                onClick={() => handleSetCorridorDirection("to_tournament")}
-                className={`py-1.5 px-3 rounded-lg text-xs tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
-                  corridorDirection === "to_tournament"
-                    ? "bg-white text-[#0B192C] font-black border border-[#D1D5DB] shadow-2xs"
-                    : "text-slate-500 hover:text-[#0B192C] font-medium border border-transparent"
-                }`}
-              >
-                <span>➔ To Tournament</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => handleSetCorridorDirection("trip_home")}
-                className={`py-1.5 px-3 rounded-lg text-xs tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
-                  corridorDirection === "trip_home"
-                    ? "bg-white text-[#0B192C] font-black border border-[#D1D5DB] shadow-2xs"
-                    : "text-slate-500 hover:text-[#0B192C] font-medium border border-transparent"
-                }`}
-              >
-                <span>↺ Trip Home</span>
-              </button>
-            </div>
+            {!isLocalHomeTournament && (
+              /* Inline 2-Way Direction Segmented Control: [ ➔ To Tournament | ↺ Trip Home ] */
+              <div className="grid grid-cols-2 gap-1 bg-[#F7F6F2] border border-[#DCE1E7] p-1 rounded-xl">
+                <button
+                  type="button"
+                  onClick={() => handleSetCorridorDirection("to_tournament")}
+                  className={`py-1.5 px-3 rounded-lg text-xs tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
+                    corridorDirection === "to_tournament"
+                      ? "bg-white text-[#0B192C] font-black border border-[#D1D5DB] shadow-2xs"
+                      : "text-slate-500 hover:text-[#0B192C] font-medium border border-transparent"
+                  }`}
+                >
+                  <span>➔ To Tournament</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetCorridorDirection("trip_home")}
+                  className={`py-1.5 px-3 rounded-lg text-xs tracking-tight flex items-center justify-center gap-1.5 transition-all cursor-pointer active:scale-[0.98] ${
+                    corridorDirection === "trip_home"
+                      ? "bg-white text-[#0B192C] font-black border border-[#D1D5DB] shadow-2xs"
+                      : "text-slate-500 hover:text-[#0B192C] font-medium border border-transparent"
+                  }`}
+                >
+                  <span>↺ Trip Home</span>
+                </button>
+              </div>
+            )}
 
             {/* Route Header & Origin Quick Selector Popover */}
             <div className="relative">
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
                   <span className="inline-flex items-center rounded-full bg-[#EFEFEA] border border-[#D1D5DB] text-[#0B192C] text-[11px] font-black tracking-wide uppercase px-2.5 py-0.5">
-                    {corridorPlan.highwayRouteSummary}
+                    {isLocalHomeTournament
+                      ? "HOME TOURNAMENT • LOCAL VENUE"
+                      : corridorPlan.highwayRouteSummary}
                   </span>
-                  <h4 className="text-base sm:text-lg font-black text-[#0B192C] tracking-tight mt-1.5 flex flex-wrap items-center gap-1.5">
-                    <span>{corridorPlan.origin}</span>
-                    <span className="text-slate-400">➔</span>
-                    <span>{corridorPlan.destination}</span>
-                  </h4>
-                  <p className="text-[11px] text-slate-500 font-medium mt-0.5">
-                    {corridorDirection === "trip_home" ? "Return Target:" : "Target Base Camp:"}{" "}
-                    <span className="text-[#1D2935] font-semibold">{corridorPlan.destinationVenue}</span>
-                  </p>
+                  {isLocalHomeTournament ? (
+                    <>
+                      <h4 className="text-base sm:text-lg font-black text-[#0B192C] tracking-tight mt-1.5">
+                        {corridorDestinationVenue}
+                      </h4>
+                      <p className="text-xs text-slate-600 font-semibold mt-0.5">
+                        {corridorDestinationAddress || effectiveTournamentCity}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <h4 className="text-base sm:text-lg font-black text-[#0B192C] tracking-tight mt-1.5 flex flex-wrap items-center gap-1.5">
+                        <span>{corridorPlan.origin}</span>
+                        <span className="text-slate-400">➔</span>
+                        <span>{corridorPlan.destination}</span>
+                      </h4>
+                      <p className="text-[11px] text-slate-500 font-medium mt-0.5">
+                        {corridorDirection === "trip_home" ? "Return Target:" : "Target Base Camp:"}{" "}
+                        <span className="text-[#1D2935] font-semibold">{corridorPlan.destinationVenue}</span>
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <button
@@ -6844,6 +6895,34 @@ function RunSheetContent({
               )}
             </div>
 
+            {isLocalHomeTournament ? (
+              <div className="space-y-3 border-t border-[#DCE1E7] pt-3">
+                <div className="text-xs text-[#1D2935] font-semibold leading-relaxed bg-[#F7F6F2] border-[1.5px] border-[#DCE1E7] rounded-2xl p-3.5 flex items-center gap-2.5">
+                  <Clock className="w-4 h-4 text-[#0B192C] shrink-0" />
+                  <span>
+                    Local venue in {effectiveTournamentCity}. Arrive 30 min prior to tip-off for warm-up and check-in.
+                  </span>
+                </div>
+
+                <a
+                  href={
+                    corridorPlan.destinationMapsUrl ||
+                    getGoogleMapsSearchUrl(
+                      corridorDestinationAddress || corridorDestinationVenue || effectiveTournamentCity
+                    )
+                  }
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="min-h-[44px] flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl bg-[#0F2942] text-white text-xs font-bold hover:bg-[#1A365D] transition-colors shadow-xs"
+                >
+                  <svg aria-hidden="true" className="w-4 h-4 fill-current shrink-0" viewBox="0 0 24 24">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z" />
+                  </svg>
+                  <span>Open Venue in Google Maps</span>
+                </a>
+              </div>
+            ) : (
+            <>
             {/* Telemetry Summary: Drive Duration & Recommended Departure Call */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 border-t border-[#DCE1E7] pt-3">
               <div className="bg-[#F7F6F2] border border-[#DCE1E7] rounded-xl p-2.5">
@@ -7223,6 +7302,8 @@ function RunSheetContent({
                 </div>
               ))}
             </div>
+            </>
+            )}
           </div>
         </section>
 
