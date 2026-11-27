@@ -108,7 +108,11 @@ const KNOWN_ONTARIO_CITIES: Array<{ pattern: RegExp; city: string }> = [
   { pattern: /\bkitchener\b|activa/i, city: "Kitchener, ON" },
   { pattern: /\bhamilton\b|mcmaster/i, city: "Hamilton, ON" },
   { pattern: /\blondon\b/i, city: "London, ON" },
-  { pattern: /\bottawa\b|carleton\s*univ/i, city: "Ottawa, ON" },
+  {
+    pattern:
+      /\bottawa\b|carleton\s*univ|st\.?\s*pius\s*x|nepean|kanata|gloucester|orleans|barrhaven|stittsville|earl\s*of\s*march|bell\s*high|lisgar|glebe\s*collegiate|sir\s*robert\s*borden|mother\s*teresa|holy\s*trinity|sacred\s*heart|st\.?\s*mark|st\.?\s*matthew|st\.?\s*joseph|st\.?\s*peter|st\.?\s*patrick|franco[- ]cite|louis[- ]riel|colonel\s*by|john\s*mccrae|south\s*carleton|longfields|merivale|ridgemont|hillcrest|canterbury|ashbury|elmwood/i,
+    city: "Ottawa, ON",
+  },
   { pattern: /\bguelph\b/i, city: "Guelph, ON" },
   { pattern: /\bmilton\b/i, city: "Milton, ON" },
   { pattern: /\bwhitby\b/i, city: "Whitby, ON" },
@@ -161,6 +165,43 @@ export function resolveVenueCity(
   }
 
   return fallbackCity || "";
+}
+
+export function inferCityFromContext(
+  cityRaw?: string | null,
+  context?: {
+    teamName?: string | null;
+    venueName?: string | null;
+    venueAddress?: string | null;
+    tournamentName?: string | null;
+    rawText?: string | null;
+  }
+): string {
+  const cleaned = (cityRaw || "").trim();
+  if (cleaned && !/^(tbd|away|unknown|null|host\s*city)$/i.test(cleaned)) {
+    return /,/.test(cleaned) ? cleaned : `${cleaned}, ON`;
+  }
+
+  const fromVenue = resolveVenueCity(
+    context?.venueName || "",
+    context?.venueAddress || "",
+    ""
+  );
+  if (fromVenue) return fromVenue;
+
+  const combinedMeta = `${context?.tournamentName || ""} ${context?.rawText || ""}`;
+  for (const entry of KNOWN_ONTARIO_CITIES) {
+    if (entry.pattern.test(combinedMeta)) return entry.city;
+  }
+
+  const teamText = (context?.teamName || "").trim();
+  if (teamText) {
+    for (const entry of KNOWN_ONTARIO_CITIES) {
+      if (entry.pattern.test(teamText)) return entry.city;
+    }
+  }
+
+  return "";
 }
 
 export function normalizeOpponentName(raw?: string): string {
@@ -272,7 +313,7 @@ export function mergeAndDedupeGames<T extends MergeableGame>(
   const isPlayoffPlaceholder = (g: MergeableGame) =>
     Boolean(
       g.isPlaceholder &&
-        /playoff|placement|round\s*robin|championship|seeding/i.test(
+        /playoff|placement|crossover|semifinal|semi-final|final|round\s*robin|championship|seeding/i.test(
           `${g.opponent || ""} ${g.telemetryTag || ""} ${g.telemetryFlag || ""}`
         )
     );
@@ -319,9 +360,11 @@ export function mergeAndDedupeGames<T extends MergeableGame>(
       continue;
     }
 
-    const dedupeKey = !isUnknownOrTbdOpponent(g.opponent)
-      ? `${dateKey}|${oppKey}`
-      : `${dateKey}|${timeKey}|${oppKey}`;
+    const dedupeKey = isPlayoffPlaceholder(g)
+      ? `${dateKey}|${timeKey}|${oppKey}`
+      : !isUnknownOrTbdOpponent(g.opponent)
+        ? `${dateKey}|${oppKey}`
+        : `${dateKey}|${timeKey}|${oppKey}`;
 
     let matchedKey: string | undefined = byKey.has(dedupeKey) ? dedupeKey : undefined;
 

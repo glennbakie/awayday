@@ -17,6 +17,7 @@ import {
   compressImageForVision,
   sortGamesChronologically,
   resolveVenueCity,
+  inferCityFromContext,
   applyPartialTextPatchToGames,
 } from "@/lib/parse-schedule";
 import { 
@@ -4122,7 +4123,18 @@ function RunSheetContent({
         <section className="bg-white rounded-[26px] p-4 border-[1.5px] border-[#CFC7B8] shadow-[0_2px_0_0_rgba(15,30,54,0.08)] mb-3">
           <div className="flex items-center gap-3.5">
             {/* Left: Vintage collegiate city badge */}
-            <VintageCityBadge city={tournament.city || tournament.location} />
+            <VintageCityBadge
+              city={
+                inferCityFromContext(tournament.city || tournament.location, {
+                  teamName: tournament.teamName,
+                  venueName: tournament.primaryHub || games[0]?.venueName,
+                  venueAddress: tournament.primaryHubAddress || games[0]?.venueAddress,
+                  tournamentName: tournament.name,
+                }) ||
+                tournament.city ||
+                tournament.location
+              }
+            />
 
             {/* Right: Tournament metadata & Manager Tools trigger */}
             <div className="flex-1 min-w-0">

@@ -9,6 +9,7 @@ import {
   compressImageForVision,
   sortGamesChronologically,
   resolveVenueCity,
+  inferCityFromContext,
 } from "@/lib/parse-schedule";
 
 interface ExtractedClaimGame {
@@ -319,17 +320,15 @@ function ClaimPageContent() {
         )
     );
 
-    const rawCity = (currentMeta.city || "").trim();
-    const cityFromFirstGame =
-      currentGames && currentGames[0]
-        ? resolveVenueCity(currentGames[0].venueName, currentGames[0].venueAddress, "")
-        : "";
+    const firstGame = currentGames?.[0];
     const resolvedCity =
-      rawCity && !/^(tbd|away|unknown|host city)$/i.test(rawCity)
-        ? /,/.test(rawCity)
-          ? rawCity
-          : `${rawCity}, ON`
-        : cityFromFirstGame || "Host City";
+      inferCityFromContext(currentMeta.city, {
+        teamName: resolvedTeamName,
+        venueName: firstGame?.venueName,
+        venueAddress: firstGame?.venueAddress,
+        tournamentName: currentMeta.tournamentName,
+        rawText,
+      }) || "Ottawa, ON";
     const sanitizeTournamentTitle = (raw?: string): string => {
       let cleaned = (raw || "").replace(/\s+/g, " ").trim();
       if (!cleaned) return "";

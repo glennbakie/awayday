@@ -5,7 +5,7 @@ import {
   computeTravelCorridor,
   getCityFuelAndFoodRecommendations,
 } from "@/lib/corridor-engine";
-import { mergeAndDedupeGames, applyPartialTextPatchToGames, resolveVenueCity } from "@/lib/parse-schedule";
+import { mergeAndDedupeGames, applyPartialTextPatchToGames, resolveVenueCity, inferCityFromContext } from "@/lib/parse-schedule";
 
 export interface ExtractedGame {
   day: string;          // e.g. "Saturday, Oct 24"
@@ -135,7 +135,7 @@ export async function POST(req: NextRequest) {
       "     - Return placeholder weekend cards in `games`: Game 1 ('Game 1 - TBD (Tip-Off Pending)') and Game 2 ('Game 2 - TBD') with isPlaceholder: true.",
       "4. CONFIRMED SCHEDULE HANDLING:",
       "   - If actual game times and opponents ARE present in the input, set schedulePending: false and extract each game with 30-minute arrivalCall buffer and home/away jerseyColor ('White (Home)' vs 'Dark / Black (Away)').",
-      "5. AFTERNOON ROUND-ROBIN / PLAYOFF PLACEHOLDER DETECTION (MANDATORY):",
+      "5. AFTERNOON ROUND-ROBIN / PLAYOFF & CONDITIONAL POOL-FINISH PLACEHOLDER DETECTION (MANDATORY):",
       "   - Whenever an uploaded schedule image contains an afternoon round-robin, playoff, or championship table (e.g., 'All Games at RCI for Final 2 Round Robin and Playoffs', '12:00PM', '2:40PM C Championship', '4:00PM B Championship', '5:20PM A Championship'), you MUST append a placeholder game entry to `games` even if the user's team name is NOT printed on those seeded lines:",
       "     - opponent: 'Afternoon Round Robin / Playoff TBD (Seeded from Pool Play)'",
       "     - tipOff: earliest afternoon playoff or round-robin time (e.g., '12:00 PM' or '2:40 PM')",
@@ -143,6 +143,9 @@ export async function POST(req: NextRequest) {
       "     - court: 'TBD'",
       "     - telemetryTag: 'SEEDING TBD'",
       "     - isPlaceholder: true",
+      "   - Whenever coach notes or bracket images describe conditional pool-finish matchups or elimination rounds (e.g., 'depending on where we finish in our pool', '1st place: Sat Dec 5 at 7:00pm / 2nd place: Sat Dec 5 at 5:00pm / 3rd place: Sun Dec 6', 'semifinals at 11:00am and finals at 1:00pm'), you MUST ALSO create structured `isPlaceholder: true` game cards for those conditional slots:",
+      "     - e.g. Pool Placement / Crossover TBD (Seeded from Pool Play) on the placement day with the earliest seed time and `telemetryTag: 'SEEDING TBD'`, and Semifinal / Final TBD (Elimination Round) on the elimination day (e.g. Sun Dec 6 at 11:00 AM) if semifinals/finals are mentioned.",
+      "   - CITY RESOLUTION: Always resolve the real municipality/province for well-known venues (e.g., 'St. Pius X High School' -> 'Ottawa, ON'), or infer the city from the team's home city (e.g., 'Ottawa Elite' -> 'Ottawa, ON') when a local venue has no explicit city printed. NEVER output 'Host City' as `city` or `hostCity`.",
       "6. MULTI-SCREENSHOT EXHAUSTIVE EXTRACTION & SMART DEDUPLICATION:",
       "   - You may receive 10 to 15+ separate screenshots or PDF pages in a single request (e.g., individual game cards, scrolled schedule views, or multiple days).",
       "   - Inspect EVERY SINGLE attached image from first to last and extract EVERY distinct game shown across ALL images without dropping distinct opponents, dates, or times.",
@@ -623,20 +626,16 @@ export async function POST(req: NextRequest) {
         : rawGames;
 
     const firstRealExtracted = effectiveRawGames.find((g) => !g.isPlaceholder) || effectiveRawGames[0];
-    const cityFromVenues = firstRealExtracted
-      ? resolveVenueCity(firstRealExtracted.venueName, firstRealExtracted.venueAddress, "")
-      : "";
-    const cityFromNameOrText = /\brenfrew\b|myfm\s*cent(?:re|er)|\brci\b/i.test(
-      `${resolvedTournamentName} ${rawText}`
-    )
-      ? "Renfrew, ON"
-      : "";
-
     const resolvedCity =
+      inferCityFromContext(parsed.hostCity || parsed.city, {
+        teamName: resolvedTeamName,
+        venueName: firstRealExtracted?.venueName,
+        venueAddress: firstRealExtracted?.venueAddress,
+        tournamentName: resolvedTournamentName,
+        rawText,
+      }) ||
       normalizeCityLabel(parsed.hostCity || parsed.city) ||
-      cityFromVenues ||
-      cityFromNameOrText ||
-      "Host City";
+      "Ottawa, ON";
 
     const uniqueGameDays = Array.from(
       new Set(
@@ -742,48 +741,95 @@ export async function POST(req: NextRequest) {
       .filter(Boolean)
       .join(" ");
 
-    const hasAfternoonGameOrPlaceholder = gamesOut.some(
-      (g) => g.isPlaceholder === true || (parseTipOffMinutes(g.tipOff) ?? 0) >= 12 * 60
-    );
-
-    if (
-      !isSchedulePending &&
-      gamesOut.length > 0 &&
-      /playoff|championship|round\s*robin|final\s*2|\brci\b/i.test(combinedSignalText) &&
-      !hasAfternoonGameOrPlaceholder
-    ) {
-      const pmMatches = Array.from(
-        combinedSignalText.matchAll(/\b((?:1[0-2]|[1-9]):[0-5]\d\s*PM)\b/gi)
+    const hasExistingPlaceholder = gamesOut.some((g) => g.isPlaceholder === true);
+    const hasConditionalOrPlayoffSignal =
+      /playoff|championship|round\s*robin|final\s*2|semifinal|semi-final|finals?\b|1st\s*place|2nd\s*place|3rd\s*place|pool\s*finish|where\s*we\s*finish|\brci\b/i.test(
+        combinedSignalText
       );
-      let earliestAfternoonMins: number | null = null;
-      let detectedPlayoffTime = "2:40 PM";
-      for (const match of pmMatches) {
-        const mins = parseTipOffMinutes(match[1]);
-        if (mins !== null && mins > 12 * 60 && (earliestAfternoonMins === null || mins < earliestAfternoonMins)) {
-          earliestAfternoonMins = mins;
-          detectedPlayoffTime = formatMinutes12h(mins);
-        }
-      }
-      const detectedArrivalCall = formatMinutes12h((earliestAfternoonMins ?? 14 * 60 + 40) - 30);
-      const detectedSecondaryVenue = /\brci\b|renfrew\s+collegiate/i.test(combinedSignalText)
-        ? "RCI (Renfrew Collegiate Institute)"
-        : gamesOut[0]?.venueName || `${shortCity} Area Gym`;
 
-      gamesOut.push({
-        day: gamesOut[0]?.day || resolvedDates.split(/[-–]/)[0]?.trim() || "Day 1",
-        dateStr: gamesOut[0]?.dateStr || "",
-        tipOff: detectedPlayoffTime,
-        arrivalCall: detectedArrivalCall,
-        court: "TBD",
-        venueName: detectedSecondaryVenue,
-        venueAddress: /\brci\b|renfrew\s+collegiate/i.test(detectedSecondaryVenue)
-          ? "184 Bonnechere St S, Renfrew, ON"
-          : gamesOut[0]?.venueAddress || resolvedCity,
-        opponent: "Afternoon Round Robin / Playoff TBD (Seeded from Pool Play)",
-        jerseyColor: "White (Home)",
-        telemetryTag: "SEEDING TBD",
-        isPlaceholder: true,
-      });
+    if (!isSchedulePending && gamesOut.length > 0 && hasConditionalOrPlayoffSignal && !hasExistingPlaceholder) {
+      const isConditionalPoolFinish =
+        /1st\s*place|2nd\s*place|3rd\s*place|pool\s*finish|where\s*we\s*finish/i.test(
+          combinedSignalText
+        );
+      const hasSemifinalOrFinalSignal = /semifinal|semi-final|finals?\b/i.test(combinedSignalText);
+
+      if (isConditionalPoolFinish) {
+        const satDayMatch = combinedSignalText.match(/\b((?:Sat(?:urday)?|Fri(?:day)?),?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2})\b/i);
+        const sunDayMatch = combinedSignalText.match(/\b(Sun(?:day)?,?\s+(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*\s+\d{1,2})\b/i);
+        const placementDay =
+          satDayMatch?.[1] ||
+          gamesOut[gamesOut.length - 1]?.day ||
+          resolvedDates.split(/[-–]/)[0]?.trim() ||
+          "Day 2";
+        const placementTimeMatch = combinedSignalText.match(/\b((?:5|6|7|8|9):[0-5]\d\s*pm)\b/i);
+        const placementMins = parseTipOffMinutes(placementTimeMatch?.[1] || "5:00 PM") ?? 17 * 60;
+
+        gamesOut.push({
+          day: placementDay,
+          dateStr: gamesOut[gamesOut.length - 1]?.dateStr || "",
+          tipOff: formatMinutes12h(placementMins),
+          arrivalCall: formatMinutes12h(placementMins - 30),
+          court: "TBD",
+          venueName: gamesOut[0]?.venueName || `${shortCity} Area Gym`,
+          venueAddress: gamesOut[0]?.venueAddress || resolvedCity,
+          opponent: "Pool Placement / Crossover TBD (Seeded from Pool Play)",
+          jerseyColor: "White (Home)",
+          telemetryTag: "SEEDING TBD",
+          isPlaceholder: true,
+        });
+
+        if (hasSemifinalOrFinalSignal) {
+          const semiMatch = combinedSignalText.match(/semifinals?\s*(?:at|@)?\s*((?:1[0-2]|[1-9]):[0-5]\d\s*(?:am|pm))/i);
+          const semiMins = parseTipOffMinutes(semiMatch?.[1] || "11:00 AM") ?? 11 * 60;
+          gamesOut.push({
+            day: sunDayMatch?.[1] || placementDay,
+            dateStr: "",
+            tipOff: formatMinutes12h(semiMins),
+            arrivalCall: formatMinutes12h(semiMins - 30),
+            court: "TBD",
+            venueName: gamesOut[0]?.venueName || `${shortCity} Area Gym`,
+            venueAddress: gamesOut[0]?.venueAddress || resolvedCity,
+            opponent: "Semifinal / Final TBD (Elimination Round)",
+            jerseyColor: "Dark / Black (Away)",
+            telemetryTag: "SEEDING TBD",
+            isPlaceholder: true,
+          });
+        }
+      } else {
+        const pmMatches = Array.from(
+          combinedSignalText.matchAll(/\b((?:1[0-2]|[1-9]):[0-5]\d\s*PM)\b/gi)
+        );
+        let earliestAfternoonMins: number | null = null;
+        let detectedPlayoffTime = "2:40 PM";
+        for (const match of pmMatches) {
+          const mins = parseTipOffMinutes(match[1]);
+          if (mins !== null && mins > 12 * 60 && (earliestAfternoonMins === null || mins < earliestAfternoonMins)) {
+            earliestAfternoonMins = mins;
+            detectedPlayoffTime = formatMinutes12h(mins);
+          }
+        }
+        const detectedArrivalCall = formatMinutes12h((earliestAfternoonMins ?? 14 * 60 + 40) - 30);
+        const detectedSecondaryVenue = /\brci\b|renfrew\s+collegiate/i.test(combinedSignalText)
+          ? "RCI (Renfrew Collegiate Institute)"
+          : gamesOut[0]?.venueName || `${shortCity} Area Gym`;
+
+        gamesOut.push({
+          day: gamesOut[0]?.day || resolvedDates.split(/[-–]/)[0]?.trim() || "Day 1",
+          dateStr: gamesOut[0]?.dateStr || "",
+          tipOff: detectedPlayoffTime,
+          arrivalCall: detectedArrivalCall,
+          court: "TBD",
+          venueName: detectedSecondaryVenue,
+          venueAddress: /\brci\b|renfrew\s+collegiate/i.test(detectedSecondaryVenue)
+            ? "184 Bonnechere St S, Renfrew, ON"
+            : gamesOut[0]?.venueAddress || resolvedCity,
+          opponent: "Afternoon Round Robin / Playoff TBD (Seeded from Pool Play)",
+          jerseyColor: "White (Home)",
+          telemetryTag: "SEEDING TBD",
+          isPlaceholder: true,
+        });
+      }
     }
 
     const rawHotelName = (parsed.hotel?.name || "").trim();
